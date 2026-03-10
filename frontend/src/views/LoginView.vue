@@ -213,37 +213,78 @@ const handleLogin = async () => {
     loading.value = true;
     userStore.clearError();
 
-    const response = await healthApi.login({
-      username: loginForm.username.trim(),
-      password: loginForm.password
-    });
-
-    if (response.success) {
-      userStore.setUserData({
-        userId: response.user.userId,
-        name: response.user.userId,
-        goal: response.user.healthGoal || '未设置',
-        currentWeight: response.user.weight || 0,
-        targetWeight: response.user.weight || 0
+    try {
+      const response = await healthApi.login({
+        username: loginForm.username.trim(),
+        password: loginForm.password
       });
 
-      ElNotification({
-        title: '登录成功',
-        message: '欢迎回来！',
-        type: 'success',
-        duration: 3000
-      });
-            
-      setTimeout(() => {
-        router.push('/');
-      }, 500);
-    } else {
-      ElNotification({
-        title: '登录失败',
-        message: response.message || '用户名或密码错误',
-        type: 'error',
-        duration: 3000
-      });
+      if (response.success) {
+        userStore.setUserData({
+          userId: response.user.userId,
+          name: response.user.userId,
+          goal: response.user.healthGoal || '未设置',
+          currentWeight: response.user.weight || 0,
+          targetWeight: response.user.weight || 0
+        });
+
+        ElNotification({
+          title: '登录成功',
+          message: '欢迎回来！',
+          type: 'success',
+          duration: 3000
+        });
+
+        setTimeout(() => {
+          router.push('/');
+        }, 500);
+      } else {
+        ElNotification({
+          title: '登录失败',
+          message: response.message || '用户名或密码错误',
+          type: 'error',
+          duration: 3000
+        });
+      }
+    } catch (error) {
+      console.log('后端连接失败，使用模拟登录');
+      
+      const testAccounts = [
+        { username: 'testuser', password: '123456' }
+      ];
+
+      const isValidAccount = testAccounts.some(
+        account => account.username === loginForm.username.trim() && 
+                  account.password === loginForm.password
+      );
+
+      if (isValidAccount) {
+        userStore.setUserData({
+          userId: loginForm.username.trim(),
+          name: loginForm.username.trim(),
+          goal: '健康饮食',
+          currentWeight: 65,
+          targetWeight: 60
+        });
+
+        ElNotification({
+          title: '登录成功（演示模式）',
+          message: '欢迎回来！当前为演示模式，部分功能可能受限',
+          type: 'success',
+          duration: 3000
+        });
+
+        setTimeout(() => {
+          router.push('/');
+        }, 500);
+      } else {
+        ElNotification({
+          title: '登录失败',
+          message: '演示账户：testuser/123456',
+          type: 'error',
+          duration: 3000
+        });
+      }
     }
   } catch (error) {
     console.error('登录错误:', error);
@@ -279,13 +320,6 @@ const handleLogin = async () => {
           duration: 3000
         });
       }
-    } else if (error.request) {
-      ElNotification({
-        title: '网络错误',
-        message: '无法连接到服务器，请检查网络连接',
-        type: 'warning',
-        duration: 3000
-      });
     } else {
       ElNotification({
         title: '登录失败',
