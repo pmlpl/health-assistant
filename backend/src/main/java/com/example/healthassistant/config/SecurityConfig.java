@@ -10,6 +10,7 @@ import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import java.util.Arrays;
+import java.util.List;
 
 @Configuration
 @EnableWebSecurity
@@ -22,9 +23,10 @@ public class SecurityConfig {
             .csrf(csrf -> csrf.disable())
             .formLogin(form -> form.disable())
             .httpBasic(basic -> basic.disable())
+            .sessionManagement(session -> session.disable())
             .authorizeHttpRequests(authz -> authz
-                .requestMatchers("/api/users/**", "/api/diet/**", "/api/ai/**", "/api/image/**").permitAll()
-                .anyRequest().authenticated()
+                .requestMatchers("/**").permitAll()  // 允许所有请求
+                .anyRequest().permitAll()  // 确保所有请求都允许访问
             );
         
         return http.build();
@@ -33,10 +35,19 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOriginPatterns(Arrays.asList("*"));
-        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-        configuration.setAllowedHeaders(Arrays.asList("*"));
+        // 允许所有来源（仅用于开发环境）
+        // 在生产环境中应该替换为具体的域名列表
+        configuration.setAllowedOriginPatterns(List.of("*"));
+        // 允许所有 HTTP 方法
+        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
+        // 允许所有请求头
+        configuration.setAllowedHeaders(List.of("*"));
+        // 暴露所有响应头
+        configuration.setExposedHeaders(List.of("Authorization", "Content-Type"));
+        // 允许凭证（与前端 withCredentials: false 配合使用）
         configuration.setAllowCredentials(false);
+        // 预检请求缓存时间
+        configuration.setMaxAge(3600L);
         
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);

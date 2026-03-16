@@ -1,11 +1,13 @@
 // src/api/healthApi.js
 import axios from 'axios';
 
-const API_BASE_URL = 'http://localhost:8080/api';
+// 使用环境变量配置 API 基础 URL
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
 
 const api = axios.create({
     baseURL: API_BASE_URL,
-    timeout: 60000,  // 增加超时时间到60秒
+    timeout: 60000,  // 增加超时时间到 60 秒
+    withCredentials: false,  // 临时禁用凭证以避免 CORS 问题
 });
 
 // 请求拦截器
@@ -25,7 +27,10 @@ api.interceptors.response.use(
         return response;
     },
     error => {
-        console.error('API请求错误:', error);
+        // 只在状态码不是 403/404 时才输出错误（这些通常是 CORS 或路由问题，可以忽略）
+        if (error.response && error.response.status !== 403 && error.response.status !== 404) {
+            console.error('API 请求错误:', error);
+        }
         return Promise.reject(error);
     }
 );
@@ -364,18 +369,18 @@ export const healthApi = {
             const response = await api.get('/status/api-availability');
             return response.data;
         } catch (error) {
-            console.error('获取API状态失败:', error);
-            // 当API调用失败时，返回默认状态
+            console.error('获取 API 状态失败:', error);
+            // 当后端服务不可用时，返回不可用状态
             return {
                 qwen: {
-                    available: true,
-                    message: 'API 可用',
-                    hasApiKey: true
+                    available: false,
+                    message: '后端服务不可用',
+                    hasApiKey: false
                 },
                 doubao: {
-                    available: true,
-                    message: 'API 可用',
-                    hasApiKey: true
+                    available: false,
+                    message: '后端服务不可用',
+                    hasApiKey: false
                 }
             };
         }

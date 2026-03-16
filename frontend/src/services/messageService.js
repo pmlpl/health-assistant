@@ -6,7 +6,6 @@ class MessageService {
   constructor() {
     this.container = null
     this.instances = []
-    console.log('MessageService 初始化');
   }
 
   // 创建消息容器
@@ -148,6 +147,7 @@ class MessageService {
         message: inputHtml,
         type: 'info',
         showActions: true,
+        dangerouslyUseHTMLString: true, // 允许渲染 HTML
         actions: [
           { id: 'cancel', text: '取消', type: 'secondary' },
           { id: 'confirm', text: '确定', type: 'primary' }

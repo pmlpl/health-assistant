@@ -2,6 +2,7 @@ package com.example.healthassistant.model;
 
 import jakarta.persistence.*;
 import lombok.Data;
+import org.hibernate.annotations.BatchSize;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -36,11 +37,13 @@ public class UserProfile {
     @Column(name = "gender", length = 10)
     private String gender; // 性别：M(男)/F(女)/O(其他)/N(不愿透露)
 
+    @BatchSize(size = 10)  // 性能优化：批量加载饮食禁忌
     @ElementCollection(fetch = FetchType.LAZY)
     @CollectionTable(name = "dietary_restrictions", joinColumns = @JoinColumn(name = "user_profile_id"))
     @Column(name = "restriction", length = 100)
     private List<String> dietaryRestrictions = new ArrayList<>(); // 饮食禁忌
 
+    @BatchSize(size = 10)  // 性能优化：批量加载口味偏好
     @ElementCollection(fetch = FetchType.LAZY)
     @CollectionTable(name = "taste_preferences", joinColumns = @JoinColumn(name = "user_profile_id"))
     @Column(name = "preference", length = 50)
@@ -71,7 +74,7 @@ public class UserProfile {
     private String phone; // 手机号码
     
     @Column(name = "avatar_url", length = 500)
-    private String avatarUrl; // 头像URL
+    private String avatarUrl; // 头像 URL
     
     @Column(name = "last_login_time")
     private LocalDateTime lastLoginTime; // 最后登录时间
@@ -145,7 +148,7 @@ public class UserProfile {
     
     public String getAvatarUrl() { return avatarUrl; }
     public void setAvatarUrl(String avatarUrl) { this.avatarUrl = avatarUrl; }
-    
+        
     public LocalDateTime getLastLoginTime() { return lastLoginTime; }
     public void setLastLoginTime(LocalDateTime lastLoginTime) { this.lastLoginTime = lastLoginTime; }
     

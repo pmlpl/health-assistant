@@ -249,7 +249,7 @@
       </div>
     </div>
 
-    <div v-if="showExerciseDetail" class="modal-overlay" @click="closeExerciseDetail">
+    <div v-if="showExerciseDetail && currentExercise" class="modal-overlay" @click="closeExerciseDetail">
       <div class="modal-content" @click.stop>
         <div class="modal-header">
           <h3>{{ currentExercise.icon }} {{ currentExercise.name }}</h3>
@@ -270,11 +270,86 @@
               <span class="duration-label">⏱️ 建议时长：</span>
               <span class="duration-value">{{ currentExercise.duration }}</span>
             </div>
+            
+            <!-- 自定义时长选择 -->
+            <div class="custom-duration">
+              <h4>🎯 设置练习时长</h4>
+              <div class="duration-slider">
+                <input 
+                  type="range" 
+                  :min="currentExercise.minMinutes" 
+                  :max="currentExercise.maxMinutes" 
+                  v-model.number="selectedDuration"
+                  class="slider"
+                />
+                <div class="duration-display">
+                  <span class="selected-time">{{ selectedDuration }} 分钟</span>
+                  <span class="range-hint">{{ currentExercise.minMinutes }} - {{ currentExercise.maxMinutes }} 分钟</span>
+                </div>
+              </div>
+              <button class="use-recommended-btn" @click="useRecommendedDuration">
+                ✅ 使用推荐时长 ({{ Math.floor((currentExercise.minMinutes + currentExercise.maxMinutes) / 2) }}分钟)
+              </button>
+            </div>
           </div>
           <div class="exercise-actions">
             <button class="btn start-exercise-btn" @click="beginExercise">
               ▶️ 开始练习
             </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 放松练习倒计时弹窗 -->
+    <div v-if="showExerciseTimer && currentExercise" class="timer-overlay" @click="closeExerciseTimer">
+      <div class="timer-content" @click.stop>
+        <div class="timer-header">
+          <h3>{{ currentExercise.icon }} {{ currentExercise.name }}</h3>
+          <button @click="closeExerciseTimer" class="close-timer-btn" title="关闭">×</button>
+        </div>
+        <div class="timer-body">
+          <div class="progress-circle">
+            <svg viewBox="0 0 100 100" class="circle-svg">
+              <circle
+                class="circle-bg"
+                cx="50"
+                cy="50"
+                r="45"
+              />
+              <circle
+                class="circle-progress"
+                cx="50"
+                cy="50"
+                r="45"
+                :style="circleStyle"
+              />
+            </svg>
+            <div class="timer-display">
+              <span class="time-text">{{ formatTimeDisplay(remainingTime) }}</span>
+            </div>
+          </div>
+          <div class="timer-controls">
+            <button 
+              v-if="!isPaused" 
+              class="control-btn pause-btn" 
+              @click="pauseTimer"
+            >
+              ⏸️ 暂停
+            </button>
+            <button 
+              v-else 
+              class="control-btn resume-btn" 
+              @click="resumeTimer"
+            >
+              ▶️ 继续
+            </button>
+            <button class="control-btn close-btn" @click="closeExerciseTimer">
+              ❌ 关闭
+            </button>
+          </div>
+          <div class="timer-instructions">
+            <p>{{ exerciseInstruction }}</p>
           </div>
         </div>
       </div>
@@ -299,7 +374,16 @@ const menuButtonRef = ref(null)
 const showAssessment = ref(false)
 const showRelaxation = ref(false)
 const showExerciseDetail = ref(false)
+const showExerciseTimer = ref(false)
 const currentExercise = ref(null)
+const selectedDuration = ref(5) // 默认 5 分钟
+
+// 倒计时相关
+const timerInterval = ref(null)
+const remainingTime = ref(0)
+const totalTime = ref(0)
+const isPaused = ref(false)
+const exerciseInstruction = ref('')
 
 // 聊天记录搜索相关
 const showHistoryModal = ref(false)
@@ -344,7 +428,9 @@ const relaxationExercises = [
     name: '深呼吸练习',
     icon: '🌬️',
     description: '通过深呼吸来缓解紧张和焦虑',
-    duration: '5-10分钟',
+    duration: '5-10 分钟',
+    minMinutes: 5,
+    maxMinutes: 10,
     steps: [
       '找一个安静舒适的地方坐下或躺下',
       '闭上眼睛，放松全身肌肉',
@@ -358,7 +444,9 @@ const relaxationExercises = [
     name: '渐进式肌肉放松',
     icon: '💪',
     description: '通过有意识地紧张和放松肌肉来减轻压力',
-    duration: '15-20分钟',
+    duration: '15-20 分钟',
+    minMinutes: 15,
+    maxMinutes: 20,
     steps: [
       '从脚趾开始，用力收紧肌肉5秒',
       '放松肌肉，感受放松的感觉10秒',
@@ -370,7 +458,9 @@ const relaxationExercises = [
     name: '正念冥想',
     icon: '🧘',
     description: '专注于当下，减少杂念和焦虑',
-    duration: '10-15分钟',
+    duration: '10-15 分钟',
+    minMinutes: 10,
+    maxMinutes: 15,
     steps: [
       '找一个安静的地方坐下，保持舒适的姿势',
       '闭上眼睛，将注意力集中在呼吸上',
@@ -408,10 +498,20 @@ const sendMessage = async () => {
   try {
     loading.value = true
     
+    // 验证用户 ID
+    const userId = userStore.userData?.userId
+    if (!userId) {
+      throw new Error('用户未登录')
+    }
+    
+    console.log('🔍 发送 AI 咨询请求:', { userId, messageLength: messageToSend.length })
+    
     const response = await healthApi.getMentalHealthAdvice({
-      userId: userStore.userData.userId,
+      userId: userId,
       message: messageToSend
     })
+
+    console.log('✅ AI 咨询响应:', response.data)
 
     if (response.data.success) {
       const botMessage = {
@@ -421,13 +521,14 @@ const sendMessage = async () => {
       }
       messages.value.push(botMessage)
     } else {
-      throw new Error('AI服务响应失败')
+      throw new Error(response.data.error || 'AI 服务响应失败')
     }
   } catch (error) {
-    console.error('发送消息失败:', error)
+    console.error('❌ 发送消息失败:', error)
+    console.error('错误详情:', error.response?.data || error.message)
     const errorMessage = {
       type: 'bot',
-      content: '抱歉，网络连接出现问题，请稍后再试。',
+      content: `抱歉，发生错误：${error.message || '网络连接出现问题，请稍后再试。'}`,
       timestamp: new Date()
     }
     messages.value.push(errorMessage)
@@ -773,17 +874,126 @@ const closeRelaxation = () => {
 
 const startExercise = (exercise) => {
   currentExercise.value = exercise
+  selectedDuration.value = Math.floor((exercise.minMinutes + exercise.maxMinutes) / 2) // 默认使用中间值
   showExerciseDetail.value = true
   showRelaxation.value = false
 }
 
-const beginExercise = () => {
-  alert(`开始${currentExercise.value.name}，建议时长${currentExercise.value.duration}。记得保持放松！`)
-  closeExerciseDetail()
+// 解析时长获取分钟数
+const parseDuration = (durationStr) => {
+  const match = durationStr.match(/(\d+)-(\d+)/)
+  if (match) {
+    // 返回中间值作为默认时长
+    return Math.floor((parseInt(match[1]) + parseInt(match[2])) / 2)
+  }
+  return 5 // 默认 5 分钟
 }
+
+// 开始练习倒计时
+const beginExercise = () => {
+  if (!currentExercise.value) {
+    console.error('当前练习信息为空')
+    return
+  }
+  
+  // 使用用户选择的时长
+  currentExercise.value.durationMinutes = selectedDuration.value
+  startExerciseTimer()
+  
+  // 延迟关闭详情弹窗，确保倒计时已启动
+  setTimeout(() => {
+    showExerciseDetail.value = false
+  }, 50)
+}
+
+// 使用推荐时长
+const useRecommendedDuration = () => {
+  if (!currentExercise.value) return
+  selectedDuration.value = Math.floor((currentExercise.value.minMinutes + currentExercise.value.maxMinutes) / 2)
+}
+
+const startExerciseTimer = () => {
+  const minutes = currentExercise.value?.durationMinutes || 5
+  totalTime.value = minutes * 60
+  remainingTime.value = totalTime.value
+  isPaused.value = false
+  
+  // 设置练习指导语
+  const instructions = {
+    '深呼吸练习': '请跟随节奏，缓慢地吸气和呼气，感受身体的放松',
+    '渐进式肌肉放松': '依次收紧和放松每个肌肉群，感受紧张与放松的差异',
+    '正念冥想': '专注于呼吸，当杂念出现时，轻轻地将注意力拉回'
+  }
+  exerciseInstruction.value = instructions[currentExercise.value?.name] || '请保持放松，享受这段宁静的时光'
+  
+  showExerciseTimer.value = true
+  
+  // 启动倒计时
+  if (timerInterval.value) {
+    clearInterval(timerInterval.value)
+  }
+  
+  timerInterval.value = setInterval(() => {
+    if (!isPaused.value && remainingTime.value > 0) {
+      remainingTime.value--
+    }
+    
+    if (remainingTime.value === 0) {
+      completeExercise()
+    }
+  }, 1000)
+}
+
+const completeExercise = () => {
+  clearInterval(timerInterval.value)
+  timerInterval.value = null
+  alert('🎉 恭喜您完成了本次放松练习！希望这能帮助您缓解压力，放松心情。')
+  closeExerciseTimer()
+}
+
+const pauseTimer = () => {
+  isPaused.value = true
+}
+
+const resumeTimer = () => {
+  isPaused.value = false
+}
+
+const closeExerciseTimer = () => {
+  if (timerInterval.value) {
+    clearInterval(timerInterval.value)
+    timerInterval.value = null
+  }
+  showExerciseTimer.value = false
+  remainingTime.value = 0
+  totalTime.value = 0
+  isPaused.value = false
+  clearCurrentExercise()
+}
+
+// 格式化时间显示
+const formatTimeDisplay = (seconds) => {
+  const mins = Math.floor(seconds / 60)
+  const secs = seconds % 60
+  return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
+}
+
+// 计算进度圈样式
+const circleStyle = computed(() => {
+  const circumference = 2 * Math.PI * 45
+  const progress = totalTime.value > 0 ? remainingTime.value / totalTime.value : 0
+  const offset = circumference * (1 - progress)
+  return {
+    strokeDasharray: `${circumference} ${circumference}`,
+    strokeDashoffset: offset
+  }
+})
 
 const closeExerciseDetail = () => {
   showExerciseDetail.value = false
+}
+
+const clearCurrentExercise = () => {
   currentExercise.value = null
 }
 
@@ -795,6 +1005,9 @@ onMounted(() => {
 onUnmounted(() => {
   saveChatHistory()
   document.removeEventListener('click', closeMenu)
+  if (timerInterval.value) {
+    clearInterval(timerInterval.value)
+  }
 })
 
 watch(messages, () => {
@@ -1515,6 +1728,297 @@ watch(messages, () => {
 
 .exercise-actions {
   text-align: center;
+}
+
+/* 自定义时长选择样式 */
+.custom-duration {
+  margin-top: 24px;
+  padding: 20px;
+  background: #f5f5f7;
+  border-radius: 16px;
+  border: none;
+}
+
+.custom-duration h4 {
+  color: #1d1d1f;
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 16px;
+}
+
+.duration-slider {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 8px;
+  border-radius: 4px;
+  background: #e8e8ed;
+  outline: none;
+  cursor: pointer;
+}
+
+.slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #007aff;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 122, 255, 0.3);
+  transition: all 0.2s ease;
+}
+
+.slider::-webkit-slider-thumb:hover {
+  background: #0077ed;
+  box-shadow: 0 4px 12px rgba(0, 122, 255, 0.4);
+  transform: scale(1.1);
+}
+
+.slider::-moz-range-thumb {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #007aff;
+  cursor: pointer;
+  border: none;
+  box-shadow: 0 2px 8px rgba(0, 122, 255, 0.3);
+  transition: all 0.2s ease;
+}
+
+.slider::-moz-range-thumb:hover {
+  background: #0077ed;
+  box-shadow: 0 4px 12px rgba(0, 122, 255, 0.4);
+  transform: scale(1.1);
+}
+
+.duration-display {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background: #ffffff;
+  border-radius: 12px;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.selected-time {
+  color: #007aff;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.range-hint {
+  color: #86868b;
+  font-size: 13px;
+}
+
+.use-recommended-btn {
+  width: 100%;
+  padding: 12px;
+  background: #34c759;
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.25, 0.1, 0.25, 1);
+}
+
+.use-recommended-btn:hover {
+  background: #30b350;
+  transform: scale(1.02);
+}
+
+/* 倒计时弹窗样式 */
+.timer-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 10000;
+  backdrop-filter: blur(8px);
+}
+
+.timer-content {
+  background: #ffffff;
+  border-radius: 24px;
+  padding: 32px;
+  width: 100%;
+  max-width: 420px;
+  box-shadow: 
+    0 12px 48px rgba(0, 0, 0, 0.12),
+    0 48px 96px rgba(0, 0, 0, 0.16);
+  position: relative;
+  animation: timerSlideUp 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+@keyframes timerSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.timer-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.timer-header h3 {
+  color: #1d1d1f;
+  font-size: 21px;
+  font-weight: 600;
+  letter-spacing: -0.3px;
+  margin: 0;
+}
+
+.close-timer-btn {
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  color: #86868b;
+  transition: all 0.2s ease;
+  line-height: 1;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+}
+
+.close-timer-btn:hover {
+  color: #1d1d1f;
+  background: #f5f5f7;
+}
+
+.timer-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+}
+
+.progress-circle {
+  position: relative;
+  width: 240px;
+  height: 240px;
+}
+
+.circle-svg {
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+
+.circle-bg {
+  fill: none;
+  stroke: #f5f5f7;
+  stroke-width: 8;
+}
+
+.circle-progress {
+  fill: none;
+  stroke: #007aff;
+  stroke-width: 8;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.3s ease;
+}
+
+.timer-display {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+}
+
+.time-text {
+  font-size: 48px;
+  font-weight: 600;
+  color: #1d1d1f;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -1px;
+}
+
+.timer-controls {
+  display: flex;
+  gap: 12px;
+  width: 100%;
+}
+
+.control-btn {
+  flex: 1;
+  padding: 14px 20px;
+  border: none;
+  border-radius: 16px;
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.25, 0.1, 0.25, 1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.pause-btn,
+.resume-btn {
+  background: #007aff;
+  color: white;
+}
+
+.pause-btn:hover,
+.resume-btn:hover {
+  background: #0077ed;
+  transform: scale(1.02);
+}
+
+.close-btn {
+  background: #f5f5f7;
+  color: #1d1d1f;
+}
+
+.close-btn:hover {
+  background: #e8e8ed;
+}
+
+.timer-instructions {
+  width: 100%;
+  padding: 16px 20px;
+  background: #f5f5f7;
+  border-radius: 16px;
+  text-align: center;
+}
+
+.timer-instructions p {
+  margin: 0;
+  color: #86868b;
+  font-size: 15px;
+  line-height: 1.6;
 }
 
 @media (max-width: 768px) {

@@ -145,18 +145,21 @@ public class DietRecordServiceImpl implements DietRecordService {
     
     @Override
     public List<DietRecord> getDailyRecords(String userId, LocalDate date) {
-        return dietRecordRepository.findByUserIdAndDate(userId, date);
+        // 使用优化后的查询方法，避免 N+1 问题
+        return dietRecordRepository.findByUserIdAndDateWithIngredients(userId, date);
     }
     
     @Override
     public List<DietRecord> getWeeklyRecords(String userId, LocalDate weekStart) {
         LocalDate weekEnd = weekStart.plusDays(6);
-        return dietRecordRepository.findByUserIdAndDateBetween(userId, weekStart, weekEnd);
+        // 使用优化后的查询方法，批量加载食材成分
+        return dietRecordRepository.findByUserIdAndDateBetweenWithIngredients(userId, weekStart, weekEnd);
     }
     
     @Override
     public List<DietRecord> getRecordsInRange(String userId, LocalDate startDate, LocalDate endDate) {
-        return dietRecordRepository.findByUserIdAndDateBetween(userId, startDate, endDate);
+        // 使用优化后的查询方法，批量加载食材成分
+        return dietRecordRepository.findByUserIdAndDateBetweenWithIngredients(userId, startDate, endDate);
     }
     
     @Override
@@ -167,8 +170,8 @@ public class DietRecordServiceImpl implements DietRecordService {
         LocalDate startDate = LocalDate.of(year, month, 1);
         LocalDate endDate = startDate.plusMonths(1).minusDays(1);
         
-        // 获取该月的所有记录
-        List<DietRecord> monthlyRecords = dietRecordRepository.findByUserIdAndDateBetween(userId, startDate, endDate);
+        // 获取该月的所有记录（使用优化查询）
+        List<DietRecord> monthlyRecords = dietRecordRepository.findByUserIdAndDateBetweenWithIngredients(userId, startDate, endDate);
         
         // 过滤掉喝水打卡记录
         List<DietRecord> filteredRecords = monthlyRecords.stream()

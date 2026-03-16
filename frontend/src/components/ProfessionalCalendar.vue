@@ -2,7 +2,7 @@
   <div class="professional-calendar">
     <div class="calendar-header">
       <button @click="previousMonth" class="nav-btn">←</button>
-      <h2 class="month-title">{{ currentYear }}年{{ currentMonth }}月 {{ type === 'fitness' ? '健身' : '饮食' }}日历</h2>
+      <h2 class="month-title">{{ currentYear }}年{{ currentMonth }}月 {{ type === 'fitness' ? '健身' : type === 'diet' ? '饮食' : '健康' }}日历</h2>
       <button @click="nextMonth" class="nav-btn">→</button>
     </div>
 
@@ -34,8 +34,8 @@
       </div>
     </div>
 
-    <!-- 日期详情弹窗 -->
-    <div v-if="selectedDateData" class="modal-overlay" @click="closeDetail">
+    <!-- 日期详情弹窗（仅在 type 不为 combined 时显示） -->
+    <div v-if="selectedDateData && props.type !== 'combined'" class="modal-overlay" @click="closeDetail">
       <div class="modal-content" @click.stop>
         <div class="modal-header">
           <h3>{{ formatDate(selectedDate) }} 的{{ type === 'fitness' ? '健身' : '饮食' }}记录</h3>
@@ -131,8 +131,8 @@ const props = defineProps({
   },
   type: {
     type: String,
-    default: 'diet', // 'diet' 或 'fitness'
-    validator: (value) => ['diet', 'fitness'].includes(value)
+    default: 'diet', // 'diet'、'fitness' 或 'combined'
+    validator: (value) => ['diet', 'fitness', 'combined'].includes(value)
   }
 })
 
@@ -141,14 +141,7 @@ const emit = defineEmits(['date-selected'])
 const userStore = useUserStore()
 const currentDate = new Date()
 const currentYear = ref(currentDate.getFullYear())
-const currentMonth = ref(currentDate.getMonth() + 1)  // getMonth()返回0-11，所以+1
-
-console.log('初始化日期:', {
-  currentDate: currentDate.toISOString(),
-  currentYear: currentYear.value,
-  currentMonth: currentMonth.value,
-  getMonth: currentDate.getMonth()
-})
+const currentMonth = ref(currentDate.getMonth() + 1)  // getMonth()返回 0-11，所以 +1
 const selectedDate = ref(null)
 const selectedDateData = ref(null)
 const monthlyData = ref([])
@@ -160,9 +153,6 @@ const calendarDays = computed(() => {
   const year = currentYear.value
   const month = currentMonth.value  // 这里的 month 是 1-12（例如 3 表示 3 月）
   
-  console.log(`=== 专业日历计算 ${year}年${month}月 ===`)
-  console.log(`原始 month 值：${month}`)
-  
   // 获取当月第一天是星期几
   const firstDay = new Date(year, month - 1, 1)  // month-1 转换为 0-11
   const firstDayOfWeek = firstDay.getDay()
@@ -172,9 +162,6 @@ const calendarDays = computed(() => {
   
   // 获取上个月总天数
   const daysInPrevMonth = new Date(year, month - 1, 0).getDate()  // month-1 月的 0 号是上上个月最后一天
-  
-  console.log(`${month}月 1 日是星期${firstDayOfWeek}`)
-  console.log(`当月${daysInMonth}天，上月${daysInPrevMonth}天`)
   
   let gridIndex = 0
   
@@ -195,11 +182,8 @@ const calendarDays = computed(() => {
         calories: getCaloriesForDate(dateString),
         caloriesBurned: props.type === 'fitness' ? getCaloriesForDate(dateString) : 0
       })
-      
-      console.log(`格子${++gridIndex}: 上月${day}日 (${dateString})`)
     }
   } else {
-    console.log('本月 1 号是周日，不需要填充上月日期')
   }
   
   // 填充当月的日期
@@ -208,8 +192,6 @@ const calendarDays = computed(() => {
     const dateObj = new Date(Date.UTC(year, month - 1, day))
     const dateString = dateObj.toISOString().split('T')[0]
     const isToday = dateString === new Date().toISOString().split('T')[0]
-    
-    console.log(`DEBUG: year=${year}, month=${month}, day=${day} -> ${dateString}`)
     
     days.push({
       date: dateString,
@@ -221,8 +203,6 @@ const calendarDays = computed(() => {
       calories: getCaloriesForDate(dateString),
       caloriesBurned: props.type === 'fitness' ? getCaloriesForDate(dateString) : 0
     })
-    
-    console.log(`格子${++gridIndex}: 本月${day}日 (${dateString}) ${isToday ? '<<< 今天' : ''}`)
   }
   
   // 填充下个月的日期
@@ -243,7 +223,6 @@ const calendarDays = computed(() => {
     })
   }
   
-  console.log(`=== 日历构建完成，共${days.length}个格子 ===`)
   return days
 })
 
@@ -261,31 +240,58 @@ const getCaloriesForDate = (dateString) => {
 
 const loadMonthlyData = async () => {
   try {
-    // 根据 type 调用不同的 API
     if (props.type === 'fitness') {
-      console.log('加载健身月度数据...');
-      // 调用健身月度总结 API
       const summary = await healthApi.getMonthlyFitnessSummary(
         props.userId, 
         currentYear.value, 
         currentMonth.value
       )
       monthlyData.value = summary.dailyData || []
-    } else {
-      // 加载饮食月度数据
+    } else if (props.type === 'diet') {
       const summary = await healthApi.getMonthlyDietSummary(
         props.userId, 
         currentYear.value, 
         currentMonth.value
       )
       monthlyData.value = summary.dailyData || []
+    } else if (props.type === 'combined') {
+      const [dietSummary, fitnessSummary] = await Promise.all([
+        healthApi.getMonthlyDietSummary(props.userId, currentYear.value, currentMonth.value),
+        healthApi.getMonthlyFitnessSummary(props.userId, currentYear.value, currentMonth.value)
+      ]);
+      
+      const mergedData = {};
+      
+      (dietSummary.dailyData || []).forEach(day => {
+        mergedData[day.date] = {
+          date: day.date,
+          calories: day.calories || 0,
+          protein: day.protein || 0,
+          carbs: day.carbs || 0,
+          fat: day.fat || 0,
+          caloriesBurned: 0
+        };
+      });
+      
+      (fitnessSummary.dailyData || []).forEach(day => {
+        if (mergedData[day.date]) {
+          mergedData[day.date].caloriesBurned = day.caloriesBurned || 0;
+        } else {
+          mergedData[day.date] = {
+            date: day.date,
+            calories: 0,
+            protein: 0,
+            carbs: 0,
+            fat: 0,
+            caloriesBurned: day.caloriesBurned || 0
+          };
+        }
+      });
+      
+      monthlyData.value = Object.values(mergedData);
     }
-    
-    console.log('月度数据加载完成:', monthlyData.value);
   } catch (error) {
     console.error('加载月度数据失败:', error)
-    // 即使加载失败，也不显示错误提示，因为日历仍然可以正常显示
-    // 只是没有数据而已
     monthlyData.value = []
   }
 }
@@ -315,34 +321,47 @@ const nextMonth = () => {
 const selectDate = async (day) => {
   if (!day.isCurrentMonth) return
   
-  console.log('=== 点击日期 ===')
-  console.log('点击的格子显示:', day.day)
-  console.log('对应的日期字符串:', day.date)
-  console.log('是否为今天:', day.isToday)
-  
   selectedDate.value = day.date
   emit('date-selected', day.date)
   
   try {
     // 根据 type 调用不同的 API
     let records = [];
+    let dietRecords = [];
+    let fitnessRecords = [];
+    
     if (props.type === 'fitness') {
-      // 调用健身记录 API
-      console.log('加载健身记录...');
-      const response = await fetch(`http://localhost:8080/api/diet/fitness/daily/${props.userId}/${day.date}`);
+      const response = await fetch(`/api/diet/fitness/daily/${props.userId}/${day.date}`);
       if (response.ok) {
         records = await response.json();
-        console.log('加载到的健身记录:', records);
       }
-    } else {
-      // 调用饮食记录 API
+    } else if (props.type === 'diet') {
       records = await healthApi.getDailyDiet(props.userId, day.date);
-      // 过滤掉喝水打卡记录
       records = (records || []).filter(record => 
         !(record.foodDescription && 
           (record.foodDescription.includes('💧 喝水打卡') || 
-           record.foodDescription.toLowerCase().includes('water打卡')))
+           record.foodDescription.toLowerCase().includes('water 打卡')))
       );
+    } else if (props.type === 'combined') {
+      const [dietResponse, fitnessResponse] = await Promise.all([
+        fetch(`/api/diet/records/${props.userId}/${day.date}`),
+        fetch(`/api/diet/fitness/daily/${props.userId}/${day.date}`)
+      ]);
+      
+      if (dietResponse.ok) {
+        dietRecords = await dietResponse.json();
+        dietRecords = dietRecords.filter(record => 
+          !(record.foodDescription && 
+            (record.foodDescription.includes('💧 喝水打卡') || 
+             record.foodDescription.toLowerCase().includes('water 打卡')))
+        );
+      }
+      
+      if (fitnessResponse.ok) {
+        fitnessRecords = await fitnessResponse.json();
+      }
+      
+      records = [...dietRecords, ...fitnessRecords];
     }
     
     const totals = {
@@ -358,7 +377,7 @@ const selectDate = async (day) => {
       records.forEach(record => {
         if (record.caloriesBurned) totals.caloriesBurned += record.caloriesBurned
       })
-    } else {
+    } else if (props.type === 'diet') {
       // 饮食记录数据处理
       records.forEach(record => {
         if (record.calories) totals.calories += record.calories
@@ -366,21 +385,34 @@ const selectDate = async (day) => {
         if (record.carbs) totals.carbs += record.carbs
         if (record.fat) totals.fat += record.fat
       })
+    } else if (props.type === 'combined') {
+      // 综合数据处理
+      dietRecords.forEach(record => {
+        if (record.calories) totals.calories += record.calories
+        if (record.protein) totals.protein += record.protein
+        if (record.carbs) totals.carbs += record.carbs
+        if (record.fat) totals.fat += record.fat
+      });
+      
+      fitnessRecords.forEach(record => {
+        if (record.caloriesBurned) totals.caloriesBurned += record.caloriesBurned
+      });
     }
     
     selectedDateData.value = {
       date: day.date,
       records: records,
+      dietRecords: dietRecords,
+      fitnessRecords: fitnessRecords,
       totals: totals
     }
-    
-    console.log('选中日期的数据:', selectedDateData.value);
   } catch (error) {
     console.error('加载日期详情失败:', error)
-    // 即使加载失败，也不显示错误提示，而是显示空数据状态
     selectedDateData.value = {
       date: day.date,
       records: [],
+      dietRecords: [],
+      fitnessRecords: [],
       totals: {
         calories: 0,
         protein: 0,

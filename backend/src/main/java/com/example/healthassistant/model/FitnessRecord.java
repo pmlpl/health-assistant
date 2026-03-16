@@ -31,6 +31,12 @@ public class FitnessRecord {
     @Column(name = "duration_minutes")
     private Integer durationMinutes;
     
+    @Column(name = "repetitions")
+    private Integer repetitions;
+    
+    @Column(name = "weight_kg")
+    private Double weightKg;
+    
     @Column
     private Double calories;
     
@@ -68,6 +74,12 @@ public class FitnessRecord {
     
     public Integer getDurationMinutes() { return durationMinutes; }
     public void setDurationMinutes(Integer durationMinutes) { this.durationMinutes = durationMinutes; }
+    
+    public Integer getRepetitions() { return repetitions; }
+    public void setRepetitions(Integer repetitions) { this.repetitions = repetitions; }
+    
+    public Double getWeightKg() { return weightKg; }
+    public void setWeightKg(Double weightKg) { this.weightKg = weightKg; }
     
     public Double getCalories() { return calories; }
     public void setCalories(Double calories) { this.calories = calories; }

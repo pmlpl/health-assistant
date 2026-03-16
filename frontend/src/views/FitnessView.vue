@@ -1,25 +1,24 @@
 <template>
   <div class="fitness-layout">
     <div class="page-header">
-      <h1>💪 健身记录</h1>
+      <h1>
+        <svg class="header-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M6.5 6.5L17.5 17.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          <path d="M21 21L15 15" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          <path d="M3 3L9 9" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          <rect x="9" y="9" width="6" height="6" rx="1" stroke="currentColor" stroke-width="2"/>
+          <path d="M3 9V15C3 15.5304 3.21071 16.0391 3.58579 16.4142C3.96086 16.7893 4.46957 17 5 17H9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M15 9H19C19.5304 9 20.0391 9.21071 20.4142 9.58579C20.7893 9.96086 21 10.4696 21 11V15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        健身记录
+      </h1>
       <div class="stats-bar">
-        <span class="stat-item">🏋️ 今日训练: {{ fitnessEntries.length }} 项</span>
-        <span class="stat-item">🔥 总消耗: {{ totalCaloriesBurned }}kcal</span>
-        <button @click="showCalendar = !showCalendar" class="calendar-toggle">
-          📅 {{ showCalendar ? '隐藏日历' : '显示日历' }}
-        </button>
+        <span class="stat-item">🏋️ 今日训练：{{ fitnessEntries.length }} 项</span>
+        <span class="stat-item">🔥 总消耗：{{ totalCaloriesBurned }}kcal</span>
       </div>
     </div>
-
-    <div v-if="showCalendar" class="calendar-section">
-      <ProfessionalCalendar 
-        :user-id="userStore.userData.userId"
-        type="fitness"
-        @date-selected="handleDateSelected"
-      />
-    </div>
-    
-    <div class="main-container" v-show="!showCalendar">
+  
+    <div class="main-container">
       <div class="left-panel">
         <div class="card record-card">
           <h2>➕ 添加健身项目</h2>
@@ -50,17 +49,55 @@
                   @keyup.enter="addCustomFitnessItem"
                 />
               </div>
-              <div class="duration-input">
-                <label>时长(分钟)</label>
+              <div class="metric-type-selector">
+                <label>记录类型</label>
+                <select v-model="newFitnessEntry.metricType" class="metric-select">
+                  <option value="duration">⏱️ 时长</option>
+                  <option value="reps">🔢 次数</option>
+                  <option value="weight">🏋️ 重量</option>
+                  <option value="duration_reps">⏱️+🔢 时长 + 次数</option>
+                  <option value="weight_reps">🏋️+🔢 重量 + 次数</option>
+                </select>
+              </div>
+            </div>
+                      
+            <div class="input-row metrics-inputs">
+              <div v-if="['duration', 'duration_reps'].includes(newFitnessEntry.metricType)" class="metric-input">
+                <label>时长 (分钟)</label>
                 <input
                   v-model="newFitnessEntry.duration"
                   type="number"
                   placeholder="30"
-                  class="duration-number"
+                  class="metric-number"
                   min="1"
                   step="1"
                 />
               </div>
+                        
+              <div v-if="['reps', 'duration_reps', 'weight_reps'].includes(newFitnessEntry.metricType)" class="metric-input">
+                <label>次数 (个)</label>
+                <input
+                  v-model="newFitnessEntry.repetitions"
+                  type="number"
+                  placeholder="10"
+                  class="metric-number"
+                  min="1"
+                  step="1"
+                />
+              </div>
+                        
+              <div v-if="['weight', 'weight_reps'].includes(newFitnessEntry.metricType)" class="metric-input">
+                <label>重量 (kg)</label>
+                <input
+                  v-model="newFitnessEntry.weight"
+                  type="number"
+                  placeholder="20"
+                  class="metric-number"
+                  min="0.5"
+                  step="0.5"
+                />
+              </div>
+                        
               <button @click="addCustomFitnessItem" class="add-fitness-btn">+</button>
             </div>
           </div>
@@ -74,20 +111,17 @@
                 class="fitness-item-tag"
               >
                 <span class="fitness-name">{{ item.name }}</span>
-                <span class="fitness-duration">⏱️ {{ item.duration }}分钟</span>
+                <div class="fitness-metrics">
+                  <span v-if="item.duration" class="fitness-metric">⏱️ {{ item.duration }}分钟</span>
+                  <span v-if="item.repetitions" class="fitness-metric">🔢 {{ item.repetitions }}个</span>
+                  <span v-if="item.weight" class="fitness-metric">🏋️ {{ item.weight }}kg</span>
+                </div>
                 <button @click="removeFitnessItem(index)" class="remove-btn">×</button>
               </div>
             </div>
           </div>
 
           <div class="action-buttons">
-            <button 
-              class="btn analyze-btn" 
-              @click="analyzeFitnessItems" 
-              :disabled="analyzing || fitnessItems.length === 0"
-            >
-              🤖 AI分析今日收获
-            </button>
             <button 
               class="btn save-btn" 
               @click="saveFitnessRecord" 
@@ -104,8 +138,10 @@
           <div class="history-header">
             <h2>📋 今日健身记录</h2>
             <div class="summary-stats">
-              <span class="summary-item">🔥 总消耗: {{ totalCaloriesBurned }}kcal</span>
-              <span class="summary-item">⏱️ 总时长: {{ totalDuration }}分钟</span>
+              <span class="summary-item">🔥 总消耗：{{ totalCaloriesBurned }}kcal</span>
+              <span class="summary-item">⏱️ 总时长：{{ totalDuration }}分钟</span>
+              <span v-if="totalRepetitions > 0" class="summary-item">🔢 总次数：{{ totalRepetitions }}个</span>
+              <span v-if="totalWeight > 0" class="summary-item">🏋️ 总重量：{{ totalWeight }}kg</span>
             </div>
           </div>
 
@@ -175,10 +211,12 @@
               
               <div class="record-body">
                 <p class="fitness-desc">{{ entry.workoutName }}</p>
-                
+                              
                 <div class="fitness-details">
-                  <span class="detail-item">⏱️ 时长: {{ entry.durationMinutes }}分钟</span>
-                  <span class="detail-item">📊 强度: {{ getIntensityLevel(entry.intensityLevel) }}</span>
+                  <span v-if="entry.durationMinutes" class="detail-item">⏱️ 时长：{{ entry.durationMinutes }}分钟</span>
+                  <span v-if="entry.repetitions" class="detail-item">🔢 次数：{{ entry.repetitions }}个</span>
+                  <span v-if="entry.weightKg" class="detail-item">🏋️ 重量：{{ entry.weightKg }}kg</span>
+                  <span class="detail-item">📊 强度：{{ getIntensityLevel(entry.intensityLevel) }}</span>
                 </div>
               </div>
             </div>
@@ -198,6 +236,18 @@
                 <div class="big-number">{{ totalDuration }}</div>
                 <div class="metric">总时长</div>
                 <div class="small-unit">分钟</div>
+              </div>
+              <div class="summary-box reps" v-if="totalRepetitions > 0">
+                <div class="summary-icon">🔢</div>
+                <div class="big-number">{{ totalRepetitions }}</div>
+                <div class="metric">总次数</div>
+                <div class="small-unit">个</div>
+              </div>
+              <div class="summary-box weight" v-if="totalWeight > 0">
+                <div class="summary-icon">🏋️</div>
+                <div class="big-number">{{ totalWeight }}</div>
+                <div class="metric">总重量</div>
+                <div class="small-unit">kg</div>
               </div>
               <div class="summary-box count">
                 <div class="summary-icon">🏋️</div>
@@ -232,7 +282,6 @@
 import { ref, computed, onMounted } from 'vue';
 import axios from 'axios';
 import { useUserStore } from '../stores/userStore';
-import ProfessionalCalendar from '../components/ProfessionalCalendar.vue';
 // 导入healthApi
 import { healthApi } from '../api/healthApi';
 
@@ -257,15 +306,16 @@ const getLocalDateString = () => {
 
 // 当前日期
 const currentDate = ref(getLocalDateString());
-// 是否显示日历
-const showCalendar = ref(false);
 // 健身条目列表
 const fitnessEntries = ref([]);
 // 新的健身记录
 const newFitnessEntry = ref({
   type: 'cardio',
   name: '',
-  duration: 30
+  metricType: 'duration', // duration, reps, weight, duration_reps, weight_reps
+  duration: 30,
+  repetitions: 10,
+  weight: 20
 });
 // 已添加的健身项目
 const fitnessItems = ref([]);
@@ -298,9 +348,23 @@ const totalDuration = computed(() => {
   }, 0);
 });
 
+// 计算总次数
+const totalRepetitions = computed(() => {
+  return fitnessEntries.value.reduce((total, item) => {
+    return total + (item.repetitions || 0);
+  }, 0);
+});
+
+// 计算总重量
+const totalWeight = computed(() => {
+  return fitnessEntries.value.reduce((total, item) => {
+    return total + (item.weightKg || 0);
+  }, 0);
+});
+
 // 计算单个项目的热量消耗
 const calculateCalories = (item) => {
-  // 简化的热量计算公式，根据项目类型和时长估算
+  // 简化的热量计算公式，根据项目类型和时长/次数估算
   const baseMetabolicRate = 1.05; // kcal/min
   let multiplier = 1;
   
@@ -321,7 +385,20 @@ const calculateCalories = (item) => {
       multiplier = 1;
   }
   
-  return Math.round(item.duration * baseMetabolicRate * multiplier);
+  // 如果有时长，按时长计算；如果只有次数/重量，按次数估算
+  if (item.duration) {
+    return Math.round(item.duration * baseMetabolicRate * multiplier);
+  } else if (item.repetitions) {
+    // 假设每次动作约 3 秒，转换为分钟计算
+    const estimatedMinutes = item.repetitions * 3 / 60;
+    return Math.round(estimatedMinutes * baseMetabolicRate * multiplier);
+  } else if (item.weight) {
+    // 如果有重量，考虑重量因素
+    const baseCalories = baseMetabolicRate * multiplier * 5; // 基础 5 分钟
+    return Math.round(baseCalories * (1 + (item.weight || 0) / 100));
+  }
+  
+  return 0;
 };
 
 // 添加自定义健身项目
@@ -331,8 +408,29 @@ const addCustomFitnessItem = () => {
     return;
   }
   
-  if (!newFitnessEntry.value.duration || newFitnessEntry.value.duration <= 0) {
+  const metricType = newFitnessEntry.value.metricType;
+  
+  // 根据类型验证输入
+  if (metricType === 'duration' && (!newFitnessEntry.value.duration || newFitnessEntry.value.duration <= 0)) {
     alert('请输入有效的时长');
+    return;
+  }
+  if (metricType === 'reps' && (!newFitnessEntry.value.repetitions || newFitnessEntry.value.repetitions <= 0)) {
+    alert('请输入有效的次数');
+    return;
+  }
+  if (metricType === 'weight' && (!newFitnessEntry.value.weight || newFitnessEntry.value.weight <= 0)) {
+    alert('请输入有效的重量');
+    return;
+  }
+  if (metricType === 'duration_reps' && ((!newFitnessEntry.value.duration || newFitnessEntry.value.duration <= 0) || 
+      (!newFitnessEntry.value.repetitions || newFitnessEntry.value.repetitions <= 0))) {
+    alert('请输入有效的时长和次数');
+    return;
+  }
+  if (metricType === 'weight_reps' && ((!newFitnessEntry.value.weight || newFitnessEntry.value.weight <= 0) || 
+      (!newFitnessEntry.value.repetitions || newFitnessEntry.value.repetitions <= 0))) {
+    alert('请输入有效的重量和次数');
     return;
   }
   
@@ -341,7 +439,10 @@ const addCustomFitnessItem = () => {
     id: Date.now(),
     type: newFitnessEntry.value.type,
     name: newFitnessEntry.value.name,
-    duration: parseInt(newFitnessEntry.value.duration)
+    metricType: metricType,
+    duration: metricType.includes('duration') ? parseInt(newFitnessEntry.value.duration) : null,
+    repetitions: metricType.includes('reps') ? parseInt(newFitnessEntry.value.repetitions) : null,
+    weight: metricType.includes('weight') ? parseFloat(newFitnessEntry.value.weight) : null
   };
   
   fitnessItems.value.push(newItem);
@@ -349,6 +450,8 @@ const addCustomFitnessItem = () => {
   // 重置表单
   newFitnessEntry.value.name = '';
   newFitnessEntry.value.duration = 30;
+  newFitnessEntry.value.repetitions = 10;
+  newFitnessEntry.value.weight = 20;
 };
 
 // 移除健身项目
@@ -376,11 +479,15 @@ const analyzeFitnessItems = async () => {
     const fitnessAnalysisData = {
       totalCalories: totalCaloriesBurned.value,
       totalDuration: totalDuration.value,
+      totalRepetitions: totalRepetitions.value,
+      totalWeight: totalWeight.value,
       workoutCount: fitnessEntries.value.length,
       workouts: fitnessEntries.value.map(item => ({
         name: item.workoutName,
         type: item.workoutType,
         duration: item.durationMinutes,
+        repetitions: item.repetitions,
+        weight: item.weightKg,
         calories: item.caloriesBurned
       })),
       analysisType: 'fitness_workout'
@@ -389,7 +496,7 @@ const analyzeFitnessItems = async () => {
     console.log('发送健身收获分析请求:', { userId, fitnessAnalysisData });
     
     const response = await axios.post(
-      `http://localhost:8080/api/ai/analyze-fitness-workout/${userId}`,
+      `/api/ai/analyze-fitness-workout/${userId}`,
       fitnessAnalysisData,
       {
         timeout: 60000,
@@ -433,15 +540,13 @@ const saveFitnessRecord = async () => {
     const recordsToSave = fitnessItems.value.map(item => ({
       userId: userId,
       date: currentDate.value,
-      workoutName: item.name,
-      workoutType: item.type,
+      name: item.name,
+      type: item.type,
       durationMinutes: item.duration,
-      caloriesBurned: Math.round(calculateCalories(item)),
-      intensityLevel: 3, // 默认中等强度
-      recordTime: new Date().toTimeString().split(' ')[0].substring(0, 8)
+      repetitions: item.repetitions,
+      weightKg: item.weight,
+      calories: Math.round(calculateCalories(item))
     }));
-
-    console.log('保存健身记录:', recordsToSave);
 
     // 调用后端 API 保存记录
     const result = await healthApi.batchSaveFitnessRecords(recordsToSave);
@@ -470,22 +575,15 @@ const saveFitnessRecord = async () => {
   }
 };
 
-// 处理日历日期选择
-const handleDateSelected = (date) => {
-  currentDate.value = date;
-  loadTodayData();
-};
-
 // 加载今日数据
 const loadTodayData = async () => {
   try {
     loading.value = true;
     const userId = userStore.userData?.userId;
     if (!userId) return;
-
-    const dateStr = currentDate.value;
-    console.log('加载健身记录，用户 ID:', userId, '日期:', dateStr);
     
+    const dateStr = currentDate.value;
+      
     const records = await healthApi.getDailyFitnessRecords(userId, dateStr);
     fitnessEntries.value = records || [];
   } catch (error) {
@@ -579,7 +677,7 @@ const batchDelete = async () => {
   try {
     batchDeleting.value = true;
     
-    const response = await fetch('http://localhost:8080/api/diet/fitness/batch', {
+    const response = await fetch('/api/diet/fitness/batch', {
       method: 'DELETE',
       headers: {
         'Content-Type': 'application/json',
@@ -626,7 +724,7 @@ const deleteRecord = async (recordId, index) => {
     userStore.setLoading(true);
     userStore.clearError();
     
-    const response = await fetch(`http://localhost:8080/api/diet/fitness/${recordId}`, {
+    const response = await fetch(`/api/diet/fitness/${recordId}`, {
       method: 'DELETE',
       headers: {
         'Content-Type': 'application/json',
@@ -703,13 +801,23 @@ onMounted(() => {
   color: #1d1d1f;
   margin-bottom: 12px;
   font-weight: 700;
-  letter-spacing: -0.5px;
   font-size: 36px;
   line-height: 1.1;
   background: linear-gradient(135deg, #1d1d1f 0%, #424245 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+
+.header-icon {
+  width: 40px;
+  height: 40px;
+  color: #007aff;
+  flex-shrink: 0;
 }
 
 .stats-bar {
@@ -730,29 +838,6 @@ onMounted(() => {
   background: #f5f5f7;
   border-radius: 980px;
   font-weight: 500;
-}
-
-.calendar-toggle {
-  background: #007aff;
-  color: white;
-  border: none;
-  padding: 10px 20px;
-  border-radius: 980px;
-  cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.25, 0.1, 0.25, 1);
-  font-size: 14px;
-  font-weight: 500;
-}
-
-.calendar-toggle:hover {
-  background: #0077ed;
-  transform: scale(1.02);
-}
-
-.calendar-section {
-  padding: 0 32px 24px;
-  position: relative;
-  z-index: 1;
 }
 
 .main-container {
@@ -865,15 +950,7 @@ onMounted(() => {
   min-width: 150px;
 }
 
-.fitness-name-input label, .duration-input label {
-  display: block;
-  margin-bottom: 8px;
-  font-weight: 500;
-  color: #1d1d1f;
-  font-size: 15px;
-}
-
-.fitness-input, .duration-number {
+.fitness-input {
   width: 100%;
   padding: 14px 16px;
   border: 1px solid rgba(0, 0, 0, 0.1);
@@ -885,7 +962,68 @@ onMounted(() => {
   font-family: inherit;
 }
 
-.fitness-input:focus, .duration-number:focus {
+.fitness-input:focus {
+  outline: none;
+  border-color: #007aff;
+  background: #ffffff;
+  box-shadow: 0 0 0 4px rgba(0, 122, 255, 0.1);
+}
+
+.metric-type-selector {
+  flex: 1;
+  min-width: 150px;
+}
+
+.metric-select {
+  width: 100%;
+  padding: 14px 16px;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 12px;
+  font-size: 17px;
+  transition: all 0.3s cubic-bezier(0.25, 0.1, 0.25, 1);
+  background: #f5f5f7;
+  color: #1d1d1f;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.metric-select:focus {
+  outline: none;
+  border-color: #007aff;
+  background: #ffffff;
+  box-shadow: 0 0 0 4px rgba(0, 122, 255, 0.1);
+}
+
+.metrics-inputs {
+  margin-top: 16px;
+}
+
+.metric-input {
+  flex: 1;
+  min-width: 120px;
+}
+
+.metric-input label, .fitness-name-input label, .duration-input label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 500;
+  color: #1d1d1f;
+  font-size: 15px;
+}
+
+.metric-number {
+  width: 100%;
+  padding: 14px 16px;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 12px;
+  font-size: 17px;
+  transition: all 0.3s cubic-bezier(0.25, 0.1, 0.25, 1);
+  background: #f5f5f7;
+  color: #1d1d1f;
+  font-family: inherit;
+}
+
+.metric-number:focus {
   outline: none;
   border-color: #007aff;
   background: #ffffff;
@@ -942,6 +1080,22 @@ onMounted(() => {
   font-weight: 500;
 }
 
+.fitness-metrics {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-left: 8px;
+}
+
+.fitness-metric {
+  color: #86868b;
+  font-size: 13px;
+  background: rgba(0, 0, 0, 0.05);
+  padding: 4px 8px;
+  border-radius: 6px;
+  white-space: nowrap;
+}
+
 .fitness-duration {
   color: #86868b;
   font-size: 13px;
@@ -985,21 +1139,6 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 8px;
-}
-
-.analyze-btn {
-  background: #007aff;
-  color: white;
-}
-
-.analyze-btn:hover:not(:disabled) {
-  background: #0077ed;
-  transform: scale(1.02);
-}
-
-.analyze-btn:disabled {
-  background: #d1d1d6;
-  cursor: not-allowed;
 }
 
 .save-btn {
@@ -1061,6 +1200,21 @@ onMounted(() => {
   display: flex;
   gap: 12px;
   flex-wrap: wrap;
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.summary-stats::-webkit-scrollbar {
+  height: 4px;
+}
+
+.summary-stats::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.summary-stats::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.15);
+  border-radius: 4px;
 }
 
 .summary-item {
@@ -1320,7 +1474,7 @@ onMounted(() => {
 
 .summary-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 16px;
   margin-bottom: 24px;
 }
@@ -1344,6 +1498,14 @@ onMounted(() => {
 
 .summary-box.duration {
   background: linear-gradient(135deg, rgba(0, 122, 255, 0.08) 0%, rgba(0, 122, 255, 0.02) 100%);
+}
+
+.summary-box.reps {
+  background: linear-gradient(135deg, rgba(175, 82, 222, 0.08) 0%, rgba(175, 82, 222, 0.02) 100%);
+}
+
+.summary-box.weight {
+  background: linear-gradient(135deg, rgba(255, 149, 0, 0.08) 0%, rgba(255, 149, 0, 0.02) 100%);
 }
 
 .summary-box.count {
@@ -1448,10 +1610,6 @@ onMounted(() => {
   
   .card h2 {
     font-size: 20px;
-  }
-  
-  .calendar-section {
-    padding: 0 20px 24px;
   }
 }
 </style>

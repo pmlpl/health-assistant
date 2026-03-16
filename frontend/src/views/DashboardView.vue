@@ -14,9 +14,11 @@
 
     <!-- 主要内容区域 -->
     <div class="main-container">
-      <!-- 数据概览卡片 -->
-      <div class="card overview-card">
-        <h2>📊 今日概览</h2>
+      <!-- 合并卡片：数据概览 + 快捷操作 -->
+      <div class="card overview-actions-card">
+        <div class="card-header-section">
+          <h2>📊 今日概览</h2>
+        </div>
         <div class="stats-grid">
           <div class="stat-card" title="今日已记录的饮食次数">
             <div class="stat-icon">🍽️</div>
@@ -47,11 +49,32 @@
             </div>
           </div>
         </div>
+        <div class="action-section-divider"></div>
+        <div class="action-grid">
+          <button class="btn action-button primary" @click="$router.push('/diary')">
+            <span class="button-icon">📝</span>
+            <span class="button-text">记录饮食</span>
+          </button>
+          <button class="btn action-button secondary" @click="$router.push('/ai-consult')">
+            <span class="button-icon">🤖</span>
+            <span class="button-text">AI 咨询</span>
+          </button>
+          <button class="btn action-button accent" @click="$router.push('/recipes')">
+            <span class="button-icon">🥗</span>
+            <span class="button-text">健康食谱</span>
+          </button>
+          <button class="btn action-button info" @click="$router.push('/profile')">
+            <span class="button-icon">👤</span>
+            <span class="button-text">个人档案</span>
+          </button>
+        </div>
       </div>
 
-      <!-- 喝水打卡组件 -->
-      <div class="card water-intake-card">
-        <h2>💧 喝水打卡</h2>
+      <!-- 合并卡片：喝水打卡 + 健康转盘 -->
+      <div class="card water-wheel-card">
+        <div class="card-header-section">
+          <h2>💧 喝水打卡</h2>
+        </div>
         <div class="water-intake-container">
           <div class="water-progress">
             <div class="progress-info">
@@ -72,24 +95,36 @@
             <span class="btn-icon">💧</span>
             <span class="btn-text">{{ isWaterTargetAchieved ? '已达标，明日再接再厉！' : '点击打卡喝水' }}</span>
           </button>
-          
-          <!-- 打卡记录摘要（单行显示） -->
-          <div v-if="waterLog.length > 0" class="water-log-summary" @click="showWaterLogDetail = true">
-            <div class="summary-content">
-              <span class="summary-icon">📝</span>
-              <span class="summary-text">
-                今日已打卡 <strong>{{ waterLog.length }}</strong> 次
-                <span v-if="lastWaterTime" class="last-time">（最近一次：{{ lastWaterTime }}）</span>
-              </span>
-              <span class="summary-arrow">›</span>
+        </div>
+        <div class="action-section-divider"></div>
+        <div class="wheel-section">
+          <h2 class="wheel-subtitle-title">🎡 每日健康转盘</h2>
+          <p class="wheel-subtitle">不知道今天该做什么？转转看！</p>
+          <div class="wheel-container">
+            <div class="wheel-wrapper">
+              <div class="wheel" :style="wheelStyle" :class="{ 'spinning': isSpinning }">
+                <div class="wheel-bg"></div>
+                <div class="wheel-icons">
+                  <div 
+                    v-for="(item, index) in wheelItems" 
+                    :key="index" 
+                    class="wheel-icon"
+                    :style="getIconStyle(index)"
+                  >
+                    {{ item.emoji }}
+                  </div>
+                </div>
+              </div>
+              <div class="wheel-pointer">▼</div>
+              <div class="wheel-center" @click="spinWheel" :class="{ 'disabled': isSpinning }">
+                <span class="center-text">{{ isSpinning ? '...' : '开始' }}</span>
+              </div>
             </div>
           </div>
-          <div v-else class="water-log-summary empty" @click="showWaterLogDetail = true">
-            <div class="summary-content">
-              <span class="summary-icon">📝</span>
-              <span class="summary-text">暂无打卡记录，快来喝水吧！</span>
-              <span class="summary-arrow">›</span>
-            </div>
+          <div v-if="selectedSuggestion" class="suggestion-result" :class="{ 'show': showSuggestion }">
+            <div class="result-icon">{{ selectedSuggestion.emoji }}</div>
+            <div class="result-title">{{ selectedSuggestion.title }}</div>
+            <div class="result-desc">{{ selectedSuggestion.description }}</div>
           </div>
         </div>
       </div>
@@ -156,56 +191,58 @@
       <!-- 营养摄入详情 -->
       <div class="card nutrition-card">
         <h2>🥗 今日营养摄入</h2>
-        <div class="nutrition-grid">
-          <div class="nutrition-item">
-            <div class="nutrition-icon protein">🥩</div>
-            <div class="nutrition-info">
-              <div class="nutrition-value">{{ todayProtein }}g</div>
-              <div class="nutrition-label">蛋白质</div>
+        <div class="nutrition-progress-container">
+          <div class="nutrition-progress-item">
+            <div class="progress-header">
+              <span class="progress-icon protein">🥩</span>
+              <span class="progress-label">蛋白质</span>
+              <span class="progress-value">{{ todayProtein }}g</span>
+            </div>
+            <div class="progress-bar">
+              <div class="progress-fill protein" :style="`width: ${getNutritionProgress(todayProtein, 50)}%`"></div>
+            </div>
+            <div class="progress-info">
+              <span class="progress-percent">{{ getNutritionProgress(todayProtein, 50) }}%</span>
+              <span class="progress-target">目标: 50g</span>
             </div>
           </div>
-          <div class="nutrition-item">
-            <div class="nutrition-icon carbs">🍚</div>
-            <div class="nutrition-info">
-              <div class="nutrition-value">{{ todayCarbs }}g</div>
-              <div class="nutrition-label">碳水化合物</div>
+          
+          <div class="nutrition-progress-item">
+            <div class="progress-header">
+              <span class="progress-icon carbs">🍚</span>
+              <span class="progress-label">碳水化合物</span>
+              <span class="progress-value">{{ todayCarbs }}g</span>
+            </div>
+            <div class="progress-bar">
+              <div class="progress-fill carbs" :style="`width: ${getNutritionProgress(todayCarbs, 150)}%`"></div>
+            </div>
+            <div class="progress-info">
+              <span class="progress-percent">{{ getNutritionProgress(todayCarbs, 150) }}%</span>
+              <span class="progress-target">目标: 150g</span>
             </div>
           </div>
-          <div class="nutrition-item">
-            <div class="nutrition-icon fat">🥑</div>
-            <div class="nutrition-info">
-              <div class="nutrition-value">{{ todayFat }}g</div>
-              <div class="nutrition-label">脂肪</div>
+          
+          <div class="nutrition-progress-item">
+            <div class="progress-header">
+              <span class="progress-icon fat">🥑</span>
+              <span class="progress-label">脂肪</span>
+              <span class="progress-value">{{ todayFat }}g</span>
+            </div>
+            <div class="progress-bar">
+              <div class="progress-fill fat" :style="`width: ${getNutritionProgress(todayFat, 60)}%`"></div>
+            </div>
+            <div class="progress-info">
+              <span class="progress-percent">{{ getNutritionProgress(todayFat, 60) }}%</span>
+              <span class="progress-target">目标: 60g</span>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- 快捷操作 -->
-      <div class="card actions-card">
-        <h2>⚡ 快捷操作</h2>
-        <div class="action-grid">
-          <button class="btn action-button primary" @click="$router.push('/diary')">
-            <span class="button-icon">📝</span>
-            <span class="button-text">记录饮食</span>
-          </button>
-          <button class="btn action-button secondary" @click="$router.push('/ai-consult')">
-            <span class="button-icon">🤖</span>
-            <span class="button-text">AI咨询</span>
-          </button>
-          <button class="btn action-button accent" @click="$router.push('/recipes')">
-            <span class="button-icon">🥗</span>
-            <span class="button-text">健康食谱</span>
-          </button>
-          <button class="btn action-button info" @click="$router.push('/profile')">
-            <span class="button-icon">👤</span>
-            <span class="button-text">个人档案</span>
-          </button>
-        </div>
-      </div>
+      
 
       <!-- 健康贴士 -->
-      <div class="card tips-card">
+      <div class="card tips-card full-width-card">
         <h2>💡 健康小贴士</h2>
         <div class="tips-container">
           <div class="tip-item" v-for="(tip, index) in healthTips" :key="index">
@@ -218,37 +255,7 @@
         </div>
       </div>
 
-      <!-- 健康建议转盘 -->
-      <div class="card wheel-card">
-        <h2>🎡 每日健康转盘</h2>
-        <p class="wheel-subtitle">不知道今天该做什么？转转看！</p>
-        <div class="wheel-container">
-          <div class="wheel-wrapper">
-            <div class="wheel" :style="wheelStyle" :class="{ 'spinning': isSpinning }">
-              <div class="wheel-bg"></div>
-              <div class="wheel-icons">
-                <div 
-                  v-for="(item, index) in wheelItems" 
-                  :key="index" 
-                  class="wheel-icon"
-                  :style="getIconStyle(index)"
-                >
-                  {{ item.emoji }}
-                </div>
-              </div>
-            </div>
-            <div class="wheel-pointer">▼</div>
-            <div class="wheel-center" @click="spinWheel" :class="{ 'disabled': isSpinning }">
-              <span class="center-text">{{ isSpinning ? '...' : '开始' }}</span>
-            </div>
-          </div>
-        </div>
-        <div v-if="selectedSuggestion" class="suggestion-result" :class="{ 'show': showSuggestion }">
-          <div class="result-icon">{{ selectedSuggestion.emoji }}</div>
-          <div class="result-title">{{ selectedSuggestion.title }}</div>
-          <div class="result-desc">{{ selectedSuggestion.description }}</div>
-        </div>
-      </div>
+
 
 
     </div>
@@ -360,16 +367,11 @@ const greeting = computed(() => {
   }
 });
 
-// 获取随机健康贴士
-const getRandomTip = () => {
-  const tips = [
-    '均衡饮食是健康的基础，注意荤素搭配，每天摄入12种以上食物。',
-    '多喝水有助于新陈代谢，建议每天饮用8杯水。',
-    '适量运动能够增强体质，每周至少进行150分钟中等强度运动。',
-    '充足睡眠对健康至关重要，成年人每晚应睡7-9小时。',
-    '减少加工食品摄入，多吃新鲜蔬果和全谷物。'
-  ];
-  return tips[Math.floor(Math.random() * tips.length)];
+// 计算营养摄入进度百分比
+const getNutritionProgress = (current, target) => {
+  if (!current || !target) return 0;
+  const progress = (current / target) * 100;
+  return Math.min(Math.round(progress), 100);
 };
 
 // 获取本地日期字符串 (YYYY-MM-DD)
@@ -384,20 +386,13 @@ const getLocalDateString = () => {
 // 加载今日数据
 const loadTodayData = async () => {
   const userId = userStore.userData?.userId;
-  console.log('loadTodayData 被调用，用户ID:', userId);
-  
   if (!userId) {
-    console.log('用户ID为空，跳过加载数据');
     return;
   }
   
   try {
     const today = getLocalDateString();
-    console.log('请求日期:', today, '用户ID:', userId);
-    
     const records = await healthApi.getDailyDiet(userId, today);
-    console.log('API返回的饮食记录:', records);
-    
     const filteredRecords = (records || []).filter(record => 
       !(record.foodDescription && 
         (record.foodDescription.includes('💧 喝水打卡') || 
@@ -416,22 +411,16 @@ const loadTodayData = async () => {
       todayProtein.value = Math.round(totalProtein * 10) / 10;
       todayCarbs.value = Math.round(totalCarbs * 10) / 10;
       todayFat.value = Math.round(totalFat * 10) / 10;
-      
-      console.log('加载的饮食记录(已过滤喝水):', filteredRecords);
-      console.log('计算的总热量:', totalCalories);
-      console.log('最终设置的todayCalories:', todayCalories.value);
+
     } else {
       todayCalories.value = 0;
       todayProtein.value = 0;
       todayCarbs.value = 0;
       todayFat.value = 0;
-      
-      console.log('没有找到饮食记录，设置为0');
     }
     
     // 加载健身记录
     const fitnessRecords = await healthApi.getDailyFitnessRecords(userId, today);
-    console.log('健身记录:', fitnessRecords);
     if (fitnessRecords && fitnessRecords.length > 0) {
       const totalMinutes = fitnessRecords.reduce((sum, record) => sum + (record.durationMinutes || 0), 0);
       todayExerciseMinutes.value = totalMinutes;
@@ -441,8 +430,6 @@ const loadTodayData = async () => {
     
     // 加载喝水记录
     const waterRecords = await healthApi.getDailyWaterIntake(userId, today);
-    console.log('喝水记录:', waterRecords);
-    
     // 处理喝水记录，提取时间
     const processedWaterRecords = (waterRecords || []).map(record => {
       let waterTime = '';
@@ -535,6 +522,26 @@ const isWaterTargetAchieved = computed(() => {
   return dailyWaterIntake.value >= targetWaterIntake.value;
 });
 
+// 随机健康小贴士库
+const healthTipLibrary = [
+  '每天吃五种不同颜色的水果和蔬菜，有助于摄取全面的营养。',
+  '保持规律的作息时间，每天保证 7-8 小时的睡眠。',
+  '每周至少进行 150 分钟的中等强度有氧运动。',
+  '吃饭时细嚼慢咽，有助于消化吸收和控制食量。',
+  '每天喝足够的水，保持身体水分平衡。',
+  '减少加工食品的摄入，多吃天然食物。',
+  '保持正确的坐姿，避免长时间低头使用手机。',
+  '每天晒太阳 15-20 分钟，促进维生素 D 的合成。',
+  '学会管理压力，可以通过冥想、深呼吸等方式放松身心。',
+  '定期体检，及时了解自己的身体状况。'
+];
+
+// 获取随机健康小贴士
+const getRandomTip = () => {
+  const randomIndex = Math.floor(Math.random() * healthTipLibrary.length);
+  return healthTipLibrary[randomIndex];
+};
+
 // 初始化健康贴士
 const initHealthTips = () => {
   healthTips.value = [
@@ -556,7 +563,6 @@ const closeWaterLogDetail = () => {
 
 
 onMounted(() => {
-  console.log('Dashboard onMounted, 用户数据:', userStore.userData);
   if (userStore.userData?.userId) {
     loadTodayData();
   }
@@ -566,9 +572,7 @@ onMounted(() => {
 watch(
   () => userStore.userData?.userId,
   (newUserId, oldUserId) => {
-    console.log('watch 触发, 新ID:', newUserId, '旧ID:', oldUserId);
     if (newUserId && newUserId !== oldUserId) {
-      console.log('用户ID变化，重新加载数据:', newUserId);
       loadTodayData();
     }
   },
@@ -690,8 +694,30 @@ watch(
   overflow: hidden;
 }
 
-.card::before {
-  display: none;
+/* 合并卡片特殊样式 */
+.overview-actions-card,
+.water-wheel-card {
+  padding: 32px 24px;
+}
+
+.card-header-section {
+  margin-bottom: 20px;
+}
+
+.action-section-divider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(0, 0, 0, 0.08), transparent);
+  margin: 24px 0;
+}
+
+.wheel-section {
+  margin-top: 8px;
+}
+
+/* 营养卡片特殊设置 */
+.nutrition-card {
+  padding: 32px 24px;
+  min-height: 320px;
 }
 
 .card:hover {
@@ -1243,75 +1269,148 @@ watch(
   box-shadow: 0 8px 32px rgba(0, 122, 255, 0.4);
 }
 
-.nutrition-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 16px;
-}
-
-.nutrition-item {
-  background: #f5f5f7;
-  border-radius: 20px;
-  padding: 24px;
+/* 营养摄入进度条样式 */
+.nutrition-progress-container {
   display: flex;
   flex-direction: column;
+  gap: 24px;
+}
+
+.nutrition-progress-item {
+  background: #f8f9ff;
+  border-radius: 16px;
+  padding: 20px;
+  border: 1px solid rgba(0, 122, 255, 0.1);
+  transition: all 0.3s cubic-bezier(0.25, 0.1, 0.25, 1);
+}
+
+.nutrition-progress-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 122, 255, 0.1);
+  border-color: rgba(0, 122, 255, 0.2);
+}
+
+.progress-header {
+  display: flex;
   align-items: center;
-  gap: 16px;
-  transition: all 0.4s cubic-bezier(0.25, 0.1, 0.25, 1);
-  border: none;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  gap: 12px;
 }
 
-.nutrition-item:hover {
-  transform: translateY(-4px);
-  background: #ebebf0;
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.08);
-}
-
-.nutrition-icon {
-  width: 56px;
-  height: 56px;
+.progress-icon {
+  width: 48px;
+  height: 48px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 16px;
-  font-size: 1.5rem;
-  animation: iconFloat 3s ease-in-out infinite;
+  border-radius: 12px;
+  font-size: 1.25rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  flex-shrink: 0;
 }
 
-.nutrition-icon.protein {
+.progress-icon.protein {
   background: linear-gradient(135deg, #ff3b30 0%, #ff6b6b 100%);
-  box-shadow: 0 8px 24px rgba(255, 59, 48, 0.3);
+  box-shadow: 0 4px 12px rgba(255, 59, 48, 0.3);
+  color: white;
 }
 
-.nutrition-icon.carbs {
+.progress-icon.carbs {
   background: linear-gradient(135deg, #ff9500 0%, #ffcc00 100%);
-  box-shadow: 0 8px 24px rgba(255, 149, 0, 0.3);
+  box-shadow: 0 4px 12px rgba(255, 149, 0, 0.3);
+  color: white;
 }
 
-.nutrition-icon.fat {
+.progress-icon.fat {
   background: linear-gradient(135deg, #34c759 0%, #30d158 100%);
-  box-shadow: 0 8px 24px rgba(52, 199, 89, 0.3);
+  box-shadow: 0 4px 12px rgba(52, 199, 89, 0.3);
+  color: white;
 }
 
-.nutrition-info {
-  text-align: center;
-}
-
-.nutrition-value {
-  font-size: 32px;
-  font-weight: 700;
+.progress-label {
+  flex: 1;
+  font-weight: 600;
   color: #1d1d1f;
-  margin-bottom: 4px;
-  letter-spacing: -1.5px;
-  line-height: 1;
+  font-size: 16px;
+  letter-spacing: -0.2px;
 }
 
-.nutrition-label {
+.progress-value {
+  font-weight: 700;
+  font-size: 18px;
+  color: #1d1d1f;
+  background: linear-gradient(135deg, #1d1d1f 0%, #424245 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  flex-shrink: 0;
+  min-width: 60px;
+  text-align: right;
+}
+
+.progress-bar {
+  height: 12px;
+  background: rgba(0, 0, 0, 0.06);
+  border-radius: 6px;
+  overflow: hidden;
+  margin-bottom: 12px;
+  position: relative;
+}
+
+.progress-fill {
+  height: 100%;
+  border-radius: 6px;
+  transition: width 1s cubic-bezier(0.25, 0.1, 0.25, 1);
+  position: relative;
+}
+
+.progress-fill::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+  animation: shimmer 2s infinite;
+}
+
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+.progress-fill.protein {
+  background: linear-gradient(90deg, #ff3b30, #ff6b6b);
+  box-shadow: 0 0 12px rgba(255, 59, 48, 0.4);
+}
+
+.progress-fill.carbs {
+  background: linear-gradient(90deg, #ff9500, #ffcc00);
+  box-shadow: 0 0 12px rgba(255, 149, 0, 0.4);
+}
+
+.progress-fill.fat {
+  background: linear-gradient(90deg, #34c759, #30d158);
+  box-shadow: 0 0 12px rgba(52, 199, 89, 0.4);
+}
+
+.progress-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 14px;
+}
+
+.progress-percent {
+  font-weight: 600;
+  color: #1d1d1f;
+}
+
+.progress-target {
   color: #86868b;
-  font-size: 13px;
   font-weight: 500;
-  letter-spacing: -0.1px;
-  text-transform: none;
 }
 
 .action-grid {
@@ -1410,8 +1509,14 @@ watch(
 }
 
 .tips-container {
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: 16px;
+  width: 100%;
+}
+
+.full-width-card {
+  grid-column: 1 / -1;
 }
 
 .tip-item {
@@ -1484,10 +1589,22 @@ watch(
   text-align: center;
 }
 
+.wheel-subtitle-title {
+  color: #1d1d1f;
+  margin-bottom: 8px;
+  padding-bottom: 0;
+  border-bottom: none;
+  font-weight: 600;
+  letter-spacing: -0.3px;
+  font-size: 18px;
+  text-align: center;
+}
+
 .wheel-subtitle {
   color: #86868b;
-  font-size: 14px;
-  margin-bottom: 20px;
+  font-size: 13px;
+  margin-bottom: 16px;
+  text-align: center;
 }
 
 .wheel-container {

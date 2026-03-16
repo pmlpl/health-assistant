@@ -18,24 +18,38 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import com.example.healthassistant.config.EnvConfig;
 
 @Service
 public class ImageRecognitionService {
 
     @Value("${doubao.api.key:}")
-    private String apiKey;
+    private String apiKeyFromConfig;
 
     @Value("${doubao.model.name:doubao-vision-pro-32k}")
     private String modelName;
 
-    public Map<String, Object> recognizeFoodInImage(MultipartFile imageFile, String userId) throws IOException {
-        String effectiveApiKey = apiKey;
-        if (effectiveApiKey == null || effectiveApiKey.isEmpty()) {
-            effectiveApiKey = System.getenv("DOUBAO_API_KEY");
+    /**
+     * 获取 API Key，优先从 .env 文件加载
+     */
+    private String getApiKey() {
+        // 优先从 EnvConfig 获取（支持 .env 文件）
+        String key = EnvConfig.getDoubaoApiKey();
+        if (key != null && !key.isEmpty() && !key.contains("your_")) {
+            return key;
         }
+        // 其次从 Spring 配置获取
+        if (apiKeyFromConfig != null && !apiKeyFromConfig.isEmpty()) {
+            return apiKeyFromConfig;
+        }
+        return null;
+    }
+
+    public Map<String, Object> recognizeFoodInImage(MultipartFile imageFile, String userId) throws IOException {
+        String effectiveApiKey = getApiKey();
 
         if (effectiveApiKey == null || effectiveApiKey.isEmpty()) {
-            System.out.println("豆包API密钥未配置，使用模拟数据");
+            System.out.println("豆包 API 密钥未配置，使用模拟数据");
             return generateMockRecognitionResult(imageFile);
         }
 

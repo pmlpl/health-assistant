@@ -6,21 +6,10 @@
       <div class="stats-bar">
         <span class="stat-item">📊 今日记录: {{ diaryEntries.length }} 条</span>
         <span class="stat-item">🔥 总热量: {{ totalNutrition.calories }}kcal</span>
-        <button @click="showCalendar = !showCalendar" class="calendar-toggle">
-          📅 {{ showCalendar ? '隐藏日历' : '显示日历' }}
-        </button>
       </div>
     </div>
-
-    <!-- 日历视图 -->
-    <div v-if="showCalendar" class="calendar-section">
-      <ProfessionalCalendar 
-        :user-id="userStore.userData.userId"
-        @date-selected="handleDateSelected"
-      />
-    </div>
     
-    <div class="main-container" v-show="!showCalendar">
+    <div class="main-container">
       <!-- 左侧：记录区域 -->
       <div class="left-panel">
         <div class="card record-card">
@@ -342,6 +331,9 @@ import { healthApi } from '../api/healthApi'
 import { useUserStore } from '../stores/userStore'
 import ProfessionalCalendar from '../components/ProfessionalCalendar.vue'
 import ManualNutritionInput from '../components/ManualNutritionInput.vue'
+
+// 使用环境变量配置 API 基础 URL
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api'
 const userStore = useUserStore()
 
 // 当前正在输入的食物项
@@ -372,7 +364,6 @@ const recognizedFoods = ref([])
 const nutritionEstimate = ref(null)
 const showManualInput = ref(false)
 const currentManualFood = ref(null)
-const showCalendar = ref(false)
 const analyzingNutrition = ref(false)
 const nutritionAnalysis = ref('')
 const imageUploader = ref(null)
@@ -468,28 +459,24 @@ const analyzeFoodItems = async () => {
       `${item.quantity}${item.unit}${item.name}`
     ).join('、')
 
-    console.log('发送到API的食物描述:', foodDescription)
 
-    // 使用axios调用后端AI分析API，支持更长超时
-    const response = await axios.post('http://localhost:8080/api/diet/smart-analyze', {
+    // 使用 axios 调用后端 AI 分析 API，支持更长超时
+    const response = await axios.post('/api/diet/smart-analyze', {
       foodDescription: foodDescription
     }, {
-      timeout: 60000,  // AI分析可能需要更长时间，设置为60秒
+      timeout: 60000,  // AI 分析可能需要更长时间，设置为 60 秒
       headers: {
         'Content-Type': 'application/json'
       }
     })
 
-    console.log('API响应:', response.data)
     const result = response.data
     
     // 显示识别到的食物
     recognizedFoods.value = result.foods || []
-    console.log('识别到的食物:', recognizedFoods.value)
 
     // 显示营养成分预估
     nutritionEstimate.value = result.totalNutrition
-    console.log('营养成分预估:', nutritionEstimate.value)
 
     // 自动填充营养成分
     if (result.totalNutrition) {
@@ -553,16 +540,13 @@ const recordDiet = async () => {
     }
 
     const result = await healthApi.recordDiet(dietData)
-    console.log('记录饮食成功:', result)
     alert('饮食记录成功！')
 
     // 清空表单
     resetForm()
 
     // 重新加载今日记录
-    console.log('开始刷新今日记录...')
     await loadTodayRecords()
-    console.log('刷新完成，当前记录数:', diaryEntries.value.length)
   } catch (err) {
     userStore.setError(err.message || '记录饮食失败')
     console.error('记录饮食失败:', err)
@@ -577,17 +561,14 @@ const loadTodayRecords = async () => {
     const now = new Date()
     const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
     const userId = userStore.userData?.userId
-    
-    console.log('加载今日记录:', { userId, today })
-    
+
     if (!userId) {
       console.error('用户ID为空，无法加载记录')
       return
     }
     
     const records = await healthApi.getDailyDiet(userId, today)
-    console.log('获取到的记录:', records)
-    
+
     // 过滤掉喝水打卡记录
     const filteredRecords = (records || []).filter(record => 
       !(record.foodDescription && 
@@ -596,7 +577,6 @@ const loadTodayRecords = async () => {
     )
     
     diaryEntries.value = filteredRecords
-    console.log('更新后的记录列表:', diaryEntries.value)
   } catch (err) {
     console.error('加载今日记录失败:', err)
     userStore.setError(err.message || '加载记录失败')
@@ -685,8 +665,12 @@ const analyzeNutrition = async () => {
 
     console.log('发送营养分析请求:', { userId, nutritionData })
 
+    const apiUrl = API_BASE_URL.startsWith('/api') 
+      ? window.location.origin + API_BASE_URL 
+      : API_BASE_URL;
+
     const response = await axios.post(
-      `http://localhost:8080/api/diet/analyze-nutrition/${userId}`,
+      `${apiUrl}/diet/analyze-nutrition/${userId}`,
       nutritionData,
       {
         timeout: 60000,
@@ -743,7 +727,12 @@ const handleImageUpload = async (event) => {
   }
 
   try {
-    const response = await axios.post('http://localhost:8080/api/image/recognize', formData, {
+    // 使用环境变量配置的 API 地址
+    const apiUrl = API_BASE_URL.startsWith('/api') 
+      ? window.location.origin + API_BASE_URL 
+      : API_BASE_URL;
+    
+    const response = await axios.post(`${apiUrl}/image/recognize`, formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
@@ -769,7 +758,7 @@ const handleImageUpload = async (event) => {
 
   } catch (err) {
     console.error('图片识别失败:', err);
-    alert(`❌ 图片识别失败: ${err.message}`);
+    alert(`❌ 图片识别失败：${err.message}`);
   } finally {
     uploading.value = false;
     // 清空文件输入框，以便可以再次上传同一张图片
@@ -855,7 +844,11 @@ const batchDelete = async () => {
   try {
     batchDeleting.value = true
     
-    const response = await fetch('http://localhost:8080/api/diet/batch', {
+    const apiUrl = API_BASE_URL.startsWith('/api') 
+      ? window.location.origin + API_BASE_URL 
+      : API_BASE_URL;
+    
+    const response = await fetch(`${apiUrl}/diet/batch`, {
       method: 'DELETE',
       headers: {
         'Content-Type': 'application/json',
@@ -907,9 +900,13 @@ const deleteRecord = async (recordId, index) => {
   try {
     userStore.setLoading(true)
     userStore.clearError()
-    
-    // 调用后端删除API
-    const response = await fetch(`http://localhost:8080/api/diet/${recordId}`, {
+      
+    const apiUrl = API_BASE_URL.startsWith('/api') 
+      ? window.location.origin + API_BASE_URL 
+      : API_BASE_URL;
+      
+    // 调用后端删除 API
+    const response = await fetch(`${apiUrl}/diet/${recordId}`, {
       method: 'DELETE',
       headers: {
         'Content-Type': 'application/json',
@@ -937,25 +934,16 @@ const deleteRecord = async (recordId, index) => {
   }
 }
 
-const handleDateSelected = (selectedDate) => {
-  console.log('选择了日期:', selectedDate)
-  // 可以在这里添加切换到指定日期记录的功能
-}
-
 // 组件挂载时加载数据
 onMounted(async () => {
-  console.log('DiaryView 挂载, 认证状态:', userStore.isAuthenticated)
-  console.log('用户数据:', userStore.userData)
   
   // 初始化 store
   userStore.initializeStore()
   
   // 如果已认证，加载记录
   if (userStore.isAuthenticated) {
-    console.log('用户已认证，开始加载今日记录')
     await loadTodayRecords()
   } else {
-    console.log('用户未认证，跳过加载记录')
     // 尝试从 localStorage 恢复用户状态
     const storedUserData = localStorage.getItem('userProfile')
     if (storedUserData) {
@@ -1080,36 +1068,6 @@ onMounted(async () => {
   transform: translateY(-2px);
 }
 
-.calendar-toggle {
-  background: #007aff;
-  color: white;
-  border: none;
-  padding: 10px 20px;
-  border-radius: 980px;
-  cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.25, 0.1, 0.25, 1);
-  font-size: 14px;
-  font-weight: 500;
-  letter-spacing: -0.1px;
-}
-
-.calendar-toggle:hover {
-  background: #0066d6;
-  transform: scale(1.02);
-  box-shadow: 0 4px 16px rgba(0, 122, 255, 0.3);
-}
-
-.calendar-section {
-  margin: 0 32px 20px;
-  background: #ffffff;
-  border-radius: 20px;
-  padding: 24px;
-  box-shadow: 
-    0 2px 8px rgba(0, 0, 0, 0.02),
-    0 8px 32px rgba(0, 0, 0, 0.04);
-  position: relative;
-  z-index: 1;
-}
 
 .main-container {
   display: grid;

@@ -10,7 +10,8 @@
       </div>
       
       <div class="message-content">
-        <p class="message-text">{{ message }}</p>
+        <p class="message-text" v-if="!dangerouslyUseHTMLString">{{ message }}</p>
+        <p class="message-text" v-else v-html="message"></p>
       </div>
       
       <div class="message-footer" v-if="showActions">
@@ -72,6 +73,10 @@ const props = defineProps({
   closeOnOverlay: {
     type: Boolean,
     default: true
+  },
+  dangerouslyUseHTMLString: {
+    type: Boolean,
+    default: false
   }
 })
 
@@ -116,7 +121,6 @@ const handleOverlayClick = () => {
 
 // 处理动作按钮点击
 const handleAction = (action) => {
-  console.log('动作按钮被点击:', action);
   emit('action', action)
   if (action.close !== false) {
     close()
@@ -133,7 +137,6 @@ defineExpose({
 })
 
 onMounted(() => {
-  console.log('MessageBox mounted, props:', props);
 })
 </script>
 

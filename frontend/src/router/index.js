@@ -11,6 +11,10 @@ import RegisterView from '../views/RegisterView.vue';
 import FitnessView from '../views/FitnessView.vue';
 // 添加MentalHealthView导入
 import MentalHealthView from '../views/MentalHealthView.vue';
+// 添加 CalendarView导入
+import CalendarView from '../views/CalendarView.vue';
+// 添加 AIRecipeResultView导入
+import AIRecipeResultView from '../views/AIRecipeResultView.vue';
 import { useUserStore } from '../stores/userStore';
 
 const routes = [
@@ -63,12 +67,26 @@ const routes = [
         component: FitnessView,
         meta: { requiresAuth: true }
     },
-    // 添加MentalHealthView路由
+    // 添加MentalHealthView 路由
     {
         path: '/mental-health',
         name: 'MentalHealth',
         component: MentalHealthView,
         meta: { requiresAuth: true }
+    },
+    // 添加 CalendarView 路由
+    {
+        path: '/calendar',
+        name: 'Calendar',
+        component: CalendarView,
+        meta: { requiresAuth: true }
+    },
+    // AI 食谱推荐结果页面（新标签页打开）
+    {
+        path: '/ai-recipe-result',
+        name: 'AIRecipeResult',
+        component: AIRecipeResultView,
+        meta: { requiresAuth: true } // 需要认证，因为要调用 API
     },
 ];
 
@@ -81,19 +99,14 @@ const router = createRouter({
 router.beforeEach((to, from, next) => {
     const userStore = useUserStore();
 
-    console.log('路由守卫 - 当前路径:', to.path);
-    console.log('路由守卫 - 登录状态:', userStore.isLoggedIn);
-    console.log('路由守卫 - localStorage登录状态:', localStorage.getItem('isLoggedIn'));
-
-    // 检查localStorage中的登录状态
+    // 检查 localStorage 中的登录状态
     const storedLoginStatus = localStorage.getItem('isLoggedIn') === 'true';
     const storedUserData = localStorage.getItem('userProfile');
-
-    // 如果store中没有登录状态但localStorage中有，则恢复状态
+    
+    // 如果 store 中没有登录状态但 localStorage 中有，则恢复状态
     if (!userStore.isLoggedIn && storedLoginStatus && storedUserData) {
         try {
             const userData = JSON.parse(storedUserData);
-            console.log('从localStorage恢复用户数据:', userData);
             userStore.setUserData(userData);
         } catch (e) {
             console.error('恢复用户状态失败:', e);
@@ -102,20 +115,17 @@ router.beforeEach((to, from, next) => {
             localStorage.removeItem('userProfile');
         }
     }
-
+    
     // 检查是否需要认证
     if (to.meta.requiresAuth && !userStore.isLoggedIn) {
-        console.log('需要认证但未登录，重定向到登录页');
         next('/login');
     }
     // 检查是否是游客页面（登录/注册页）
     else if (to.meta.requiresGuest && userStore.isLoggedIn) {
-        console.log('已登录用户访问游客页面，重定向到首页');
         next('/');
     }
     // 其他情况正常放行
     else {
-        console.log('路由正常通行');
         next();
     }
 });

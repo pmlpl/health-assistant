@@ -117,9 +117,6 @@ public class AIController {
             @PathVariable String userId,
             @RequestBody Map<String, Object> workoutData) {
         try {
-            System.out.println("收到健身收获分析请求，用户 ID: " + userId);
-            System.out.println("健身数据：" + workoutData);
-
             // 验证必要参数
             Integer totalCalories = (Integer) workoutData.get("totalCalories");
             Integer totalDuration = (Integer) workoutData.get("totalDuration");
@@ -141,7 +138,6 @@ public class AIController {
 
             return ResponseEntity.ok(response);
         } catch (Exception e) {
-            e.printStackTrace();
             Map<String, Object> errorResponse = new HashMap<>();
             errorResponse.put("success", false);
             errorResponse.put("error", "健身收获分析失败：" + e.getMessage());
@@ -181,7 +177,6 @@ public class AIController {
             return ResponseEntity.ok(responseMap);
 
         } catch (Exception e) {
-            e.printStackTrace();
             Map<String, Object> errorResponse = new HashMap<>();
             errorResponse.put("success", false);
             errorResponse.put("error", "心理健康咨询失败：" + e.getMessage());

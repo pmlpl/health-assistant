@@ -37,7 +37,6 @@ public class ChatCompletionsVisionExample {
             return;
         }
 
-        System.out.println("----- image input -----");
         final List<ChatMessage> messages = new ArrayList<>();
         final List<ChatCompletionContentPart> multiParts = new ArrayList<>();
         
@@ -68,18 +67,14 @@ public class ChatCompletionsVisionExample {
         try {
             // 根据项目中 DoubaoFoodRecognitionService 的实现，使用 createResponse 方法
             // service.createResponse(chatCompletionRequest);
-            
+                    
             // 或者如果 SDK 支持 createChatCompletion，使用这个方法
             service.createChatCompletion(chatCompletionRequest)
                    .getChoices()
                    .forEach(choice -> 
                        System.out.println(choice.getMessage().getContent()));
-
-            System.out.println("调用成功！");
-            
+                    
         } catch (Exception e) {
-            System.err.println("API调用失败: " + e.getMessage());
-            e.printStackTrace();
             
             // 提供调试信息
             System.err.println("请检查:");

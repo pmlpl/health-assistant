@@ -117,7 +117,9 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public UserProfile getUserProfile(String userId) {
-        return userProfileRepository.findByUserId(userId);
+        // 使用优化后的查询方法，加载用户档案和饮食禁忌
+        // tastePreferences 通过 @BatchSize 懒加载优化
+        return userProfileRepository.findByUserIdWithDietaryRestrictions(userId);
     }
 
     @Override

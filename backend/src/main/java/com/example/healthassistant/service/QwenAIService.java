@@ -4,6 +4,9 @@ package com.example.healthassistant.service;
 import com.alibaba.dashscope.aigc.generation.Generation;
 import com.alibaba.dashscope.aigc.generation.GenerationParam;
 import com.alibaba.dashscope.aigc.generation.GenerationResult;
+import com.alibaba.dashscope.aigc.imagesynthesis.ImageSynthesis;
+import com.alibaba.dashscope.aigc.imagesynthesis.ImageSynthesisParam;
+import com.alibaba.dashscope.aigc.imagesynthesis.ImageSynthesisResult;
 import com.alibaba.dashscope.common.Message;
 import com.alibaba.dashscope.common.Role;
 import com.alibaba.dashscope.exception.ApiException;
@@ -19,6 +22,7 @@ import org.springframework.stereotype.Service;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
+import com.example.healthassistant.config.EnvConfig;
 
 @Service
 public class QwenAIService {
@@ -26,8 +30,24 @@ public class QwenAIService {
     @Autowired
     private UserProfileRepository userProfileRepository;
 
-    @Value("${qwen.api.key:}")
+    @Value("${dashscope.api.key:}")
     private String configApiKey;
+
+    /**
+     * 获取 API Key，优先从 .env 文件加载
+     */
+    private String getApiKey() {
+        // 优先从 EnvConfig 获取（支持 .env 文件）
+        String key = EnvConfig.getDashscopeApiKey();
+        if (key != null && !key.isEmpty() && !key.contains("your_")) {
+            return key;
+        }
+        // 其次从 Spring 配置获取
+        if (configApiKey != null && !configApiKey.isEmpty()) {
+            return configApiKey;
+        }
+        return null;
+    }
 
     private static final String MODEL_NAME = "qwen-plus"; // 或者使用 "qwen-plus" 或 "qwen-max"/qwen-turbo
 
@@ -47,25 +67,22 @@ public class QwenAIService {
     private static final int MAX_HISTORY_LENGTH = 1000;
 
     public String getNutritionAdvice(String userId, String userMessage) {
-        System.out.println("正在调用AI服务，用户ID: " + userId + ", 用户消息: " + userMessage);
-
-        // 检查API密钥是否配置，优先读取配置文件，其次读取环境变量
-        String apiKey = configApiKey;
-        if (apiKey == null || apiKey.isEmpty()) {
-            apiKey = System.getenv("DASHSCOPE_API_KEY");
-        }
-
+        System.out.println("正在调用 AI 服务，用户 ID: " + userId + ", 用户消息：" + userMessage);
+    
+        // 检查 API 密钥是否配置，优先从 .env 文件加载
+        String apiKey = getApiKey();
+    
         if (apiKey == null || apiKey.isEmpty()) {
             System.out.println("==============================================");
-            System.out.println("通义千问API密钥未配置，切换到本地演示模式");
-            System.out.println("提示：如需使用真实AI服务，请在application.properties中设置qwen.api.key");
+            System.out.println("通义千问 API 密钥未配置，切换到本地演示模式");
+            System.out.println("提示：如需使用真实 AI 服务，请在 backend/.env 文件中设置 DASHSCOPE_API_KEY");
             System.out.println("==============================================");
             return generateMockResponse(userMessage);
         }
-
+    
         try {
             // 获取用户档案信息
-            UserProfile userProfile = userProfileRepository.findByUserId(userId);
+            UserProfile userProfile = userProfileRepository.findByUserIdWithDietaryRestrictions(userId);
             String userProfileInfo = buildUserProfileInfo(userProfile);
 
             // 获取或创建该用户的会话历史
@@ -145,13 +162,10 @@ public class QwenAIService {
 
     public Map<String, Object> generateRecipeRecommendations(UserProfile userProfile,
             Map<String, Double> consumedNutrition, String mealType) {
-        String effectiveApiKey = configApiKey;
+        String effectiveApiKey = getApiKey();
+    
         if (effectiveApiKey == null || effectiveApiKey.isEmpty()) {
-            effectiveApiKey = System.getenv("DASHSCOPE_API_KEY");
-        }
-
-        if (effectiveApiKey == null || effectiveApiKey.isEmpty()) {
-            System.out.println("通义千问API密钥未配置，使用模拟食谱推荐");
+            System.out.println("通义千问 API 密钥未配置，使用模拟食谱推荐");
             return generateMockRecommendations(userProfile, mealType);
         }
 
@@ -181,7 +195,59 @@ public class QwenAIService {
 
             String jsonResponse = result.getOutput().getChoices().get(0).getMessage().getContent();
             ObjectMapper objectMapper = new ObjectMapper();
-            return objectMapper.readValue(jsonResponse, Map.class);
+            Map<String, Object> responseMap = objectMapper.readValue(jsonResponse, Map.class);
+            
+            // 为所有食谱生成图片（异步串行处理，避免触发频率限制）
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> recommendations = (List<Map<String, Object>>) responseMap.get("recommendations");
+            if (recommendations != null && !recommendations.isEmpty()) {
+                System.out.println("📊 共有 " + recommendations.size() + " 个食谱，开始串行生成图片...");
+                
+                // 串行生成图片，每个间隔 1 秒，避免触发 429 限流
+                int successCount = 0;
+                for (int i = 0; i < recommendations.size(); i++) {
+                    final int index = i;
+                    final Map<String, Object> recipe = recommendations.get(i);
+                    
+                    try {
+                        String recipeName = (String) recipe.get("recipeName");
+                        String description = (String) recipe.get("description");
+                        @SuppressWarnings("unchecked")
+                        List<String> ingredients = (List<String>) recipe.get("ingredients");
+                        
+                        // 生成图片提示词
+                        String imagePrompt = buildImagePrompt(recipeName, description, ingredients);
+                        
+                        // 调用通义万相生成图片
+                        String imageUrl = generateRecipeImage(imagePrompt, effectiveApiKey);
+                        
+                        if (imageUrl != null && !imageUrl.isEmpty()) {
+                            recipe.put("image", imageUrl);
+                            System.out.println("✅ 第 " + (index + 1) + " 张图片生成成功：" + recipeName);
+                            successCount++;
+                        } else {
+                            System.out.println("⚠️ 第 " + (index + 1) + " 张图片生成失败：" + recipeName);
+                        }
+                        
+                        // 延迟 1.5 秒，避免触发 429 限流
+                        if (i < recommendations.size() - 1) {
+                            Thread.sleep(1500);
+                        }
+                    } catch (InterruptedException e) {
+                        System.err.println("⚠️ 第 " + (index + 1) + " 张图片生成被中断：" + e.getMessage());
+                        Thread.currentThread().interrupt();
+                        break;
+                    } catch (Exception e) {
+                        System.err.println("❌ 第 " + (index + 1) + " 张图片生成异常：" + e.getMessage());
+                        e.printStackTrace();
+                        // 继续生成下一张，不中断整个流程
+                    }
+                }
+                
+                System.out.println("✨ 所有食谱图片生成完成！成功：" + successCount + "/" + recommendations.size());
+            }
+            
+            return responseMap;
 
         } catch (Exception e) {
             System.err.println("AI食谱推荐失败: " + e.getMessage());
@@ -374,7 +440,7 @@ public class QwenAIService {
         }
 
         try {
-            UserProfile userProfile = userProfileRepository.findByUserId(userId);
+            UserProfile userProfile = userProfileRepository.findByUserIdWithDietaryRestrictions(userId);
             String userProfileInfo = buildUserProfileInfo(userProfile);
 
             // 判断是否为健身分析
@@ -734,7 +800,7 @@ public class QwenAIService {
         }
 
         try {
-            UserProfile userProfile = userProfileRepository.findByUserId(userId);
+            UserProfile userProfile = userProfileRepository.findByUserIdWithDietaryRestrictions(userId);
             String userProfileInfo = buildUserProfileInfo(userProfile);
 
             // 构建健身收获分析提示词
@@ -1086,7 +1152,7 @@ public class QwenAIService {
             Generation gen = new Generation();
 
             // 获取用户档案信息
-            UserProfile userProfile = userProfileRepository.findByUserId(userId);
+            UserProfile userProfile = userProfileRepository.findByUserIdWithDietaryRestrictions(userId);
             String userProfileInfo = buildUserProfileInfo(userProfile);
 
             // 获取或创建该用户的会话历史
@@ -1195,6 +1261,137 @@ public class QwenAIService {
             return "良好的人际关系对心理健康至关重要。建议你定期与朋友和家人保持联系，表达自己的感受和需求，同时也要倾听他人的想法。建立健康的边界，学会说'不'，避免过度承诺。如果关系中存在冲突，尝试通过开放、诚实的沟通来解决问题。";
         } else {
             return "心理健康是整体健康的重要组成部分。建议你保持规律的作息，进行适量的运动，保持社交联系，培养兴趣爱好，以及学会管理压力。如果你有具体的心理健康问题，欢迎随时向我咨询，我会尽力为你提供支持和建议。";
+        }
+    }
+
+    /**
+     * 构建食谱图片生成提示词
+     */
+    private String buildImagePrompt(String recipeName, String description, List<String> ingredients) {
+        StringBuilder prompt = new StringBuilder();
+        prompt.append("一张写实风格的美食摄影作品，高清，专业拍摄。");
+        prompt.append("菜肴名称：").append(recipeName).append("。");
+        prompt.append(description).append("。");
+        prompt.append("主要食材：").append(String.join(",", ingredients)).append("。");
+        prompt.append("画面要求：精美的摆盘，柔和的自然光，浅景深，食物特写，诱人的色泽，高分辨率，细节清晰。");
+        return prompt.toString();
+    }
+
+    /**
+     * 使用通义万相生成食谱图片（同步调用 + 详细调试）
+     */
+    private String generateRecipeImage(String prompt, String apiKey) {
+        try {
+            ImageSynthesis imageSynthesis = new ImageSynthesis();
+            
+            // 使用更快的配置 - 使用合法尺寸
+            ImageSynthesisParam param = ImageSynthesisParam.builder()
+                    .apiKey(apiKey)
+                    .model("wanx-v1")
+                    .prompt(prompt)
+                    .n(1)  // 生成 1 张图片
+                    .size("1024*1024")  // 使用支持的尺寸（虽然大一点但能成功）
+                    .build();
+
+            System.out.println("🎨 正在生成图片：" + prompt.substring(0, Math.min(30, prompt.length())) + "...");
+            System.out.println("📋 使用的模型：wanx-v1");
+            System.out.println("📋 图片尺寸：512*512");
+            
+            // 直接同步调用
+            ImageSynthesisResult result = imageSynthesis.call(param);
+            
+            if (result == null) {
+                System.err.println("⚠️ 图片生成结果为 null");
+                return null;
+            }
+            
+            System.out.println("✅ API 调用成功，开始解析结果...");
+            
+            // 尝试获取输出对象
+            var output = result.getOutput();
+            if (output == null) {
+                System.err.println("⚠️ API 输出对象为 null");
+                return null;
+            }
+            
+            // 尝试获取 results 字段
+            var results = output.getResults();
+            if (results == null) {
+                System.err.println("⚠️ API 结果列表为 null");
+                System.err.println("🔍 完整输出对象：" + output.toString());
+                return null;
+            }
+            
+            if (results.isEmpty()) {
+                System.err.println("⚠️ API 结果列表为空数组");
+                System.err.println("🔍 完整输出对象：" + output.toString());
+                return null;
+            }
+            
+            // 从 Map 中获取 URL
+            Object firstResult = results.get(0);
+            if (!(firstResult instanceof Map)) {
+                System.err.println("⚠️ 结果不是 Map 类型：" + firstResult.getClass().getName());
+                return null;
+            }
+            @SuppressWarnings("unchecked")
+            Map<String, Object> resultMap = (Map<String, Object>) firstResult;
+            
+            if (resultMap == null) {
+                System.err.println("⚠️ 第一个结果对象为 null");
+                return null;
+            }
+            
+            System.out.println("🔍 结果数据类型：" + resultMap.getClass().getName());
+            System.out.println("🔍 结果包含的键：" + resultMap.keySet());
+            
+            // 尝试多种方式获取 URL
+            String imageUrl = null;
+            
+            // 方式 1: 直接获取 url 字段（小写）
+            if (resultMap.containsKey("url")) {
+                imageUrl = String.valueOf(resultMap.get("url"));
+                System.out.println("🔍 从 'url' 字段获取到：" + imageUrl);
+            }
+            // 方式 2: 尝试 output 字段（某些 API 返回格式）
+            else if (resultMap.containsKey("output")) {
+                Object outputObj = resultMap.get("output");
+                if (outputObj instanceof Map) {
+                    @SuppressWarnings("unchecked")
+                    Map<String, Object> outputMap = (Map<String, Object>) outputObj;
+                    if (outputMap.containsKey("url")) {
+                        imageUrl = String.valueOf(outputMap.get("url"));
+                        System.out.println("🔍 从 'output.url' 获取到：" + imageUrl);
+                    }
+                }
+            }
+            // 方式 3: 尝试 results 嵌套
+            else if (resultMap.containsKey("results")) {
+                Object nestedResults = resultMap.get("results");
+                if (nestedResults instanceof java.util.List && !((java.util.List<?>) nestedResults).isEmpty()) {
+                    @SuppressWarnings("unchecked")
+                    Map<String, Object> nestedMap = (Map<String, Object>) ((java.util.List<?>) nestedResults).get(0);
+                    if (nestedMap.containsKey("url")) {
+                        imageUrl = String.valueOf(nestedMap.get("url"));
+                        System.out.println("🔍 从 'results[0].url' 获取到：" + imageUrl);
+                    }
+                }
+            }
+            
+            if (imageUrl != null && !imageUrl.isEmpty()) {
+                System.out.println("✅ 图片生成成功：" + imageUrl);
+                return imageUrl;
+            } else {
+                System.err.println("⚠️ 所有方式都未获取到 URL");
+                System.err.println("🔍 完整结果对象：" + resultMap.toString());
+                return null;
+            }
+            
+        } catch (Exception e) {
+            System.err.println("❌ 图片生成异常：" + e.getMessage());
+            System.err.println("🔍 异常类型：" + e.getClass().getName());
+            e.printStackTrace();
+            return null;
         }
     }
 }

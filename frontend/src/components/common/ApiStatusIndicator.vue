@@ -58,7 +58,7 @@ const refreshStatus = async () => {
     qwenStatus.value = status.qwen;
     doubaoStatus.value = status.doubao;
   } catch (error) {
-    console.error('刷新API状态失败:', error);
+    console.error('刷新 API 状态失败:', error);
   }
 };
 

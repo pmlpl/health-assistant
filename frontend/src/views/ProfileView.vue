@@ -1,220 +1,222 @@
 <template>
-  <div class="profile-layout">
+  <div class="dashboard-layout">
     <!-- 页面头部 -->
     <div class="page-header">
       <h1>👤 个人中心</h1>
-      <p class="subtitle">📋 管理您的账户信息和个人档案</p>
+      <div class="stats-bar">
+        <span class="stat-item">欢迎，{{ userInfo.username }}！</span>
+        <span v-if="profileData.healthGoal" class="stat-item">
+          🎯 目标：{{ profileData.healthGoal }}
+        </span>
+        <span v-else class="stat-item">🌟 完善您的健康档案吧！</span>
+      </div>
     </div>
 
-    <div class="profile-container">
-      <!-- 用户基本信息卡片 -->
-      <div class="profile-card">
-        <div class="card-header">
+    <!-- 主要内容区域 - 上下三行布局 -->
+    <div class="three-row-layout">
+      <!-- 第一行：用户基本信息 -->
+      <div class="row first-row">
+        <div class="card profile-card">
           <h2>🔐 用户基本信息</h2>
-        </div>
-        
-        <div class="user-info-section">
-          <div class="info-item">
-            <label>👤 用户名:</label>
-            <div class="info-display">
-              <span>{{ userInfo.username }}</span>
-              <button @click="showUsernameModal = true" class="edit-btn">✏️ 修改</button>
+          <div class="user-info-section">
+            <div class="info-item">
+              <label>👤 用户名:</label>
+              <div class="info-display">
+                <span>{{ userInfo.username }}</span>
+                <button @click="showUsernameModal = true" class="edit-btn">✏️ 修改</button>
+              </div>
+            </div>
+                
+            <div class="info-item">
+              <label>📅 注册时间:</label>
+              <span>{{ formatDate(userInfo.createdAt) }}</span>
             </div>
           </div>
           
-          <div class="info-item">
-            <label>📅 注册时间:</label>
-            <span>{{ formatDate(userInfo.createdAt) }}</span>
+          <!-- 账户安全设置区域 -->
+          <div class="section-divider"></div>
+          <div class="security-section-inline">
+            <h3 class="subsection-title">🔐 账户安全设置</h3>
+            <div class="security-buttons">
+              <button @click="showPasswordModal = true" class="security-btn">
+                🔑 修改密码
+              </button>
+              
+              <button @click="logoutUser" class="security-btn secondary">
+                🚪 注销登录
+              </button>
+            </div>
+          </div>
+          
+          <!-- 危险操作区域 -->
+          <div class="section-divider"></div>
+          <div class="danger-zone-inline">
+            <h3 class="subsection-title danger-title">⚠️ 危险操作区</h3>
+            <div class="danger-section-inline">
+              <p class="warning-text">⚠️ 删除账户是永久性操作，将删除您的所有数据且无法恢复。</p>
+              <button @click="showDeleteModal = true" class="danger-btn">
+                🗑️ 删除账户
+              </button>
+            </div>
           </div>
         </div>
       </div>
 
-      <!-- 健康报告卡片 -->
-      <div class="profile-card">
-        <div class="card-header">
-          <h2>📊 近7日健康报告</h2>
-        </div>
-        <div v-if="dataLoading" class="loading-state">
-          <p>⏳ 正在加载健康数据...</p>
-        </div>
-        <div v-else-if="healthData.length === 0" class="empty-state">
-          <p>📝 过去7天没有饮食记录，快去记录吧！</p>
-        </div>
-        <div v-else class="charts-grid">
-          <HealthCharts title="🔥 热量摄入趋势" :option="caloriesChartOption" />
-          <HealthCharts title="🥗 宏量营养素来源" :option="macrosChartOption" />
-        </div>
-      </div>
-
-      <!-- 个人档案卡片 -->
-      <div class="profile-card">
-        <div class="card-header">
+      <!-- 第二行：个人健康档案 -->
+      <div class="row second-row">
+        <div class="card profile-form-card">
           <h2>📋 个人健康档案</h2>
-        </div>
-        
-        <form @submit.prevent="saveProfile" class="profile-form">
-          <!-- 基本身体信息 -->
-          <div class="form-section">
-            <h3 class="section-title">📏 身体信息</h3>
-            <div class="form-row">
-              <div class="form-group">
-                <label>📏 身高 (cm)</label>
-                <input 
-                  type="number" 
-                  v-model="profileData.height" 
-                  placeholder="请输入身高" 
-                  class="form-input"
-                />
-              </div>
-              <div class="form-group">
-                <label>⚖️ 体重 (kg)</label>
-                <input 
-                  type="number" 
-                  v-model="profileData.weight" 
-                  placeholder="请输入体重" 
-                  class="form-input"
-                />
-              </div>
-            </div>
-            
-            <div class="form-group">
-              <label>🎂 年龄</label>
-              <input 
-                type="number" 
-                v-model="profileData.age" 
-                placeholder="请输入年龄" 
-                class="form-input"
-              />
-            </div>
-          </div>
-
-          <!-- 生活习惯 -->
-          <div class="form-section">
-            <h3 class="section-title">🏃 生活习惯</h3>
-            <div class="form-row">
-              <div class="form-group">
-                <label>👫 性别</label>
-                <select v-model="profileData.gender" class="form-select">
-                  <option value="">请选择性别</option>
-                  <option value="M">男</option>
-                  <option value="F">女</option>
-                  <option value="O">其他</option>
-                  <option value="N">不愿透露</option>
-                </select>
-              </div>
-              <div class="form-group">
-                <label>💪 活动量</label>
-                <select v-model="profileData.activityLevel" class="form-select">
-                  <option value="">请选择活动量</option>
-                  <option value="久坐">久坐</option>
-                  <option value="轻度运动">轻度运动</option>
-                  <option value="中度运动">中度运动</option>
-                  <option value="重度运动">重度运动</option>
-                </select>
-              </div>
-            </div>
-          </div>
-
-          <!-- 健康目标 -->
-          <div class="form-section">
-            <h3 class="section-title">🎯 健康目标</h3>
-            <div class="form-group">
-              <label>🎯 健康目标</label>
-              <select v-model="profileData.healthGoal" class="form-select">
-                <option value="">请选择健康目标</option>
-                <option value="减脂">减脂</option>
-                <option value="增肌">增肌</option>
-                <option value="控糖">控糖</option>
-                <option value="养胃">养胃</option>
-                <option value="日常养生">日常养生</option>
-              </select>
-            </div>
-          </div>
-
-          <!-- 特殊需求 -->
-          <div class="form-section">
-            <h3 class="section-title">⚠️ 特殊需求</h3>
-            <div class="form-group">
-              <label>🚫 饮食禁忌</label>
-              <textarea 
-                v-model="profileData.dietaryRestrictions" 
-                placeholder="如有食物过敏或禁忌，请填写，多个请用逗号分隔" 
-                class="form-textarea"
-              ></textarea>
-            </div>
-            
-            <div class="form-group">
-              <label>😋 口味偏好</label>
-              <input 
-                type="text" 
-                v-model="profileData.tastePreferences" 
-                placeholder="如：清淡、辣味、甜味等" 
-                class="form-input"
-              />
-              <p class="help-text">多个偏好请用逗号分隔</p>
-            </div>
-          </div>
-
-          <!-- 营养目标显示 -->
-          <div v-if="profileData.targetCalories" class="form-section">
-            <h3 class="section-title">🎯 推荐营养目标</h3>
-            <div class="nutrition-goals">
-              <div class="goal-item">
-                <span class="goal-label">🔥 每日热量:</span>
-                <span class="goal-value">{{ Math.round(profileData.targetCalories) }} kcal</span>
-              </div>
-              <div class="goal-item">
-                <span class="goal-label">🥩 蛋白质:</span>
-                <span class="goal-value">{{ Math.round(profileData.targetProtein) }} g</span>
-              </div>
-              <div class="goal-item">
-                <span class="goal-label">🍚 碳水化合物:</span>
-                <span class="goal-value">{{ Math.round(profileData.targetCarbs) }} g</span>
-              </div>
-              <div class="goal-item">
-                <span class="goal-label">🥑 脂肪:</span>
-                <span class="goal-value">{{ Math.round(profileData.targetFat) }} g</span>
-              </div>
-            </div>
-          </div>
-
-          <!-- 提交按钮 -->
-          <div class="form-actions">
-            <button type="submit" class="submit-btn" :disabled="loading">
-              {{ loading ? '⏳ 保存中...' : '💾 保存档案' }}
-            </button>
-          </div>
-        </form>
-      </div>
-
-      <!-- 安全设置卡片 -->
-      <div class="profile-card">
-        <div class="card-header">
-          <h2>🔐 账户安全设置</h2>
-        </div>
-        
-        <div class="security-section">
-          <button @click="showPasswordModal = true" class="security-btn">
-            🔑 修改密码
-          </button>
           
-          <button @click="logoutUser" class="security-btn secondary">
-            🚪 注销登录
-          </button>
+          <form @submit.prevent="saveProfile" class="profile-form">
+            <!-- 基本身体信息 -->
+            <div class="form-section">
+              <h3 class="section-title">📏 身体信息</h3>
+              <div class="form-row">
+                <div class="form-group">
+                  <label>📏 身高 (cm)</label>
+                  <input 
+                    type="number" 
+                    v-model="profileData.height" 
+                    placeholder="请输入身高" 
+                    class="form-input"
+                  />
+                </div>
+                <div class="form-group">
+                  <label>⚖️ 体重 (kg)</label>
+                  <input 
+                    type="number" 
+                    v-model="profileData.weight" 
+                    placeholder="请输入体重" 
+                    class="form-input"
+                  />
+                </div>
+              </div>
+              
+              <div class="form-group">
+                <label>🎂 年龄</label>
+                <input 
+                  type="number" 
+                  v-model="profileData.age" 
+                  placeholder="请输入年龄" 
+                  class="form-input"
+                />
+              </div>
+            </div>
+
+            <!-- 生活习惯 -->
+            <div class="form-section">
+              <h3 class="section-title">🏃 生活习惯</h3>
+              <div class="form-row">
+                <div class="form-group">
+                  <label>👫 性别</label>
+                  <select v-model="profileData.gender" class="form-select">
+                    <option value="">请选择性别</option>
+                    <option value="M">男</option>
+                    <option value="F">女</option>
+                    <option value="O">其他</option>
+                    <option value="N">不愿透露</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label>💪 活动量</label>
+                  <select v-model="profileData.activityLevel" class="form-select">
+                    <option value="">请选择活动量</option>
+                    <option value="久坐">久坐</option>
+                    <option value="轻度运动">轻度运动</option>
+                    <option value="中度运动">中度运动</option>
+                    <option value="重度运动">重度运动</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <!-- 健康目标 -->
+            <div class="form-section">
+              <h3 class="section-title">🎯 健康目标</h3>
+              <div class="form-group">
+                <label>🎯 健康目标</label>
+                <select v-model="profileData.healthGoal" class="form-select">
+                  <option value="">请选择健康目标</option>
+                  <option value="减脂">减脂</option>
+                  <option value="增肌">增肌</option>
+                  <option value="控糖">控糖</option>
+                  <option value="养胃">养胃</option>
+                  <option value="日常养生">日常养生</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- 特殊需求 -->
+            <div class="form-section">
+              <h3 class="section-title">⚠️ 特殊需求</h3>
+              <div class="form-group">
+                <label>🚫 饮食禁忌</label>
+                <textarea 
+                  v-model="profileData.dietaryRestrictions" 
+                  placeholder="如有食物过敏或禁忌，请填写，多个请用逗号分隔" 
+                  class="form-textarea"
+                ></textarea>
+              </div>
+              
+              <div class="form-group">
+                <label>😋 口味偏好</label>
+                <input 
+                  type="text" 
+                  v-model="profileData.tastePreferences" 
+                  placeholder="如：清淡、辣味、甜味等" 
+                  class="form-input"
+                />
+                <p class="help-text">多个偏好请用逗号分隔</p>
+              </div>
+            </div>
+
+            <!-- 营养目标显示 -->
+            <div v-if="profileData.targetCalories" class="form-section">
+              <h3 class="section-title">🎯 推荐营养目标</h3>
+              <div class="nutrition-goals">
+                <div class="goal-item">
+                  <span class="goal-label">🔥 每日热量:</span>
+                  <span class="goal-value">{{ Math.round(profileData.targetCalories) }} kcal</span>
+                </div>
+                <div class="goal-item">
+                  <span class="goal-label">🥩 蛋白质:</span>
+                  <span class="goal-value">{{ Math.round(profileData.targetProtein) }} g</span>
+                </div>
+                <div class="goal-item">
+                  <span class="goal-label">🍚 碳水化合物:</span>
+                  <span class="goal-value">{{ Math.round(profileData.targetCarbs) }} g</span>
+                </div>
+                <div class="goal-item">
+                  <span class="goal-label">🥑 脂肪:</span>
+                  <span class="goal-value">{{ Math.round(profileData.targetFat) }} g</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- 提交按钮 -->
+            <div class="form-actions">
+              <button type="submit" class="submit-btn" :disabled="loading">
+                {{ loading ? '⏳ 保存中...' : '💾 保存档案' }}
+              </button>
+            </div>
+          </form>
         </div>
       </div>
 
-      <!-- 危险操作卡片 -->
-      <div class="profile-card danger-zone">
-        <div class="card-header">
-          <h2>⚠️ 危险操作区</h2>
-        </div>
-        
-        <div class="danger-section">
-          <p class="warning-text">⚠️ 删除账户是永久性操作，将删除您的所有数据且无法恢复。</p>
-          <button @click="showDeleteModal = true" class="danger-btn">
-            🗑️ 删除账户
-          </button>
+      <!-- 第三行：健康报告和健康数据来源 -->
+      <div class="row third-row">
+        <div class="card overview-card">
+          <h2>📊 近 7 日健康报告</h2>
+          <div v-if="dataLoading" class="loading-state">
+            <p>⏳ 正在加载健康数据...</p>
+          </div>
+          <div v-else-if="healthData.length === 0" class="empty-state">
+            <p>📝 过去 7 天没有饮食记录，快去记录吧！</p>
+          </div>
+          <div v-else class="charts-grid">
+            <HealthCharts title="🔥 热量摄入趋势" :option="caloriesChartOption" />
+            <HealthCharts title="🥗 宏量营养素来源" :option="macrosChartOption" />
+          </div>
         </div>
       </div>
     </div>
@@ -440,12 +442,12 @@ onMounted(async () => {
 const fetchHealthData = async () => {
   const endDate = new Date();
   const startDate = new Date();
-  startDate.setDate(endDate.getDate() - 6); // 获取最近7天的数据
+  startDate.setDate(endDate.getDate() - 6); // 获取最近 7 天的数据
 
   const formatDate = (date) => date.toISOString().split('T')[0];
 
   try {
-    const response = await axios.get(`http://localhost:8080/api/diet/range/${userInfo.value.username}`,
+    const response = await axios.get(`/api/diet/range/${userInfo.value.username}`,
      {
       params: {
         startDate: formatDate(startDate),
@@ -719,16 +721,16 @@ const formatDate = (dateString) => {
 <style scoped>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 
-.profile-layout {
-  max-width: 1200px;
-  margin: 0 auto;
+.dashboard-layout {
+  max-width: 100%;
+  margin: 0 20px;
   padding: 0;
   background: #ffffff;
   min-height: 100vh;
   position: relative;
 }
 
-.profile-layout::before {
+.dashboard-layout::before {
   content: '';
   position: fixed;
   top: -50%;
@@ -767,77 +769,152 @@ const formatDate = (dateString) => {
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
 }
 
-.subtitle {
-  font-size: 18px;
+.stats-bar {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  align-items: center;
+  font-size: 15px;
   color: #86868b;
-  font-weight: 400;
-  letter-spacing: -0.2px;
-  line-height: 1.5;
+  flex-wrap: wrap;
+  margin-top: 16px;
 }
 
-.profile-container {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 0 32px 48px;
-  display: grid;
+.stat-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  letter-spacing: -0.2px;
+  padding: 8px 16px;
+  background: rgba(255, 255, 255, 0.8);
+  border-radius: 980px;
+  border: 1px solid rgba(0, 0, 0, 0.04);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  transition: all 0.3s cubic-bezier(0.25, 0.1, 0.25, 1);
+}
+
+.stat-item:hover {
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+  transform: translateY(-2px);
+}
+
+/* 新的三行布局样式 */
+.three-row-layout {
+  display: flex;
+  flex-direction: column;
   gap: 24px;
+  padding: 0 40px 48px;
   position: relative;
   z-index: 1;
+  max-width: calc(100% - 80px);
+  margin: 0 auto;
 }
 
-.profile-card {
+.row {
+  width: 100%;
+}
+
+.first-row .card,
+.second-row .card,
+.third-row .card {
+  margin-bottom: 0;
+  width: 100%;
+}
+
+/* 原有卡片样式保持不变 */
+.card {
   background: #ffffff;
   border-radius: 20px;
+  padding: 24px;
+  margin-bottom: 0;
+  border: none;
   box-shadow: 
     0 2px 8px rgba(0, 0, 0, 0.02),
     0 8px 32px rgba(0, 0, 0, 0.04);
-  padding: 28px;
-  border: none;
   transition: all 0.5s cubic-bezier(0.25, 0.1, 0.25, 1);
   position: relative;
   overflow: hidden;
 }
 
-.profile-card:hover {
-  transform: translateY(-3px);
+.card::before {
+  display: none;
+}
+
+.card:hover {
+  transform: translateY(-6px) scale(1.01);
   box-shadow: 
     0 4px 16px rgba(0, 0, 0, 0.04),
     0 24px 64px rgba(0, 0, 0, 0.08);
 }
 
-.profile-card.danger-zone {
-  border: 1px solid rgba(255, 59, 48, 0.2);
-  background: linear-gradient(135deg, #fff5f5 0%, #ffffff 100%);
-}
-
-.card-header {
-  margin-bottom: 24px;
-  padding-bottom: 16px;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
-}
-
-.card-header h2 {
+.card h2 {
   color: #1d1d1f;
-  font-size: 28px;
-  margin: 0;
+  margin-bottom: 20px;
+  padding-bottom: 0;
+  border-bottom: none;
   font-weight: 600;
-  letter-spacing: -0.5px;
-  line-height: 1.2;
+  letter-spacing: -0.3px;
+  font-size: 20px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
-/* 确保图标正常显示 */
-.card-header h2::first-letter,
-.card-header h2 span:first-child,
-button span:first-child {
+.card h2::before {
+  content: '';
   display: inline-block;
+  width: 4px;
+  height: 24px;
+  background: linear-gradient(135deg, #007aff, #5856d6);
+  border-radius: 2px;
 }
 
-button .button-icon,
-button span:first-child {
-  font-size: 1.2em;
-  margin-right: 6px;
+.section-divider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(0, 0, 0, 0.08), transparent);
+  margin: 24px 0;
+}
+
+.subsection-title {
+  color: #1d1d1f;
+  font-size: 18px;
+  margin-bottom: 16px;
+  font-weight: 600;
+  letter-spacing: -0.3px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.danger-title {
+  color: #ff3b30;
+}
+
+.security-section-inline,
+.danger-zone-inline {
+  padding-top: 8px;
+}
+
+.security-buttons {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.danger-section-inline {
+  padding: 20px;
+  background: linear-gradient(135deg, rgba(255, 59, 48, 0.05) 0%, rgba(255, 59, 48, 0.02) 100%);
+  border-radius: 16px;
+  border: 1px solid rgba(255, 59, 48, 0.15);
 }
 
 .user-info-section {
@@ -852,11 +929,16 @@ button span:first-child {
   padding: 20px 24px;
   background: #f5f5f7;
   border-radius: 16px;
-  transition: all 0.3s ease;
+  transition: all 0.4s cubic-bezier(0.25, 0.1, 0.25, 1);
+  border: none;
+  position: relative;
+  overflow: hidden;
 }
 
 .info-item:hover {
-  background: #e8e8ed;
+  background: #ebebf0;
+  transform: translateY(-3px);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.08);
 }
 
 .info-item label {
@@ -881,12 +963,14 @@ button span:first-child {
   cursor: pointer;
   font-size: 14px;
   font-weight: 500;
-  transition: all 0.3s cubic-bezier(0.25, 0.1, 0.25, 1);
+  transition: all 0.4s cubic-bezier(0.25, 0.1, 0.25, 1);
+  box-shadow: 0 4px 20px rgba(0, 122, 255, 0.3);
 }
 
 .edit-btn:hover {
   background: #0077ed;
   transform: scale(1.02);
+  box-shadow: 0 8px 32px rgba(0, 122, 255, 0.4);
 }
 
 .profile-form {
@@ -898,6 +982,16 @@ button span:first-child {
   padding: 24px;
   background: #f5f5f7;
   border-radius: 16px;
+  transition: all 0.4s cubic-bezier(0.25, 0.1, 0.25, 1);
+  border: none;
+  position: relative;
+  overflow: hidden;
+}
+
+.form-section:hover {
+  background: #ebebf0;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.06);
 }
 
 .form-section:last-child {
@@ -912,6 +1006,9 @@ button span:first-child {
   border-bottom: 1px solid rgba(0, 0, 0, 0.08);
   font-weight: 600;
   letter-spacing: -0.3px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .form-row {
@@ -977,8 +1074,8 @@ button span:first-child {
 
 .charts-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
-  gap: 24px;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 20px;
   margin-top: 24px;
 }
 
@@ -992,7 +1089,9 @@ button span:first-child {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-height: 300px;
+  min-height: 200px;
+  background: #f5f5f7;
+  border-radius: 16px;
 }
 
 .nutrition-goals {
@@ -1008,12 +1107,17 @@ button span:first-child {
   align-items: center;
   padding: 16px 20px;
   background: #f5f5f7;
-  border-radius: 12px;
-  transition: all 0.3s ease;
+  border-radius: 16px;
+  transition: all 0.4s cubic-bezier(0.25, 0.1, 0.25, 1);
+  border: none;
+  position: relative;
+  overflow: hidden;
 }
 
 .goal-item:hover {
-  background: #e8e8ed;
+  background: #ebebf0;
+  transform: translateY(-3px);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.08);
 }
 
 .goal-label {
@@ -1028,46 +1132,38 @@ button span:first-child {
   font-size: 17px;
 }
 
-.security-section {
-  display: flex;
-  gap: 16px;
-  flex-wrap: wrap;
-}
-
 .security-btn {
   padding: 14px 28px;
-  background: #007aff;
+  background: linear-gradient(135deg, #007aff 0%, #5856d6 100%);
   color: white;
   border: none;
   border-radius: 980px;
   cursor: pointer;
   font-size: 17px;
   font-weight: 500;
-  transition: all 0.3s cubic-bezier(0.25, 0.1, 0.25, 1);
+  transition: all 0.4s cubic-bezier(0.25, 0.1, 0.25, 1);
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
+  box-shadow: 0 4px 20px rgba(0, 122, 255, 0.25);
+  letter-spacing: -0.2px;
 }
 
 .security-btn:hover:not(:disabled) {
-  background: #0077ed;
+  background: linear-gradient(135deg, #0066d6 0%, #4a48a8 100%);
   transform: scale(1.02);
+  box-shadow: 0 12px 40px rgba(0, 122, 255, 0.35);
 }
 
 .security-btn.secondary {
   background: #1d1d1f;
+  box-shadow: 0 4px 20px rgba(29, 29, 31, 0.3);
 }
 
 .security-btn.secondary:hover:not(:disabled) {
   background: #424245;
-}
-
-.danger-section {
-  padding: 24px;
-  background: linear-gradient(135deg, rgba(255, 59, 48, 0.05) 0%, rgba(255, 59, 48, 0.02) 100%);
-  border-radius: 16px;
-  border: 1px solid rgba(255, 59, 48, 0.15);
+  box-shadow: 0 8px 32px rgba(29, 29, 31, 0.4);
 }
 
 .warning-text {
@@ -1104,11 +1200,13 @@ button span:first-child {
   align-items: center;
   justify-content: center;
   gap: 8px;
+  box-shadow: 0 4px 20px rgba(255, 59, 48, 0.3);
 }
 
 .danger-btn:hover:not(:disabled) {
   background: #ff2d23;
   transform: scale(1.02);
+  box-shadow: 0 8px 32px rgba(255, 59, 48, 0.4);
 }
 
 .form-actions {
@@ -1120,24 +1218,27 @@ button span:first-child {
 
 .submit-btn {
   padding: 16px 48px;
-  background: #007aff;
+  background: linear-gradient(135deg, #007aff 0%, #5856d6 100%);
   color: white;
   border: none;
   border-radius: 980px;
   font-size: 17px;
-  font-weight: 500;
+  font-weight: 600;
   cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.25, 0.1, 0.25, 1);
+  transition: all 0.4s cubic-bezier(0.25, 0.1, 0.25, 1);
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
   margin: 0 auto;
+  box-shadow: 0 4px 20px rgba(0, 122, 255, 0.3);
+  letter-spacing: -0.2px;
 }
 
 .submit-btn:hover:not(:disabled) {
-  background: #0077ed;
+  background: linear-gradient(135deg, #0066d6 0%, #4a48a8 100%);
   transform: scale(1.02);
+  box-shadow: 0 12px 40px rgba(0, 122, 255, 0.4);
 }
 
 .submit-btn:disabled {
@@ -1257,18 +1358,21 @@ button span:first-child {
 
 .confirm-btn {
   padding: 12px 24px;
-  background: #007aff;
+  background: linear-gradient(135deg, #007aff 0%, #5856d6 100%);
   color: white;
   border: none;
   border-radius: 980px;
   cursor: pointer;
   font-size: 17px;
   font-weight: 500;
-  transition: all 0.3s cubic-bezier(0.25, 0.1, 0.25, 1);
+  transition: all 0.4s cubic-bezier(0.25, 0.1, 0.25, 1);
+  box-shadow: 0 4px 20px rgba(0, 122, 255, 0.25);
 }
 
 .confirm-btn:hover:not(:disabled) {
-  background: #0077ed;
+  background: linear-gradient(135deg, #0066d6 0%, #4a48a8 100%);
+  transform: scale(1.02);
+  box-shadow: 0 12px 40px rgba(0, 122, 255, 0.35);
 }
 
 .confirm-btn:disabled {
@@ -1298,7 +1402,7 @@ button span:first-child {
 }
 
 @media (max-width: 768px) {
-  .profile-layout {
+  .dashboard-layout {
     padding: 0;
   }
   
@@ -1310,21 +1414,26 @@ button span:first-child {
     font-size: 32px;
   }
   
-  .subtitle {
-    font-size: 17px;
+  .stats-bar {
+    flex-direction: column;
+    gap: 8px;
   }
   
-  .profile-container {
+  .stat-item {
+    width: 100%;
+    justify-content: center;
+  }
+  
+  .main-container {
     padding: 0 20px 48px;
-    gap: 24px;
+    grid-template-columns: 1fr;
   }
   
-  .profile-card {
-    padding: 24px;
-    border-radius: 20px;
+  .card {
+    padding: 20px;
   }
   
-  .card-header h2 {
+  .card h2 {
     font-size: 22px;
   }
   

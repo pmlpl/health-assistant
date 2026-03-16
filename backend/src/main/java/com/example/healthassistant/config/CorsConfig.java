@@ -9,10 +9,7 @@ public class CorsConfig implements WebMvcConfigurer {
 
     @Override
     public void addCorsMappings(CorsRegistry registry) {
-        registry.addMapping("/api/**")
-                .allowedOrigins("*")  // 在生产环境中应指定具体的域名
-                .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
-                .allowedHeaders("*")
-                .allowCredentials(false);  // 因为使用了"*" origins，这里必须是false
+        // 不再使用这个配置，由 SecurityConfig 统一管理 CORS
+        // 避免与 Spring Security 的 CORS 配置冲突
     }
 }

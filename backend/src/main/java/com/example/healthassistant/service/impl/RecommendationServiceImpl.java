@@ -28,7 +28,7 @@ public class RecommendationServiceImpl implements RecommendationService {
     @Override
     public Map<String, Object> getRecipeRecommendations(String userId, String mealType) {
         // 1. 获取用户档案
-        UserProfile userProfile = userProfileRepository.findByUserId(userId);
+        UserProfile userProfile = userProfileRepository.findByUserIdWithDietaryRestrictions(userId);
         if (userProfile == null) {
             throw new RuntimeException("未找到用户档案: " + userId);
         }

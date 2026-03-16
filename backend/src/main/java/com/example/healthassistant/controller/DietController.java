@@ -67,7 +67,7 @@ public class DietController {
         return ResponseEntity.ok(records);
     }
 
-    // 新增获取月度饮食统计数据API
+    // 新增获取月度饮食统计数据 API
     @GetMapping("/monthly-summary/{userId}/{year}/{month}")
     public ResponseEntity<Map<String, Object>> getMonthlyDietSummary(
             @PathVariable String userId,
@@ -75,6 +75,53 @@ public class DietController {
             @PathVariable int month) {
         Map<String, Object> summary = dietRecordService.getMonthlySummary(userId, year, month);
         return ResponseEntity.ok(summary);
+    }
+    
+    // 新增获取月度健身统计数据 API
+    @GetMapping("/fitness/monthly-summary/{userId}/{year}/{month}")
+    public ResponseEntity<Map<String, Object>> getMonthlyFitnessSummary(
+            @PathVariable String userId,
+            @PathVariable int year,
+            @PathVariable int month) {
+        try {
+            List<FitnessRecord> records = fitnessRecordRepository.findByUserIdAndYearMonth(userId, year, month);
+                
+            // 计算每日数据
+            Map<String, Double> dailyData = new HashMap<>();
+            double totalCaloriesBurned = 0;
+                
+            for (FitnessRecord record : records) {
+                String date = record.getDate().toString();
+                double calories = record.getCalories() != null ? record.getCalories() : 0;
+                    
+                dailyData.put(date, dailyData.getOrDefault(date, 0.0) + calories);
+                totalCaloriesBurned += calories;
+            }
+                
+            // 构建响应
+            Map<String, Object> response = new HashMap<>();
+            response.put("userId", userId);
+            response.put("year", year);
+            response.put("month", month);
+            response.put("totalCaloriesBurned", Math.round(totalCaloriesBurned * 100.0) / 100.0);
+                
+            // 构建每日数据数组
+            List<Map<String, Object>> dailyDataList = new ArrayList<>();
+            for (Map.Entry<String, Double> entry : dailyData.entrySet()) {
+                Map<String, Object> dayData = new HashMap<>();
+                dayData.put("date", entry.getKey());
+                dayData.put("caloriesBurned", Math.round(entry.getValue() * 100.0) / 100.0);
+                dailyDataList.add(dayData);
+            }
+            response.put("dailyData", dailyDataList);
+                
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            e.printStackTrace();
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("error", "获取月度健身统计失败：" + e.getMessage());
+            return ResponseEntity.internalServerError().body(errorResponse);
+        }
     }
 
     // 新增删除饮食记录API
@@ -124,9 +171,8 @@ public class DietController {
         try {
             // 构造自然语言查询语句
             String naturalLanguageQuery = constructNaturalLanguageQuery(foodDescription);
-            System.out.println("构造的自然语言查询: " + naturalLanguageQuery);
-
-            // 调用AI服务进行分析
+        
+            // 调用 AI 服务进行分析
             List<DoubaoFoodRecognitionService.FoodNutrition> results = doubaoFoodService
                     .recognizeFoodWithDoubao(naturalLanguageQuery);
 
@@ -164,14 +210,13 @@ public class DietController {
             return ResponseEntity.ok(response);
 
         } catch (Exception e) {
-            e.printStackTrace();
             Map<String, Object> errorResponse = new HashMap<>();
             errorResponse.put("error", e.getMessage());
             return ResponseEntity.internalServerError().body(errorResponse);
         }
     }
-
-    // 传统的食物识别API
+    
+    // 传统的食物识别 API
     @PostMapping("/recognize")
     public ResponseEntity<Map<String, Object>> recognizeFood(@RequestBody Map<String, String> request) {
         String foodDescription = request.get("foodDescription");
@@ -217,7 +262,6 @@ public class DietController {
             return ResponseEntity.ok(response);
 
         } catch (Exception e) {
-            e.printStackTrace();
             Map<String, Object> errorResponse = new HashMap<>();
             errorResponse.put("error", e.getMessage());
             return ResponseEntity.internalServerError().body(errorResponse);
@@ -289,9 +333,6 @@ public class DietController {
             @PathVariable String userId,
             @RequestBody Map<String, Object> nutritionData) {
         try {
-            System.out.println("收到营养分析请求，用户 ID: " + userId);
-            System.out.println("营养数据：" + nutritionData);
-
             String analysis = qwenAIService.analyzeDailyNutrition(userId, nutritionData);
 
             Map<String, Object> response = new HashMap<>();
@@ -301,7 +342,6 @@ public class DietController {
 
             return ResponseEntity.ok(response);
         } catch (Exception e) {
-            e.printStackTrace();
             Map<String, Object> errorResponse = new HashMap<>();
             errorResponse.put("success", false);
             errorResponse.put("error", "营养分析失败：" + e.getMessage());
@@ -316,8 +356,6 @@ public class DietController {
     public ResponseEntity<Map<String, Object>> batchSaveFitnessRecords(
             @RequestBody List<Map<String, Object>> fitnessRecords) {
         try {
-            System.out.println("批量保存健身记录，数量：" + fitnessRecords.size());
-
             if (fitnessRecords == null || fitnessRecords.isEmpty()) {
                 Map<String, Object> errorResponse = new HashMap<>();
                 errorResponse.put("success", false);
@@ -350,10 +388,10 @@ public class DietController {
                 }
 
                 // 设置类型
-                fitnessRecord.setType((String) record.get("workoutType"));
+                fitnessRecord.setType((String) record.get("type"));
 
                 // 设置名称
-                fitnessRecord.setName((String) record.get("workoutName"));
+                fitnessRecord.setName((String) record.get("name"));
 
                 // 设置时长
                 Object durationObj = record.get("durationMinutes");
@@ -361,16 +399,26 @@ public class DietController {
                     fitnessRecord.setDurationMinutes(((Number) durationObj).intValue());
                 }
 
+                // 设置次数（新增）
+                Object repsObj = record.get("repetitions");
+                if (repsObj != null) {
+                    fitnessRecord.setRepetitions(((Number) repsObj).intValue());
+                }
+
+                // 设置重量（新增）
+                Object weightObj = record.get("weightKg");
+                if (weightObj != null) {
+                    fitnessRecord.setWeightKg(((Number) weightObj).doubleValue());
+                }
+
                 // 设置卡路里
-                Object caloriesObj = record.get("caloriesBurned");
+                Object caloriesObj = record.get("calories");
                 if (caloriesObj != null) {
                     fitnessRecord.setCalories(((Number) caloriesObj).doubleValue());
                 }
 
                 savedRecords.add(fitnessRecordRepository.save(fitnessRecord));
             }
-
-            System.out.println("已保存 " + savedRecords.size() + " 条健身记录到用户 " + userId);
 
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
@@ -380,7 +428,6 @@ public class DietController {
 
             return ResponseEntity.ok(response);
         } catch (Exception e) {
-            e.printStackTrace();
             Map<String, Object> errorResponse = new HashMap<>();
             errorResponse.put("success", false);
             errorResponse.put("error", "保存健身记录失败：" + e.getMessage());
@@ -394,8 +441,6 @@ public class DietController {
             @PathVariable String userId,
             @PathVariable @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
         try {
-            System.out.println("获取健身记录，用户 ID: " + userId + ", 日期：" + date);
-
             List<FitnessRecord> records = fitnessRecordRepository.findByUserIdAndDate(userId, date);
 
             // 转换为前端期望的格式
@@ -407,16 +452,15 @@ public class DietController {
                 map.put("workoutType", record.getType());
                 map.put("workoutName", record.getName());
                 map.put("durationMinutes", record.getDurationMinutes());
+                map.put("repetitions", record.getRepetitions());
+                map.put("weightKg", record.getWeightKg());
                 map.put("caloriesBurned", record.getCalories());
                 map.put("recordedAt", record.getRecordedAt() != null ? record.getRecordedAt().toString() : null);
                 return map;
             }).collect(Collectors.toList());
 
-            System.out.println("找到 " + result.size() + " 条健身记录");
-
             return ResponseEntity.ok(result);
         } catch (Exception e) {
-            e.printStackTrace();
             return ResponseEntity.internalServerError().body(null);
         }
     }
@@ -425,8 +469,6 @@ public class DietController {
     @DeleteMapping("/fitness/{id}")
     public ResponseEntity<Map<String, Object>> deleteFitnessRecord(@PathVariable Long id) {
         try {
-            System.out.println("删除健身记录，ID: " + id);
-
             if (fitnessRecordRepository.existsById(id)) {
                 fitnessRecordRepository.deleteById(id);
                 Map<String, Object> response = new HashMap<>();

@@ -18,7 +18,7 @@ public class FoodRecognitionController {
     private DoubaoFoodRecognitionService doubaoFoodService;
 
     /**
-     * 食物识别API - 使用豆包AI
+     * 食物识别 API - 使用豆包 AI
      */
     @PostMapping("/recognize")
     public ApiResponse<Map<String, Object>> recognizeFood(@RequestBody Map<String, String> request) {

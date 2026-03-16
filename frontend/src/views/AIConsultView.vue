@@ -128,9 +128,9 @@
             <h3>您好！我是您的 AI 营养师</h3>
             <p>我可以为您提供专业的饮食建议和营养分析</p>
             <div class="quick-actions">
-              <div class="action-item">🥗 减脂饮食规划</div>
-              <div class="action-item">💪 增肌营养搭配</div>
-              <div class="action-item">🍎 控糖饮食建议</div>
+              <div class="action-item" @click="handleQuickAction('减脂饮食规划')">🥗 减脂饮食规划</div>
+              <div class="action-item" @click="handleQuickAction('增肌营养搭配')">💪 增肌营养搭配</div>
+              <div class="action-item" @click="handleQuickAction('控糖饮食建议')">🍎 控糖饮食建议</div>
             </div>
           </div>
         </div>
@@ -281,12 +281,19 @@ const locateMessage = (index) => {
     const messageEl = document.getElementById(`message-${index}`)
     if (messageEl) {
       messageEl.scrollIntoView({ behavior: 'smooth', block: 'center' })
-      // 3秒后取消高亮
+      // 3 秒后取消高亮
       setTimeout(() => {
         highlightedIndex.value = -1
       }, 3000)
     }
   })
+}
+
+// 处理快速操作按钮点击
+const handleQuickAction = (action) => {
+  // 将快速操作的内容填充到输入框并自动发送
+  inputText.value = `请为我提供${action}的专业建议`
+  sendMessage()
 }
 
 // 发送消息
@@ -311,7 +318,7 @@ const sendMessage = async () => {
     loading.value = true
     
     // 调用AI服务
-    const response = await fetch('http://localhost:8080/api/ai/nutrition-advice', {
+    const response = await fetch('/api/ai/nutrition-advice', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -366,9 +373,7 @@ const scrollToBottom = () => {
 
 // 菜单控制
 const toggleMenu = () => {
-  console.log('菜单按钮被点击，当前状态:', showMenu.value)
   showMenu.value = !showMenu.value
-  console.log('切换后状态:', showMenu.value)
 }
 
 const closeMenu = () => {
@@ -377,30 +382,23 @@ const closeMenu = () => {
 
 // 菜单选项处理
 const handleMenuOption = async (option) => {
-  console.log('菜单项被点击:', option.id, option.label)
   closeMenu()
   
   switch (option.id) {
     case 'save':
-      console.log('执行保存操作')
       saveChatHistory()
       messageService.success('聊天记录已保存')
       break
     case 'load':
-      console.log('执行加载操作')
       loadChatHistory()
       messageService.success('聊天记录已加载')
       break
     case 'export':
-      console.log('执行导出操作')
       exportChatHistory()
       break
     case 'clear':
-      console.log('执行清除操作')
       await clearChatHistory()
       break
-    default:
-      console.log('未知菜单项:', option.id)
   }
 }
 
@@ -418,7 +416,6 @@ const saveChatHistory = () => {
       userId: userStore.userData?.userId || 'anonymous'
     }
     localStorage.setItem('aiChatHistory', JSON.stringify(historyData))
-    console.log('聊天记录已保存到本地存储')
   } catch (error) {
     console.error('保存聊天记录失败:', error)
     messageService.error('保存聊天记录失败')
@@ -435,7 +432,6 @@ const loadChatHistory = () => {
           ...msg,
           timestamp: new Date(msg.timestamp)
         }))
-        console.log(`加载了 ${messages.value.length} 条历史记录`)
         nextTick(() => {
           scrollToBottom()
         })
@@ -505,13 +501,11 @@ const clearChatHistory = async () => {
 onMounted(() => {
   loadChatHistory()
   document.addEventListener('click', closeMenu)
-  console.log('AI咨询页面已挂载')
 })
 
 onUnmounted(() => {
   saveChatHistory()
   document.removeEventListener('click', closeMenu)
-  console.log('AI咨询页面已卸载')
 })
 
 // 监听消息变化自动保存

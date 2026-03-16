@@ -77,7 +77,7 @@
             </el-form-item>
 
             <div class="form-options">
-              <el-button type="text" @click="showForgotModal = true" class="forgot-link">
+              <el-button type="link" @click="showForgotModal = true" class="forgot-link">
                 忘记密码？
               </el-button>
             </div>

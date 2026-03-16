@@ -143,16 +143,7 @@ const createStar = (x, y, index) => {
 
 onMounted(() => {
   // 应用初始化逻辑
-  console.log('AI健康饮食助手已启动');
-
-  // 初始化用户store状态
   userStore.initializeStore();
-
-  console.log('登录状态:', userStore.isLoggedIn);
-  console.log('用户数据:', userStore.userData);
-  console.log('认证状态:', userStore.isAuthenticated);
-  console.log('当前路由:', route.path);
-  console.log('是否显示导航栏:', showNavigation.value);
 
   // 添加滚动监听
   window.addEventListener('scroll', handleScroll);

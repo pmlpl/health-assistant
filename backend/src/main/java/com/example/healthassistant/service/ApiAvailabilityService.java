@@ -13,8 +13,8 @@ import java.util.concurrent.*;
 @Service
 public class ApiAvailabilityService {
 
-    @Value("${qwen.api.key:}")
-    private String qwenApiKey;
+    @Value("${dashscope.api.key:}")
+    private String dashscopeApiKey;
 
     @Value("${doubao.api.key:}")
     private String doubaoApiKey;
@@ -53,9 +53,21 @@ public class ApiAvailabilityService {
             return cachedStatus;
         }
 
-        // 暂时总是返回 API 可用的状态
-        // 因为实际调用时会有重试机制和本地模式作为备选
-        ApiStatus status = new ApiStatus(true, "API 可用", true);
+        // 检查是否配置了 API Key
+        boolean hasApiKey = dashscopeApiKey != null && !dashscopeApiKey.isEmpty();
+        
+        // 也检查环境变量
+        if (!hasApiKey) {
+            String envApiKey = System.getenv("DASHSCOPE_API_KEY");
+            hasApiKey = envApiKey != null && !envApiKey.isEmpty();
+        }
+        
+        ApiStatus status;
+        if (hasApiKey) {
+            status = new ApiStatus(true, "API 可用", true);
+        } else {
+            status = new ApiStatus(false, "未配置 API Key", false);
+        }
 
         // 更新缓存
         apiStatusCache.put("qwen", status);
@@ -72,9 +84,21 @@ public class ApiAvailabilityService {
             return cachedStatus;
         }
 
-        // 暂时总是返回 API 可用的状态
-        // 因为实际调用时会有重试机制和本地模式作为备选
-        ApiStatus status = new ApiStatus(true, "API 可用", true);
+        // 检查是否配置了 API Key
+        boolean hasApiKey = doubaoApiKey != null && !doubaoApiKey.isEmpty();
+        
+        // 也检查环境变量
+        if (!hasApiKey) {
+            String envApiKey = System.getenv("DOUBAO_API_KEY");
+            hasApiKey = envApiKey != null && !envApiKey.isEmpty();
+        }
+        
+        ApiStatus status;
+        if (hasApiKey) {
+            status = new ApiStatus(true, "API 可用", true);
+        } else {
+            status = new ApiStatus(false, "未配置 API Key", false);
+        }
 
         // 更新缓存
         apiStatusCache.put("doubao", status);

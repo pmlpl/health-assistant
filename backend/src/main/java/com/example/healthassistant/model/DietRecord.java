@@ -2,6 +2,7 @@ package com.example.healthassistant.model;
 
 import jakarta.persistence.*;
 import lombok.Data;
+import org.hibernate.annotations.BatchSize;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -39,6 +40,7 @@ public class DietRecord {
     @Column(name = "image_url", length = 500)
     private String imageUrl; // 食物图片URL
     
+    @BatchSize(size = 10)  // 性能优化：批量加载食材成分，减少 SQL 查询次数
     @ElementCollection(fetch = FetchType.LAZY)
     @CollectionTable(name = "consumed_ingredients", joinColumns = @JoinColumn(name = "diet_record_id"))
     @Column(name = "ingredient_name", length = 100)
