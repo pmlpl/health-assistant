@@ -187,18 +187,6 @@ const stopCarousel = () => {
   }
 };
 
-const forgotForm = reactive({
-  username: ''
-});
-
-const forgotRules = {
-  username: [
-    { required: true, message: '请输入用户名', trigger: 'blur' }
-  ]
-};
-
-const forgotLoading = ref(false);
-
 onMounted(() => {
   startCarousel();
 });
@@ -336,10 +324,10 @@ const handleLogin = async () => {
 const handleForgotPassword = async () => {
   try {
     await forgotFormRef.value.validate();
-    forgotLoading.value = true;
+    const loadingLocal = ref(true);
 
     const response = await healthApi.forgotPassword({
-      username: forgotForm.username.trim()
+      username: loginForm.username.trim()
     });
 
     if (response.success) {
@@ -350,7 +338,6 @@ const handleForgotPassword = async () => {
         duration: 3000
       });
       showForgotModal.value = false;
-      forgotForm.username = '';
     } else {
       ElNotification({
         title: '重置失败',
@@ -367,7 +354,7 @@ const handleForgotPassword = async () => {
       duration: 3000
     });
   } finally {
-    forgotLoading.value = false;
+    loadingLocal.value = false;
   }
 };
 </script>
