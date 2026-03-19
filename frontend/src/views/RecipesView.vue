@@ -229,13 +229,59 @@ const mealTypes = [
   { value: 'snack', label: '加餐' }
 ];
 
-// 从所有食谱中删除
-const removeFromAllRecipes = (recipeId) => {
-  const index = allRecipes.value.findIndex(r => r.id === recipeId);
-  if (index !== -1) {
-    allRecipes.value.splice(index, 1);
-    saveAllRecipesToStorage();
-    ElMessage.success('已删除');
+// 从所有食谱中删除（同步到后端数据库）
+const removeFromAllRecipes = async (recipeId) => {
+  try {
+    // 查找对应的食谱
+    const recipe = allRecipes.value.find(r => r.id === recipeId);
+    if (!recipe) {
+      ElMessage.warning('食谱不存在');
+      return;
+    }
+    
+    // 确认删除操作
+    await ElMessageBox.confirm(
+      `确定要删除「${recipe.name}」吗？此操作不可撤销。`,
+      '删除确认',
+      {
+        confirmButtonText: '确定删除',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }
+    );
+    
+    // 如果是数据库中的食谱（有 databaseId），调用后端 API 删除
+    if (recipe.databaseId) {
+      const response = await fetch(`/api/recipes/${recipe.databaseId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': localStorage.getItem('token') || '',
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`删除失败：HTTP ${response.status}`);
+      }
+      
+      console.log('✅ 数据库中的食谱已删除:', recipe.databaseId);
+    }
+    
+    // 从本地数组中移除
+    const index = allRecipes.value.findIndex(r => r.id === recipeId);
+    if (index !== -1) {
+      allRecipes.value.splice(index, 1);
+      saveAllRecipesToStorage();
+      ElMessage.success('已删除');
+    }
+  } catch (err) {
+    if (err.message === 'cancel') {
+      // 用户取消删除，不做任何处理
+      return;
+    }
+    console.error('删除食谱失败:', err);
+    ElMessage.error('删除失败：' + err.message);
   }
 };
 
@@ -247,7 +293,7 @@ const loadAllRecipesFromStorage = () => {
       allRecipes.value = JSON.parse(stored);
     }
   } catch (e) {
-    console.error('加载全部食谱失败:', e);
+    // 静默处理加载失败
   }
 };
 
@@ -257,49 +303,66 @@ const loadAiRecipesFromDatabase = async () => {
     const response = await fetch('/api/recipes/my-ai-recipes', {
       method: 'GET',
       headers: {
-        'Authorization': localStorage.getItem('token') || ''
+        'Authorization': localStorage.getItem('token') || '',
+        'Content-Type': 'application/json'
       }
     });
     
-    if (response.ok) {
-      const dbRecipes = await response.json();
-      // 将数据库的食谱转换为前端格式
-      const formattedRecipes = dbRecipes.map(recipe => ({
-        id: recipe.id,
-        name: recipe.name,
-        description: recipe.description,
-        image: recipe.imageUrl, // 数据库字段是 imageUrl
-        mealType: recipe.mealType,
-        calories: recipe.calories,
-        protein: recipe.protein,
-        carbs: recipe.carbs,
-        fat: recipe.fat,
-        ingredients: recipe.ingredientsList ? JSON.parse(recipe.ingredientsList) : [],
-        instructions: recipe.instructions ? JSON.parse(recipe.instructions) : [],
-        isAiRecommended: true,
-        databaseId: recipe.id // 标记数据库 ID
-      }));
-      
-      // 合并数据库和本地的食谱（优先使用数据库的图片）
-      const localRecipes = JSON.parse(localStorage.getItem('allRecipes') || '[]');
-      const mergedRecipes = [...formattedRecipes];
-      
-      // 添加本地独有的食谱（如果数据库里没有）
-      localRecipes.forEach(localRecipe => {
-        const existsInDb = mergedRecipes.some(r => r.name === localRecipe.name);
-        if (!existsInDb) {
-          mergedRecipes.push(localRecipe);
-        }
-      });
-      
-      allRecipes.value = mergedRecipes;
-      // 更新 localStorage 缓存
-      localStorage.setItem('allRecipes', JSON.stringify(mergedRecipes));
-    } else {
-      console.warn('⚠️ 从数据库加载失败，使用本地缓存');
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
+    
+    const dbRecipes = await response.json();
+    
+    // 解析列表字段的辅助函数（兼容多种分隔符）
+    const parseListField = (str) => {
+      if (!str || str.trim() === '') return [];
+      // 优先尝试用 | 分隔
+      if (str.includes('|')) {
+        return str.split('|').filter(i => i.trim());
+      }
+      // 如果包含逗号，用逗号分隔
+      if (str.includes(',')) {
+        return str.split(',').filter(i => i.trim());
+      }
+      // 否则直接返回原字符串
+      return [str];
+    };
+    
+    // 将数据库的食谱转换为前端格式
+    const formattedRecipes = dbRecipes.map(recipe => ({
+      id: recipe.id,
+      name: recipe.name,
+      description: recipe.description || '',
+      image: recipe.imageUrl || null,
+      mealType: recipe.mealType || '其他',
+      calories: recipe.calories || 0,
+      protein: recipe.protein || 0,
+      carbs: recipe.carbs || 0,
+      fat: recipe.fat || 0,
+      ingredients: parseListField(recipe.ingredientsList),
+      instructions: parseListField(recipe.instructions),
+      isAiRecommended: true,
+      databaseId: recipe.id
+    }));
+    
+    // 合并数据库和本地的食谱（优先使用数据库的图片）
+    const localRecipes = JSON.parse(localStorage.getItem('allRecipes') || '[]');
+    const mergedRecipes = [...formattedRecipes];
+    
+    // 添加本地独有的食谱（如果数据库里没有）
+    localRecipes.forEach(localRecipe => {
+      const existsInDb = mergedRecipes.some(r => r.name === localRecipe.name);
+      if (!existsInDb) {
+        mergedRecipes.push(localRecipe);
+      }
+    });
+    
+    allRecipes.value = mergedRecipes;
+    localStorage.setItem('allRecipes', JSON.stringify(mergedRecipes));
   } catch (err) {
-    console.error('❌ 从数据库加载 AI 食谱失败:', err);
+    // 静默处理加载失败
   }
 };
 
@@ -437,7 +500,7 @@ const goToAIGenerate = (mealType) => {
       userId = userProfile.id || userProfile.userId || userProfile.uid;
     }
   } catch (e) {
-    console.error('解析 userProfile 失败:', e);
+    // 静默处理解析失败
   }
   
   if (!userId) {
@@ -1691,3 +1754,7 @@ onMounted(() => {
   }
 }
 </style>
+
+
+
+

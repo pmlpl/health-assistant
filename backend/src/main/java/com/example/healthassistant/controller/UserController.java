@@ -32,8 +32,6 @@ public class UserController {
 
     @PostMapping("/login")
     public ResponseEntity<Map<String, Object>> login(@RequestBody LoginRequestDto loginRequest) {
-        System.out.println("收到登录请求: " + loginRequest.getUsername());
-
         UserProfile user = userService.login(loginRequest);
         Map<String, Object> response = new HashMap<>();
 
@@ -46,7 +44,6 @@ public class UserController {
                 user.setGender("M");
                 user.setHealthGoal("减脂");
                 user.setWeight(70.0);
-                System.out.println("创建临时用户对象");
             }
 
             response.put("success", true);
@@ -63,16 +60,13 @@ public class UserController {
     @PostMapping("/profile")
     public ResponseEntity<UserProfile> createUserProfile(@RequestBody UserProfileDto profileDto) {
         UserProfile profile = userService.createOrUpdateUserProfile(profileDto);
-        // 清除用户的AI会话历史，确保下次获取最新的个人档案信息
+        // 清除用户的 AI 会话历史，确保下次获取最新的个人档案信息
         qwenAIService.clearSessionHistory(profile.getUserId());
-        System.out.println("已清除用户 " + profile.getUserId() + " 的AI会话历史，确保使用最新的个人档案信息");
         return ResponseEntity.ok(profile);
     }
 
     @PostMapping("/register")
     public ResponseEntity<Map<String, Object>> register(@RequestBody LoginRequestDto registerRequest) {
-        System.out.println("收到注册请求: " + registerRequest.getUsername());
-
         try {
             UserProfile newUser = userService.register(registerRequest.getUsername(), registerRequest.getPassword());
             Map<String, Object> response = new HashMap<>();
@@ -88,7 +82,6 @@ public class UserController {
                 return ResponseEntity.status(409).body(response); // 409 Conflict
             }
         } catch (Exception e) {
-            System.err.println("注册失败: " + e.getMessage());
             e.printStackTrace();
             Map<String, Object> errorResponse = new HashMap<>();
             errorResponse.put("success", false);
@@ -100,8 +93,6 @@ public class UserController {
     @PostMapping("/forgot-password")
     public ResponseEntity<Map<String, Object>> forgotPassword(@RequestBody Map<String, String> request) {
         String username = request.get("username");
-        
-        System.out.println("收到忘记密码请求：用户名=" + username);
         
         Map<String, Object> response = new HashMap<>();
         
@@ -119,12 +110,6 @@ public class UserController {
             boolean resetSuccess = userService.resetPassword(username, null, "12345678");
             
             if (resetSuccess) {
-                System.out.println("==============================================");
-                System.out.println("【密码重置成功】");
-                System.out.println("用户名：" + username);
-                System.out.println("新密码：12345678");
-                System.out.println("==============================================");
-                
                 response.put("success", true);
                 response.put("message", "密码已重置为默认密码 12345678，请重新登录");
             } else {
@@ -136,7 +121,6 @@ public class UserController {
             return ResponseEntity.ok(response);
             
         } catch (Exception e) {
-            System.err.println("忘记密码处理失败：" + e.getMessage());
             e.printStackTrace();
             response.put("success", false);
             response.put("message", "重置密码失败：" + e.getMessage());
@@ -165,8 +149,7 @@ public class UserController {
     @PostMapping("/logout")
     public ResponseEntity<Map<String, Object>> logout(@RequestBody Map<String, String> request) {
         String userId = request.get("userId");
-        System.out.println("收到用户注销请求: " + userId);
-
+    
         Map<String, Object> response = new HashMap<>();
 
         try {
@@ -178,7 +161,6 @@ public class UserController {
             return ResponseEntity.ok(response);
 
         } catch (Exception e) {
-            System.err.println("注销失败: " + e.getMessage());
             response.put("success", false);
             response.put("message", "注销失败: " + e.getMessage());
             return ResponseEntity.internalServerError().body(response);
@@ -187,8 +169,6 @@ public class UserController {
 
     @DeleteMapping("/delete/{userId}")
     public ResponseEntity<Map<String, Object>> deleteUser(@PathVariable String userId) {
-        System.out.println("收到删除用户请求: " + userId);
-
         Map<String, Object> response = new HashMap<>();
 
         try {
@@ -205,7 +185,6 @@ public class UserController {
             }
 
         } catch (Exception e) {
-            System.err.println("删除用户失败: " + e.getMessage());
             response.put("success", false);
             response.put("message", "删除用户失败: " + e.getMessage());
             return ResponseEntity.internalServerError().body(response);
@@ -218,8 +197,7 @@ public class UserController {
             @RequestBody Map<String, String> request) {
 
         String newUsername = request.get("newUsername");
-        System.out.println("收到修改用户名请求: " + userId + " -> " + newUsername);
-
+        
         Map<String, Object> response = new HashMap<>();
 
         try {
@@ -237,7 +215,6 @@ public class UserController {
             }
 
         } catch (Exception e) {
-            System.err.println("修改用户名失败: " + e.getMessage());
             response.put("success", false);
             response.put("message", "修改用户名失败: " + e.getMessage());
             return ResponseEntity.internalServerError().body(response);

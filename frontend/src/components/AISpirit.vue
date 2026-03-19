@@ -578,7 +578,7 @@ const selectMenuItem = (item) => {
     case 'consultation':
       // 直接打开 AI 咨询
       currentMode.value = 'consultation';
-      currentChatTitle.value = 'AI 心理咨询';
+      currentChatTitle.value = '健康顾问';
       currentChatIcon.value = '🤖';
       showChat.value = true;
       showFeatureMenu.value = false;

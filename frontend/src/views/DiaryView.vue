@@ -124,23 +124,6 @@
             </button>
           </div>
 
-
-
-          <!-- 分析结果 -->
-          <div v-if="recognizedFoods.length > 0" class="analysis-results">
-            <h3>🔍 识别到的食物：</h3>
-            <div class="foods-display">
-              <span
-                v-for="(food, index) in recognizedFoods"
-                :key="index"
-                class="food-tag"
-                :class="getFoodTypeClass(food)"
-              >
-                {{ food.name }} ({{ food.weightGrams }}g)
-              </span>
-            </div>
-          </div>
-
           <!-- 营养预估 -->
           <div v-if="nutritionEstimate" class="nutrition-preview">
             <h3>📋 营养成分预估：</h3>
@@ -486,97 +469,20 @@ const analyzeFoodItems = async () => {
     return
   }
 
+  analyzing.value = true
+
+  // 构造食物描述字符串
+  const foodDescription = foodItems.value.map(item => 
+    `${item.quantity}${item.unit}${item.name}`
+  ).join('、')
+
+  console.log('🔍 准备进行 AI 营养分析，食物描述:', foodDescription)
+  
   try {
-    analyzing.value = true
-
-    // 构造食物描述字符串
-    const foodDescription = foodItems.value.map(item => 
-      `${item.quantity}${item.unit}${item.name}`
-    ).join('、')
-
-    console.log('🔍 准备智能匹配，食物描述:', foodDescription)
-
-    // 第一步：尝试智能匹配数据库中的食材
-    let matchResult = null
-    let needAIAnalysis = true
-    
-    try {
-      const matchResponse = await axios.post('/api/smart-match/ingredients', {
-        input: foodDescription
-      }, {
-        timeout: 10000
-      })
-      
-      matchResult = matchResponse.data
-      console.log('✅ 智能匹配成功:', matchResult)
-      console.log('  - matched:', matchResult.matched)
-      console.log('  - needAIAnalysis:', matchResult.needAIAnalysis)
-      console.log('  - matchedFoods:', matchResult.matchedFoods)
-      console.log('  - unknownFoods:', matchResult.unknownFoods)
-      
-      // 如果全部匹配成功，不需要调用 AI
-      if (matchResult.matched && !matchResult.needAIAnalysis) {
-        needAIAnalysis = false
-        
-        // 使用数据库数据构建结果（保留重复项）
-        recognizedFoods.value = matchResult.matchedFoods.map((foodName, index) => ({
-          name: foodName,
-          weightGrams: parseInt(foodItems.value[index]?.quantity) || 100
-        }))
-        
-        // 将匹配到的食物名称填充到 consumedIngredients（保留重复）
-        newDiaryEntry.value.consumedIngredients = [...matchResult.matchedFoods]
-        
-        // 计算总营养（从数据库食材累加，每个食材独立计算）
-        const ingredients = matchResult.matchedIngredients || []
-        let totalCalories = 0
-        let totalProtein = 0
-        let totalCarbs = 0
-        let totalFat = 0
-        let totalFiber = 0
-        
-        // 遍历每个匹配的食材（包括重复的）
-        ingredients.forEach((ingredient, idx) => {
-          const quantity = parseInt(foodItems.value[idx]?.quantity) || 100
-          const ratio = quantity / 100.0
-          
-          totalCalories += (ingredient.caloriesPer100g || 0) * ratio
-          totalProtein += (ingredient.proteinPer100g || 0) * ratio
-          totalCarbs += (ingredient.carbsPer100g || 0) * ratio
-          totalFat += (ingredient.fatPer100g || 0) * ratio
-          totalFiber += (ingredient.fiberPer100g || 0) * ratio
-          
-          console.log(`食材 ${idx + 1}: ${ingredient.name}, 重量：${quantity}g, 热量：${(ingredient.caloriesPer100g || 0) * ratio}kcal`)
-        })
-        
-        nutritionEstimate.value = {
-          calories: Math.round(totalCalories),
-          protein: totalProtein.toFixed(1),
-          carbs: totalCarbs.toFixed(1),
-          fat: totalFat.toFixed(1),
-          fiber: totalFiber.toFixed(1)
-        }
-        
-        console.log('使用数据库数据，无需调用 AI')
-        ElNotification({
-          title: '✅ 快速匹配',
-          message: `已从数据库匹配 ${matchResult.matchedFoods.length} 种食材`,
-          type: 'success',
-          duration: 2000,
-          offset: 80
-        })
-      }
-    } catch (matchError) {
-      console.log('❌ 智能匹配失败，将使用 AI 分析:', matchError.message)
-      console.log('错误详情:', matchError.response?.data || matchError)
-    }
-    
-    // 第二步：如果有未匹配的食材，调用 AI 分析
-    if (needAIAnalysis) {
-      console.log('调用 AI 分析...')
-      
-      // 使用 axios 调用后端 AI 分析 API，支持更长超时（10 分钟）
-      const response = await axios.post('/api/diet/smart-analyze', {
+    // 直接调用后端智能分析 API（后端会优先查询 ingredient 数据库）
+    console.log('调用后端智能分析接口...')
+    // 使用 axios 调用后端智能分析 API
+    const response = await axios.post('/api/diet/smart-analyze', {
         foodDescription: foodDescription
       }, {
         timeout: 600000,  // AI 分析可能需要更长时间，设置为 10 分钟
@@ -585,20 +491,35 @@ const analyzeFoodItems = async () => {
         }
       })
 
-      const result = response.data
-      
-      // 显示识别到的食物
-      recognizedFoods.value = result.foods || []
-      
-      // 将识别到的食物名称填充到 consumedIngredients
-      newDiaryEntry.value.consumedIngredients = (result.foods || []).map(food => food.name)
+    const result = response.data
+    
+    console.log('智能分析结果:', result)
+    console.log('数据库匹配数量:', result.databaseMatchCount)
+    console.log('AI 分析数量:', result.aiAnalysisCount)
+    console.log('模式:', result.mode)
+    
+    // 显示识别到的食物
+    recognizedFoods.value = result.foods || []
+    
+    // 将识别到的食物名称填充到 consumedIngredients
+    newDiaryEntry.value.consumedIngredients = (result.foods || []).map(food => food.name)
 
-      // 显示营养成分预估
-      nutritionEstimate.value = result.totalNutrition
-      
+    // 显示营养成分预估
+    nutritionEstimate.value = result.totalNutrition
+    
+    // 根据匹配模式显示不同提示
+    if (result.mode === '数据库匹配') {
+      ElNotification({
+        title: '✅ 数据库匹配成功',
+        message: `已从数据库匹配 ${result.databaseMatchCount} 种食材`,
+        type: 'success',
+        duration: 2000,
+        offset: 80
+      })
+    } else {
       ElNotification({
         title: '🤖 AI 分析完成',
-        message: '已完成智能营养分析',
+        message: `数据库匹配 ${result.databaseMatchCount} 种 + AI 分析 ${result.aiAnalysisCount} 种`,
         type: 'success',
         duration: 2000,
         offset: 80
@@ -606,11 +527,11 @@ const analyzeFoodItems = async () => {
     }
 
     // 自动填充营养成分
-    newDiaryEntry.value.calories = nutritionEstimate.value?.calories || null
-    newDiaryEntry.value.protein = nutritionEstimate.value?.protein || null
-    newDiaryEntry.value.carbs = nutritionEstimate.value?.carbs || null
-    newDiaryEntry.value.fat = nutritionEstimate.value?.fat || null
-    newDiaryEntry.value.fiber = nutritionEstimate.value?.fiber || null
+    newDiaryEntry.value.calories = result.totalNutrition?.calories || null
+    newDiaryEntry.value.protein = result.totalNutrition?.protein || null
+    newDiaryEntry.value.carbs = result.totalNutrition?.carbs || null
+    newDiaryEntry.value.fat = result.totalNutrition?.fat || null
+    newDiaryEntry.value.fiber = result.totalNutrition?.fiber || null
 
     // 标记已完成 AI 分析
     hasAnalyzed.value = true
@@ -624,14 +545,14 @@ const analyzeFoodItems = async () => {
     })
 
   } catch (error) {
-    console.error('分析失败:', error)
+    console.error('分析失败:', error);
     ElNotification({
       title: '❌ 分析失败',
       message: error.response?.data?.message || error.message || '分析过程中出现错误',
       type: 'error',
       duration: 3000,
       offset: 80
-    })
+    });
   } finally {
     analyzing.value = false
   }

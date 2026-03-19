@@ -3,7 +3,9 @@ package com.example.healthassistant.controller;
 import com.example.healthassistant.dto.DietRecordDto;
 import com.example.healthassistant.model.DietRecord;
 import com.example.healthassistant.model.FitnessRecord;
+import com.example.healthassistant.model.Ingredient;
 import com.example.healthassistant.repository.FitnessRecordRepository;
+import com.example.healthassistant.repository.IngredientRepository;
 import com.example.healthassistant.service.DietRecordService;
 import com.example.healthassistant.service.DoubaoFoodRecognitionService;
 import com.example.healthassistant.service.QwenAIService;
@@ -159,61 +161,231 @@ public class DietController {
         }
     }
 
-    // 智能分析API - 将食物名称和重量组装成自然语言句子
+    @Autowired
+    private IngredientRepository ingredientRepository;
+    
+    // 智能分析 API - 优先使用数据库匹配，没有才调用豆包 AI
     @PostMapping("/smart-analyze")
     public ResponseEntity<Map<String, Object>> smartAnalyzeFood(@RequestBody Map<String, Object> request) {
         String foodDescription = (String) request.get("foodDescription");
-
+    
         if (foodDescription == null || foodDescription.trim().isEmpty()) {
             return ResponseEntity.badRequest().build();
         }
-
+    
         try {
-            // 构造自然语言查询语句
-            String naturalLanguageQuery = constructNaturalLanguageQuery(foodDescription);
-        
-            // 调用 AI 服务进行分析
-            List<DoubaoFoodRecognitionService.FoodNutrition> results = doubaoFoodService
-                    .recognizeFoodWithDoubao(naturalLanguageQuery);
-
-            Map<String, Object> response = new HashMap<>();
-            response.put("input", foodDescription);
-            response.put("naturalLanguageQuery", naturalLanguageQuery);
-            response.put("foods", results);
-            response.put("count", results.size());
-
-            // 计算总营养成分
+            // 第一步：解析食物描述，提取食材名称和重量
+            List<FoodItem> foodItems = parseFoodItems(foodDescription);
+                
+            // 第二步：尝试从数据库匹配食材
+            List<IngredientMatchResult> matchResults = new ArrayList<>();
+            List<String> unmatchedFoods = new ArrayList<>();
+                
+            for (FoodItem item : foodItems) {
+                Ingredient dbIngredient = ingredientRepository.findByName(item.name);
+                    
+                if (dbIngredient != null) {
+                    // 数据库中找到，计算营养
+                    double ratio = item.weightGrams / 100.0;
+                    MatchedFood matchedFood = new MatchedFood();
+                    matchedFood.name = item.name;
+                    matchedFood.weightGrams = item.weightGrams;
+                    matchedFood.calories = dbIngredient.getCaloriesPer100g() * ratio;
+                    matchedFood.protein = dbIngredient.getProteinPer100g() * ratio;
+                    matchedFood.carbs = dbIngredient.getCarbsPer100g() * ratio;
+                    matchedFood.fat = dbIngredient.getFatPer100g() * ratio;
+                    matchedFood.fiber = dbIngredient.getFiberPer100g() * ratio;
+                    matchedFood.source = "database";
+                        
+                    matchResults.add(new IngredientMatchResult(matchedFood, true));
+                } else {
+                    // 数据库中未找到
+                    unmatchedFoods.add(item.name + " " + item.weightGrams + "克");
+                    matchResults.add(new IngredientMatchResult(null, false));
+                }
+            }
+                
+            // 第三步：如果有未匹配的食材，调用豆包 AI
+            List<DoubaoFoodRecognitionService.FoodNutrition> aiResults = new ArrayList<>();
+            if (!unmatchedFoods.isEmpty()) {
+                String unmatchedQuery = String.join("、", unmatchedFoods);
+                String naturalLanguageQuery = constructNaturalLanguageQuery(unmatchedQuery);
+                aiResults = doubaoFoodService.recognizeFoodWithDoubao(naturalLanguageQuery);
+            }
+                
+            // 第四步：合并结果
+            List<DoubaoFoodRecognitionService.FoodNutrition> finalResults = new ArrayList<>();
+            int aiIndex = 0;
+                
+            for (int i = 0; i < matchResults.size(); i++) {
+                IngredientMatchResult result = matchResults.get(i);
+                if (result.isMatched && result.matchedFood != null) {
+                    // 使用数据库数据
+                    DoubaoFoodRecognitionService.FoodNutrition nutrition = new DoubaoFoodRecognitionService.FoodNutrition();
+                    nutrition.setName(result.matchedFood.name);
+                    nutrition.setWeight(result.matchedFood.weightGrams);
+                    nutrition.setCalories(result.matchedFood.calories);
+                    nutrition.setProtein(result.matchedFood.protein);
+                    nutrition.setCarbs(result.matchedFood.carbs);
+                    nutrition.setFat(result.matchedFood.fat);
+                    nutrition.setFiber(result.matchedFood.fiber);
+                    finalResults.add(nutrition);
+                } else if (aiIndex < aiResults.size()) {
+                    // 使用 AI 数据
+                    finalResults.add(aiResults.get(aiIndex++));
+                }
+            }
+                
+            // 第五步：计算总营养成分
             double totalCalories = 0;
             double totalProtein = 0;
             double totalCarbs = 0;
             double totalFat = 0;
             double totalFiber = 0;
-
-            for (DoubaoFoodRecognitionService.FoodNutrition food : results) {
+    
+            for (DoubaoFoodRecognitionService.FoodNutrition food : finalResults) {
                 totalCalories += food.getActualCalories();
                 totalProtein += food.getActualProtein();
                 totalCarbs += food.getActualCarbs();
                 totalFat += food.getActualFat();
                 totalFiber += food.getActualFiber();
             }
-
+                
+            // 第六步：构建响应
+            Map<String, Object> response = new HashMap<>();
+            response.put("input", foodDescription);
+            response.put("foods", finalResults);
+            response.put("count", finalResults.size());
+            response.put("databaseMatchCount", (int) matchResults.stream().filter(r -> r.isMatched).count());
+            response.put("aiAnalysisCount", aiResults.size());
+    
             Map<String, Double> totals = new HashMap<>();
             totals.put("calories", Math.round(totalCalories * 100.0) / 100.0);
             totals.put("protein", Math.round(totalProtein * 100.0) / 100.0);
             totals.put("carbs", Math.round(totalCarbs * 100.0) / 100.0);
             totals.put("fat", Math.round(totalFat * 100.0) / 100.0);
             totals.put("fiber", Math.round(totalFiber * 100.0) / 100.0);
-
+    
             response.put("totalNutrition", totals);
-            response.put("mode", "智能自然语言分析");
+            response.put("mode", matchResults.stream().allMatch(r -> r.isMatched) ? "数据库匹配" : "数据库+AI 混合模式");
 
             return ResponseEntity.ok(response);
-
+    
         } catch (Exception e) {
+            e.printStackTrace();
             Map<String, Object> errorResponse = new HashMap<>();
             errorResponse.put("error", e.getMessage());
             return ResponseEntity.internalServerError().body(errorResponse);
         }
+    }
+        
+    // 内部类用于解析结果
+    private static class FoodItem {
+        String name;
+        int weightGrams;
+    }
+        
+    private static class MatchedFood {
+        String name;
+        int weightGrams;
+        double calories;
+        double protein;
+        double carbs;
+        double fat;
+        double fiber;
+        String source;
+    }
+        
+    private static class IngredientMatchResult {
+        MatchedFood matchedFood;
+        boolean isMatched;
+            
+        IngredientMatchResult(MatchedFood matchedFood, boolean isMatched) {
+            this.matchedFood = matchedFood;
+            this.isMatched = isMatched;
+        }
+    }
+        
+    // 解析食物描述为 FoodItem 列表
+    private List<FoodItem> parseFoodItems(String foodDescription) {
+        List<FoodItem> items = new ArrayList<>();
+        String[] parts = foodDescription.split("、");
+            
+        for (String part : parts) {
+            String trimmed = part.trim();
+            if (trimmed.isEmpty()) continue;
+                
+            FoodItem item = new FoodItem();
+                
+            // 手动解析：从开头提取数字，然后提取单位，剩下的是名称
+            String temp = trimmed;
+            StringBuilder weightSb = new StringBuilder();
+            int i = 0;
+            
+            // 提取数字部分
+            while (i < temp.length() && (Character.isDigit(temp.charAt(i)) || temp.charAt(i) == '.')) {
+                weightSb.append(temp.charAt(i));
+                i++;
+            }
+            
+            if (weightSb.length() > 0) {
+                // 有数字
+                try {
+                    item.weightGrams = Integer.parseInt(weightSb.toString());
+                    
+                    // 检查是否有单位
+                    String unit = null;
+                    if (i < temp.length()) {
+                        String remaining = temp.substring(i);
+                        if (remaining.startsWith("克")) {
+                            unit = "克";
+                            i += 1;
+                        } else if (remaining.startsWith("斤")) {
+                            unit = "斤";
+                            i += 1;
+                        } else if (remaining.startsWith("两")) {
+                            unit = "两";
+                            i += 1;
+                        } else if (remaining.startsWith("碗")) {
+                            unit = "碗";
+                            i += 1;
+                        } else if (remaining.startsWith("杯")) {
+                            unit = "杯";
+                            i += 1;
+                        } else if (remaining.startsWith("份")) {
+                            unit = "份";
+                            i += 1;
+                        }
+                    }
+                    
+                    // 剩下的就是名称
+                    item.name = temp.substring(i).trim();
+                    
+                    // 转换单位为克
+                    if (unit != null) {
+                        switch (unit) {
+                            case "斤": item.weightGrams *= 500; break;
+                            case "两": item.weightGrams *= 50; break;
+                            case "碗": item.weightGrams = 150; break;
+                            case "杯": item.weightGrams = 200; break;
+                            case "份": item.weightGrams = 100; break;
+                        }
+                    }
+                    
+                } catch (Exception e) {
+                    item.name = trimmed;
+                    item.weightGrams = 100;
+                }
+            } else {
+                // 没有数字，使用默认值
+                item.name = trimmed;
+                item.weightGrams = 100;
+            }
+                
+            items.add(item);
+        }
+            
+        return items;
     }
     
     // 传统的食物识别 API
@@ -313,13 +485,13 @@ public class DietController {
     // 提取食物名称
     private String extractFoodName(String item) {
         // 移除数字和单位，剩下的就是食物名称
-        return item.replaceAll("^\\d+(?:\\.\\d+)?", "").replaceAll("[克斤两个]", "").trim();
+        return item.replaceAll("^\\d+(?:\\.\\d+)?", "").replaceAll("[克斤两碗杯份]", "").trim();
     }
 
     // 提取单位
     private String extractUnit(String item) {
         // 匹配单位
-        java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("[克斤两个]");
+        java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("[克斤两碗杯份]");
         java.util.regex.Matcher matcher = pattern.matcher(item);
         if (matcher.find()) {
             return matcher.group(0);
@@ -492,8 +664,6 @@ public class DietController {
     @DeleteMapping("/fitness/batch")
     public ResponseEntity<Map<String, Object>> deleteBatchFitnessRecords(@RequestBody List<Long> ids) {
         try {
-            System.out.println("批量删除健身记录，数量: " + ids.size());
-
             fitnessRecordRepository.deleteAllById(ids);
 
             Map<String, Object> response = new HashMap<>();

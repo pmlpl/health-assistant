@@ -471,7 +471,7 @@ onMounted(() => {
 
 <style scoped>
 .professional-calendar {
-  max-width: 500px;
+  max-width: 680px;
   margin: 0 auto;
   background: white;
   border-radius: 16px;

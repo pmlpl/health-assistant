@@ -39,12 +39,11 @@ public class EnvConfig {
             if (inputStream != null) {
                 envProperties.load(inputStream);
                 loaded = true;
-                System.out.println("成功加载 .env 文件");
             } else {
-                System.out.println("未找到 .env 文件，将使用系统环境变量");
+                // 未找到 .env 文件，将使用系统环境变量
             }
         } catch (IOException e) {
-            System.out.println("加载 .env 文件失败：" + e.getMessage());
+            // 加载失败，使用系统环境变量
         }
     }
     
