@@ -239,7 +239,7 @@ const removeFromAllRecipes = (recipeId) => {
   }
 };
 
-// 从 localStorage 加载全部食谱
+// 从 localStorage 加载全部食谱（作为缓存）
 const loadAllRecipesFromStorage = () => {
   try {
     const stored = localStorage.getItem('allRecipes');
@@ -248,6 +248,58 @@ const loadAllRecipesFromStorage = () => {
     }
   } catch (e) {
     console.error('加载全部食谱失败:', e);
+  }
+};
+
+// 从数据库加载用户保存的 AI 食谱
+const loadAiRecipesFromDatabase = async () => {
+  try {
+    const response = await fetch('/api/recipes/my-ai-recipes', {
+      method: 'GET',
+      headers: {
+        'Authorization': localStorage.getItem('token') || ''
+      }
+    });
+    
+    if (response.ok) {
+      const dbRecipes = await response.json();
+      // 将数据库的食谱转换为前端格式
+      const formattedRecipes = dbRecipes.map(recipe => ({
+        id: recipe.id,
+        name: recipe.name,
+        description: recipe.description,
+        image: recipe.imageUrl, // 数据库字段是 imageUrl
+        mealType: recipe.mealType,
+        calories: recipe.calories,
+        protein: recipe.protein,
+        carbs: recipe.carbs,
+        fat: recipe.fat,
+        ingredients: recipe.ingredientsList ? JSON.parse(recipe.ingredientsList) : [],
+        instructions: recipe.instructions ? JSON.parse(recipe.instructions) : [],
+        isAiRecommended: true,
+        databaseId: recipe.id // 标记数据库 ID
+      }));
+      
+      // 合并数据库和本地的食谱（优先使用数据库的图片）
+      const localRecipes = JSON.parse(localStorage.getItem('allRecipes') || '[]');
+      const mergedRecipes = [...formattedRecipes];
+      
+      // 添加本地独有的食谱（如果数据库里没有）
+      localRecipes.forEach(localRecipe => {
+        const existsInDb = mergedRecipes.some(r => r.name === localRecipe.name);
+        if (!existsInDb) {
+          mergedRecipes.push(localRecipe);
+        }
+      });
+      
+      allRecipes.value = mergedRecipes;
+      // 更新 localStorage 缓存
+      localStorage.setItem('allRecipes', JSON.stringify(mergedRecipes));
+    } else {
+      console.warn('⚠️ 从数据库加载失败，使用本地缓存');
+    }
+  } catch (err) {
+    console.error('❌ 从数据库加载 AI 食谱失败:', err);
   }
 };
 
@@ -552,7 +604,8 @@ watch([selectedType, searchQuery], () => {
 });
 
 onMounted(() => {
-  loadAllRecipesFromStorage();
+  // 优先从数据库加载（确保图片是最新的）
+  loadAiRecipesFromDatabase();
 });
 </script>
 

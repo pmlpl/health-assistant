@@ -1,5 +1,5 @@
 // src/composables/useAIConsult.js
-import { ref, onMounted, onUnmounted } from 'vue';
+import { ref, onMounted, onUnmounted, watch } from 'vue';
 import { useUserStore } from '../stores/userStore';
 
 export function useAIConsult() {
@@ -23,6 +23,7 @@ export function useAIConsult() {
                 lastUpdated: Date.now()
             };
             localStorage.setItem(storageKey, JSON.stringify(chatData));
+            console.log(`💾 已保存 ${chatMessages.value.length} 条聊天记录到本地存储`);
         } catch (error) {
             console.warn('保存聊天记录失败:', error);
         }
@@ -37,11 +38,12 @@ export function useAIConsult() {
                 const chatData = JSON.parse(savedData);
                 // 验证是否为当前用户的数据
                 if (chatData.userId === userStore.userData.userId) {
-                    // 可以添加过期检查逻辑，比如超过24小时的数据可以清理
+                    // 可以添加过期检查逻辑，比如超过 24 小时的数据可以清理
                     chatMessages.value = chatData.messages || [];
                 } else {
                     // 不是当前用户的数据，清空聊天记录
                     chatMessages.value = [];
+                    console.log('⚠️ 检测到不同用户数据，已清空聊天记录');
                 }
             } else {
                 // 没有找到该用户的聊天记录
@@ -174,8 +176,19 @@ export function useAIConsult() {
     // 在组件挂载时执行清理
     onMounted(() => {
         cleanupOldChatHistory();
-        loadChatHistory();
+        
+        // 如果用户数据已经存在，立即加载聊天记录
+        if (userStore.userData && userStore.userData.userId) {
+            loadChatHistory();
+        }
     });
+
+    // 监听用户数据变化，确保用户登录后加载聊天记录
+    watch(() => userStore.userData, (newUserData) => {
+        if (newUserData && newUserData.userId) {
+            loadChatHistory();
+        }
+    }, { immediate: true });
 
     // 组件卸载前保存聊天记录
     onUnmounted(() => {
@@ -187,6 +200,7 @@ export function useAIConsult() {
         chatMessages,
         isLoading,
         sendMessage,
-        clearChatHistory
+        clearChatHistory,
+        loadChatHistory
     };
 }

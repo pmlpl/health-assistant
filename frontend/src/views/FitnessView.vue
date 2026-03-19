@@ -179,7 +179,7 @@
             </button>
           </div>
 
-          <div class="records-container">
+          <div class="records-list-wrapper">
             <div class="record-item" v-for="(entry, index) in fitnessEntries" :key="entry.id || index" :class="{ 'selected': selectedRecords.includes(entry.id) }">
               <div class="record-header">
                 <div class="fitness-info">
@@ -221,55 +221,60 @@
               </div>
             </div>
           </div>
-
-          <div class="summary-section" v-if="fitnessEntries.length > 0">
-            <h3>📈 今日训练总结</h3>
-            <div class="summary-grid">
-              <div class="summary-box calories">
-                <div class="summary-icon">🔥</div>
-                <div class="big-number">{{ totalCaloriesBurned }}</div>
-                <div class="metric">总消耗</div>
-                <div class="small-unit">kcal</div>
-              </div>
-              <div class="summary-box duration">
-                <div class="summary-icon">⏱️</div>
-                <div class="big-number">{{ totalDuration }}</div>
-                <div class="metric">总时长</div>
-                <div class="small-unit">分钟</div>
-              </div>
-              <div class="summary-box reps" v-if="totalRepetitions > 0">
-                <div class="summary-icon">🔢</div>
-                <div class="big-number">{{ totalRepetitions }}</div>
-                <div class="metric">总次数</div>
-                <div class="small-unit">个</div>
-              </div>
-              <div class="summary-box weight" v-if="totalWeight > 0">
-                <div class="summary-icon">🏋️</div>
-                <div class="big-number">{{ totalWeight }}</div>
-                <div class="metric">总重量</div>
-                <div class="small-unit">kg</div>
-              </div>
-              <div class="summary-box count">
-                <div class="summary-icon">🏋️</div>
-                <div class="big-number">{{ fitnessEntries.length }}</div>
-                <div class="metric">训练项目</div>
-                <div class="small-unit">项</div>
-              </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- 底部总结区域 -->
+    <div class="bottom-summary-section">
+      <div class="summary-card">
+        <div class="summary-section" v-if="fitnessEntries.length > 0">
+          <h3>📈 今日训练总结</h3>
+          <div class="summary-grid">
+            <div class="summary-box calories">
+              <div class="summary-icon">🔥</div>
+              <div class="big-number">{{ totalCaloriesBurned }}</div>
+              <div class="metric">总消耗</div>
+              <div class="small-unit">kcal</div>
             </div>
+            <div class="summary-box duration">
+              <div class="summary-icon">⏱️</div>
+              <div class="big-number">{{ totalDuration }}</div>
+              <div class="metric">总时长</div>
+              <div class="small-unit">分钟</div>
+            </div>
+            <div class="summary-box reps" v-if="totalRepetitions > 0">
+              <div class="summary-icon">🔢</div>
+              <div class="big-number">{{ totalRepetitions }}</div>
+              <div class="metric">总次数</div>
+              <div class="small-unit">个</div>
+            </div>
+            <div class="summary-box weight" v-if="totalWeight > 0">
+              <div class="summary-icon">🏋️</div>
+              <div class="big-number">{{ totalWeight }}</div>
+              <div class="metric">总重量</div>
+              <div class="small-unit">kg</div>
+            </div>
+            <div class="summary-box count">
+              <div class="summary-icon">🏋️</div>
+              <div class="big-number">{{ fitnessEntries.length }}</div>
+              <div class="metric">训练项目</div>
+              <div class="small-unit">项</div>
+            </div>
+          </div>
+          
+          <div class="ai-analysis-section">
+            <button 
+              @click="analyzeFitnessItems" 
+              class="btn-ai-analyze"
+              :disabled="analyzing"
+            >
+              {{ analyzing ? '🔄 分析中...' : '🤖 AI 智能分析收获' }}
+            </button>
             
-            <div class="ai-analysis-section">
-              <button 
-                @click="analyzeFitnessItems" 
-                class="btn-ai-analyze"
-                :disabled="analyzing"
-              >
-                {{ analyzing ? '🔄 分析中...' : '🤖 AI智能分析收获' }}
-              </button>
-              
-              <div v-if="aiAnalysis" class="analysis-result">
-                <h4>💡 训练分析报告</h4>
-                <div class="analysis-content" v-html="formatAnalysis(aiAnalysis)"></div>
-              </div>
+            <div v-if="aiAnalysis" class="analysis-result">
+              <h4>💡 训练分析报告</h4>
+              <div class="analysis-content" v-html="formatAnalysis(aiAnalysis)"></div>
             </div>
           </div>
         </div>
@@ -282,8 +287,9 @@
 import { ref, computed, onMounted } from 'vue';
 import axios from 'axios';
 import { useUserStore } from '../stores/userStore';
-// 导入healthApi
+// 导入 healthApi
 import { healthApi } from '../api/healthApi';
+import { ElNotification, ElMessageBox } from 'element-plus';
 
 const userStore = useUserStore();
 
@@ -404,7 +410,13 @@ const calculateCalories = (item) => {
 // 添加自定义健身项目
 const addCustomFitnessItem = () => {
   if (!newFitnessEntry.value.name.trim()) {
-    alert('请输入健身项目名称');
+    ElNotification({
+      title: '⚠️ 提示',
+      message: '请输入健身项目名称',
+      type: 'warning',
+      duration: 2000,
+      offset: 80
+    });
     return;
   }
   
@@ -412,25 +424,55 @@ const addCustomFitnessItem = () => {
   
   // 根据类型验证输入
   if (metricType === 'duration' && (!newFitnessEntry.value.duration || newFitnessEntry.value.duration <= 0)) {
-    alert('请输入有效的时长');
+    ElNotification({
+      title: '⚠️ 提示',
+      message: '请输入有效的时长',
+      type: 'warning',
+      duration: 2000,
+      offset: 80
+    });
     return;
   }
   if (metricType === 'reps' && (!newFitnessEntry.value.repetitions || newFitnessEntry.value.repetitions <= 0)) {
-    alert('请输入有效的次数');
+    ElNotification({
+      title: '⚠️ 提示',
+      message: '请输入有效的次数',
+      type: 'warning',
+      duration: 2000,
+      offset: 80
+    });
     return;
   }
   if (metricType === 'weight' && (!newFitnessEntry.value.weight || newFitnessEntry.value.weight <= 0)) {
-    alert('请输入有效的重量');
+    ElNotification({
+      title: '⚠️ 提示',
+      message: '请输入有效的重量',
+      type: 'warning',
+      duration: 2000,
+      offset: 80
+    });
     return;
   }
   if (metricType === 'duration_reps' && ((!newFitnessEntry.value.duration || newFitnessEntry.value.duration <= 0) || 
       (!newFitnessEntry.value.repetitions || newFitnessEntry.value.repetitions <= 0))) {
-    alert('请输入有效的时长和次数');
+    ElNotification({
+      title: '⚠️ 提示',
+      message: '请输入有效的时长和次数',
+      type: 'warning',
+      duration: 2000,
+      offset: 80
+    });
     return;
   }
   if (metricType === 'weight_reps' && ((!newFitnessEntry.value.weight || newFitnessEntry.value.weight <= 0) || 
       (!newFitnessEntry.value.repetitions || newFitnessEntry.value.repetitions <= 0))) {
-    alert('请输入有效的重量和次数');
+    ElNotification({
+      title: '⚠️ 提示',
+      message: '请输入有效的重量和次数',
+      type: 'warning',
+      duration: 2000,
+      offset: 80
+    });
     return;
   }
   
@@ -462,7 +504,13 @@ const removeFitnessItem = (index) => {
 // AI 分析健身项目 - 专注于健身收获和消耗
 const analyzeFitnessItems = async () => {
   if (fitnessEntries.value.length === 0) {
-    alert('请先添加健身记录');
+    ElNotification({
+      title: '⚠️ 提示',
+      message: '请先添加健身记录',
+      type: 'warning',
+      duration: 2000,
+      offset: 80
+    });
     return;
   }
   
@@ -472,7 +520,13 @@ const analyzeFitnessItems = async () => {
   try {
     const userId = userStore.userData?.userId;
     if (!userId) {
-      alert('请先登录');
+      ElNotification({
+        title: '⚠️ 提示',
+        message: '请先登录',
+        type: 'warning',
+        duration: 2000,
+        offset: 80
+      });
       return;
     }
 
@@ -483,12 +537,12 @@ const analyzeFitnessItems = async () => {
       totalWeight: totalWeight.value,
       workoutCount: fitnessEntries.value.length,
       workouts: fitnessEntries.value.map(item => ({
-        name: item.workoutName,
-        type: item.workoutType,
-        duration: item.durationMinutes,
+        name: item.workoutName || item.name,
+        type: item.workoutType || item.type,
+        duration: item.durationMinutes || item.duration,
         repetitions: item.repetitions,
-        weight: item.weightKg,
-        calories: item.caloriesBurned
+        weight: item.weightKg || item.weight,
+        calories: item.caloriesBurned || item.calories
       })),
       analysisType: 'fitness_workout'
     };
@@ -499,7 +553,7 @@ const analyzeFitnessItems = async () => {
       `/api/ai/analyze-fitness-workout/${userId}`,
       fitnessAnalysisData,
       {
-        timeout: 60000,
+        timeout: 600000,  // 健身分析可能需要更长时间，设置为 10 分钟
         headers: { 'Content-Type': 'application/json' }
       }
     );
@@ -532,7 +586,13 @@ const saveFitnessRecord = async () => {
   try {
     const userId = userStore.userData?.userId;
     if (!userId) {
-      alert('请先登录');
+      ElNotification({
+        title: '⚠️ 提示',
+        message: '请先登录',
+        type: 'warning',
+        duration: 2000,
+        offset: 80
+      });
       return;
     }
 
@@ -552,7 +612,13 @@ const saveFitnessRecord = async () => {
     const result = await healthApi.batchSaveFitnessRecords(recordsToSave);
     
     if (result.success) {
-      alert('健身记录保存成功！');
+      ElNotification({
+        title: '✅ 保存成功',
+        message: '健身记录保存成功！',
+        type: 'success',
+        duration: 3000,
+        offset: 80
+      });
       
       // 重置表单和分析结果
       aiAnalysis.value = '';
@@ -562,14 +628,20 @@ const saveFitnessRecord = async () => {
       // 清空健身项目列表，准备重新加载
       fitnessItems.value = [];
       
-      // 重新加载数据
-      loadTodayData();
+      // 重新加载数据，确保从后端获取最新记录
+      await loadTodayData();
     } else {
       throw new Error(result.error || '保存失败');
     }
   } catch (error) {
     console.error('保存记录失败:', error);
-    alert('保存记录失败，请重试。');
+    ElNotification({
+      title: '❌ 保存失败',
+      message: '保存记录失败，请重试',
+      type: 'error',
+      duration: 3000,
+      offset: 80
+    });
   } finally {
     saving.value = false;
   }
@@ -586,6 +658,10 @@ const loadTodayData = async () => {
       
     const records = await healthApi.getDailyFitnessRecords(userId, dateStr);
     fitnessEntries.value = records || [];
+    
+    // 清空选中状态，避免缓存
+    selectedRecords.value = [];
+    selectAll.value = false;
   } catch (error) {
     console.error('加载数据失败:', error);
     fitnessEntries.value = [];
@@ -666,15 +742,27 @@ const updateSelectAllState = () => {
 // 批量删除
 const batchDelete = async () => {
   if (selectedRecords.value.length === 0) {
-    alert('请先选择要删除的记录');
-    return;
-  }
-  
-  if (!confirm(`确定要删除选中的 ${selectedRecords.value.length} 条记录吗？此操作不可撤销。`)) {
+    ElNotification({
+      title: '⚠️ 提示',
+      message: '请先选择要删除的记录',
+      type: 'warning',
+      duration: 2000,
+      offset: 80
+    });
     return;
   }
   
   try {
+    await ElMessageBox.confirm(
+      `确定要删除选中的 ${selectedRecords.value.length} 条记录吗？此操作不可撤销。`,
+      '删除确认',
+      {
+        confirmButtonText: '确定删除',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }
+    );
+    
     batchDeleting.value = true;
     
     const response = await fetch('/api/diet/fitness/batch', {
@@ -689,21 +777,33 @@ const batchDelete = async () => {
       const result = await response.json();
       console.log('批量删除成功:', result);
       
-      fitnessEntries.value = fitnessEntries.value.filter(
-        entry => !selectedRecords.value.includes(entry.id)
-      );
-      
+      // 清空选中项
       selectedRecords.value = [];
       selectAll.value = false;
       
-      alert(`成功删除 ${result.deletedCount} 条记录！`);
+      // 重新加载最新数据，而不是直接过滤本地数组
+      await loadTodayData();
+      
+      ElNotification({
+        title: '✅ 删除成功',
+        message: `成功删除 ${result.deletedCount} 条记录`,
+        type: 'success',
+        duration: 3000,
+        offset: 80
+      });
     } else {
       const errorResult = await response.json();
       throw new Error(errorResult.error || '批量删除失败');
     }
   } catch (err) {
     console.error('批量删除失败:', err);
-    alert(`批量删除失败: ${err.message}`);
+    ElNotification({
+      title: '❌ 删除失败',
+      message: '批量删除失败：' + err.message,
+      type: 'error',
+      duration: 3000,
+      offset: 80
+    });
   } finally {
     batchDeleting.value = false;
   }
@@ -712,15 +812,27 @@ const batchDelete = async () => {
 // 删除单条记录
 const deleteRecord = async (recordId, index) => {
   if (!recordId) {
-    alert('记录ID无效，无法删除');
-    return;
-  }
-  
-  if (!confirm('确定要删除这条健身记录吗？此操作不可撤销。')) {
+    ElNotification({
+      title: '⚠️ 提示',
+      message: '记录 ID 无效，无法删除',
+      type: 'warning',
+      duration: 2000,
+      offset: 80
+    });
     return;
   }
   
   try {
+    await ElMessageBox.confirm(
+      '确定要删除这条健身记录吗？此操作不可撤销。',
+      '删除确认',
+      {
+        confirmButtonText: '确定删除',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }
+    );
+    
     userStore.setLoading(true);
     userStore.clearError();
     
@@ -735,9 +847,16 @@ const deleteRecord = async (recordId, index) => {
       const result = await response.json();
       console.log('删除记录成功:', result);
       
-      fitnessEntries.value.splice(index, 1);
+      // 重新加载最新数据，而不是直接操作数组
+      await loadTodayData();
       
-      alert('记录删除成功！');
+      ElNotification({
+        title: '✅ 删除成功',
+        message: '记录删除成功！',
+        type: 'success',
+        duration: 3000,
+        offset: 80
+      });
     } else {
       const errorResult = await response.json();
       throw new Error(errorResult.error || '删除失败');
@@ -745,7 +864,13 @@ const deleteRecord = async (recordId, index) => {
   } catch (err) {
     console.error('删除记录失败:', err);
     userStore.setError(err.message || '删除记录失败');
-    alert(`删除失败: ${err.message}`);
+    ElNotification({
+      title: '❌ 删除失败',
+      message: '删除失败：' + err.message,
+      type: 'error',
+      duration: 3000,
+      offset: 80
+    });
   } finally {
     userStore.setLoading(false);
   }
@@ -847,6 +972,7 @@ onMounted(() => {
   padding: 0 32px 48px;
   position: relative;
   z-index: 1;
+  align-items: stretch;
 }
 
 @media (max-width: 1024px) {
@@ -867,6 +993,9 @@ onMounted(() => {
   transition: all 0.5s cubic-bezier(0.25, 0.1, 0.25, 1);
   position: relative;
   overflow: hidden;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
 }
 
 .card:hover {
@@ -1339,6 +1468,32 @@ onMounted(() => {
 
 .records-container {
   flex: 1;
+  overflow-y: auto;
+  max-height: 500px;
+}
+
+.records-list-wrapper {
+  flex: 1;
+  overflow-y: auto;
+  max-height: 500px;
+  padding-right: 8px;
+}
+
+.records-list-wrapper::-webkit-scrollbar {
+  width: 6px;
+}
+
+.records-list-wrapper::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.records-list-wrapper::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.15);
+  border-radius: 3px;
+}
+
+.records-list-wrapper::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.25);
 }
 
 .record-item {
@@ -1463,6 +1618,17 @@ onMounted(() => {
   padding-top: 28px;
   border-top: 1px solid rgba(0, 0, 0, 0.06);
   flex-shrink: 0;
+}
+
+.bottom-summary-section {
+  margin-top: 20px;
+  display: flex;
+  justify-content: center;
+}
+
+.summary-card {
+  width: 100%;
+  max-width: 1200px;
 }
 
 .summary-section h3 {

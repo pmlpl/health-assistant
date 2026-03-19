@@ -6,7 +6,7 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
 
 const api = axios.create({
     baseURL: API_BASE_URL,
-    timeout: 60000,  // 增加超时时间到 60 秒
+    timeout: 300000,  // 增加超时时间到 5 分钟，等待 AI 分析完成
     withCredentials: false,  // 临时禁用凭证以避免 CORS 问题
 });
 
@@ -341,10 +341,10 @@ export const healthApi = {
 
     // 心理健康咨询相关
     getMentalHealthAdvice: async (requestData) => {
-        // 创建一个新的axios实例，不使用全局拦截器，以确保错误能被正确捕获
+        // 创建一个新的 axios 实例，不使用全局拦截器，以确保错误能被正确捕获
         const mentalHealthApi = axios.create({
             baseURL: API_BASE_URL,
-            timeout: 120000
+            timeout: 600000  // 增加超时时间到 10 分钟，等待 AI 分析完成
         });
 
         try {

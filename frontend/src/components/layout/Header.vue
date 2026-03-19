@@ -49,6 +49,7 @@
 import { useUserStore } from '../../stores/userStore';
 import { useRouter } from 'vue-router';
 import { ref } from 'vue';
+import { ElMessageBox } from 'element-plus';
 import ApiStatusIndicator from '../common/ApiStatusIndicator.vue';
 
 const userStore = useUserStore();
@@ -57,7 +58,17 @@ const isLoggingOut = ref(false);
 const apiStatusOpen = ref(false);
 
 const handleLogout = async () => {
-  if (confirm('确定要退出登录吗？')) {
+  try {
+    await ElMessageBox.confirm(
+      '确定要退出登录吗？',
+      '注销确认',
+      {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'info'
+      }
+    );
+    
     try {
       isLoggingOut.value = true;
       await userStore.logout();
@@ -69,6 +80,9 @@ const handleLogout = async () => {
     } finally {
       isLoggingOut.value = false;
     }
+  } catch (err) {
+    // 用户取消操作
+    return;
   }
 };
 

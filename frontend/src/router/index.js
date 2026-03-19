@@ -4,13 +4,10 @@ import DashboardView from '../views/DashboardView.vue';
 import RecipesView from '../views/RecipesView.vue';
 import DiaryView from '../views/DiaryView.vue';
 import ProfileView from '../views/ProfileView.vue';
-import AIConsultView from '../views/AIConsultView.vue';
 import LoginView from '../views/LoginView.vue';
 import RegisterView from '../views/RegisterView.vue';
 // 添加FitnessView导入
 import FitnessView from '../views/FitnessView.vue';
-// 添加MentalHealthView导入
-import MentalHealthView from '../views/MentalHealthView.vue';
 // 添加 CalendarView导入
 import CalendarView from '../views/CalendarView.vue';
 // 添加 AIRecipeResultView导入
@@ -54,27 +51,13 @@ const routes = [
         component: ProfileView,
         meta: { requiresAuth: true }
     },
-    {
-        path: '/ai-consult',
-        name: 'AIConsult',
-        component: AIConsultView,
-        meta: { requiresAuth: true }
-    },
-    // 添加FitnessView路由
+    // 添加FitnessView 路由
     {
         path: '/fitness',
         name: 'Fitness',
         component: FitnessView,
         meta: { requiresAuth: true }
     },
-    // 添加MentalHealthView 路由
-    {
-        path: '/mental-health',
-        name: 'MentalHealth',
-        component: MentalHealthView,
-        meta: { requiresAuth: true }
-    },
-    // 添加 CalendarView 路由
     {
         path: '/calendar',
         name: 'Calendar',

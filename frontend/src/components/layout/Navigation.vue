@@ -48,16 +48,6 @@
       个人中心
     </router-link>
     <router-link
-        to="/ai-consult"
-        class="nav-button bilibili-nav-button"
-        :class="{ active: $route.name === 'AIConsult' }"
-    >
-      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM12 6C13.66 6 15 7.34 15 9C15 10.66 13.66 12 12 12C10.34 12 9 10.66 9 9C9 7.34 10.34 6 12 6ZM12 18C9.33 18 7 16.33 6 14H18C17 16.33 14.67 18 12 18Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-      </svg>
-      AI 咨询
-    </router-link>
-    <router-link
         to="/fitness"
         class="nav-button bilibili-nav-button"
         :class="{ active: $route.name === 'Fitness' }"
@@ -84,16 +74,6 @@
         <line x1="3" y1="10" x2="21" y2="10" stroke="currentColor" stroke-width="2"/>
       </svg>
       健康日历
-    </router-link>
-    <router-link
-        to="/mental-health"
-        class="nav-button bilibili-nav-button"
-        :class="{ active: $route.name === 'MentalHealth' }"
-    >
-      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M12 21.35L10.55 20.03C5.4 15.36 2 12.27 2 8.5C2 5.41 4.42 3 7.5 3C9.24 3 10.91 3.81 12 5.08C13.09 3.81 14.76 3 16.5 3C19.58 3 22 5.41 22 8.5C22 12.27 18.6 15.36 13.45 20.03L12 21.35Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-      </svg>
-      心理陪伴
     </router-link>
   </nav>
 </template>

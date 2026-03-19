@@ -55,9 +55,9 @@
             <span class="button-icon">📝</span>
             <span class="button-text">记录饮食</span>
           </button>
-          <button class="btn action-button secondary" @click="$router.push('/ai-consult')">
-            <span class="button-icon">🤖</span>
-            <span class="button-text">AI 咨询</span>
+          <button class="btn action-button secondary" @click="$router.push('/fitness')">
+            <span class="button-icon">🏃</span>
+            <span class="button-text">健身记录</span>
           </button>
           <button class="btn action-button accent" @click="$router.push('/recipes')">
             <span class="button-icon">🥗</span>
@@ -260,6 +260,14 @@
 
     </div>
   </div>
+
+  <!-- Toast 提示 -->
+  <transition name="toast">
+    <div v-if="showToast" class="toast-container" :class="`toast-${toastType}`">
+      <span class="toast-icon">{{ toastType === 'success' ? '✅' : '⚠️' }}</span>
+      <span class="toast-message">{{ toastMessage }}</span>
+    </div>
+  </transition>
 </template>
 
 <script setup>
@@ -277,6 +285,11 @@ const todayCarbs = ref(0);
 const todayFat = ref(0);
 const todayExerciseMinutes = ref(0);
 const healthTips = ref([]);
+
+// Toast 提示状态
+const showToast = ref(false);
+const toastMessage = ref('');
+const toastType = ref('success'); // 'success' | 'error'
 
 // 喝水打卡相关状态
 const dailyWaterIntake = ref(0); // 当前每日喝水杯数
@@ -504,11 +517,26 @@ const addWaterIntake = async () => {
       lastWaterTime.value = lastRecord.time;
     }
     
-    // 显示提示信息
-    alert(`第${dailyWaterIntake.value}次喝水打卡成功！💧 ${dailyWaterIntake.value >= targetWaterIntake.value ? '🎉 恭喜达成今日饮水目标！' : `距离目标还有${targetWaterIntake.value - dailyWaterIntake.value}次`}`);
+    // 显示成功提示
+    const isSuccess = dailyWaterIntake.value >= targetWaterIntake.value;
+    toastMessage.value = `💧 第${dailyWaterIntake.value}次喝水打卡成功！${isSuccess ? '🎉 恭喜达成今日饮水目标！' : `距离目标还有${targetWaterIntake.value - dailyWaterIntake.value}次`}`;
+    toastType.value = 'success';
+    showToast.value = true;
+    
+    // 3 秒后自动隐藏提示
+    setTimeout(() => {
+      showToast.value = false;
+    }, 3000);
   } catch (err) {
     console.error('喝水打卡失败:', err);
-    alert('喝水打卡失败，请重试。');
+    toastMessage.value = '❌ 喝水打卡失败，请重试。';
+    toastType.value = 'error';
+    showToast.value = true;
+    
+    // 3 秒后自动隐藏提示
+    setTimeout(() => {
+      showToast.value = false;
+    }, 3000);
   }
 };
 
@@ -1925,6 +1953,80 @@ watch(
   
   .summary-stats {
     grid-template-columns: 1fr;
+  }
+}
+
+/* Toast 提示样式 */
+.toast-container {
+  position: fixed;
+  top: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 16px 24px;
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  z-index: 10000;
+  min-width: 300px;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  animation: toastSlideIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.toast-success {
+  background: linear-gradient(135deg, rgba(76, 175, 80, 0.95) 0%, rgba(56, 142, 60, 0.95) 100%);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.toast-error {
+  background: linear-gradient(135deg, rgba(244, 67, 54, 0.95) 0%, rgba(229, 57, 53, 0.95) 100%);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.toast-icon {
+  font-size: 24px;
+  flex-shrink: 0;
+}
+
+.toast-message {
+  font-size: 15px;
+  font-weight: 500;
+  letter-spacing: -0.2px;
+  line-height: 1.4;
+}
+
+/* Toast 动画 */
+.toast-enter-active {
+  animation: toastSlideIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.toast-leave-active {
+  animation: toastSlideOut 0.3s cubic-bezier(0.55, 0.055, 0.675, 0.19);
+}
+
+@keyframes toastSlideIn {
+  from {
+    transform: translateX(-50%) translateY(-100px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(-50%) translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes toastSlideOut {
+  from {
+    transform: translateX(-50%) translateY(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateX(-50%) translateY(-100px);
+    opacity: 0;
   }
 }
 </style>

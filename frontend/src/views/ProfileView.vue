@@ -339,6 +339,7 @@ import { healthApi } from '../api/healthApi';
 import { useUserStore } from '../stores/userStore';
 import HealthCharts from '../components/dashboard/HealthCharts.vue';
 import axios from 'axios';
+import { ElNotification, ElMessageBox } from 'element-plus';
 
 const router = useRouter();
 const userStore = useUserStore();
@@ -454,10 +455,13 @@ const fetchHealthData = async () => {
         endDate: formatDate(endDate),
       }
     });
+
+    
     healthData.value = response.data;
     updateCharts();
   } catch (error) {
-    console.error("获取健康数据失败:", error);
+    console.error("❌ 获取健康数据失败:", error);
+    console.error('  - 错误详情:', error.response?.data || error.message);
   }
 };
 
@@ -566,7 +570,13 @@ const saveProfile = async () => {
     };
 
     await healthApi.createUserProfile(profilePayload);
-    alert('个人档案保存成功！');
+    ElNotification({
+      title: '✅ 保存成功',
+      message: '个人档案保存成功！',
+      type: 'success',
+      duration: 3000,
+      offset: 80
+    });
     
     // 更新用户存储中的数据
     userStore.setUserData({
@@ -585,14 +595,26 @@ const saveProfile = async () => {
 // 修改用户名
 const updateUsername = async () => {
   if (!newUsername.value.trim()) {
-    alert('请输入新用户名');
+    ElNotification({
+      title: '⚠️ 提示',
+      message: '请输入新用户名',
+      type: 'warning',
+      duration: 2000,
+      offset: 80
+    });
     return;
   }
 
   try {
     const result = await healthApi.updateUsername(userInfo.value.username, newUsername.value.trim());
     if (result.success) {
-      alert('用户名修改成功！');
+      ElNotification({
+        title: '✅ 修改成功',
+        message: '用户名修改成功！',
+        type: 'success',
+        duration: 3000,
+        offset: 80
+      });
       userInfo.value.username = newUsername.value.trim();
       profileData.value.userId = newUsername.value.trim();
       
@@ -605,100 +627,186 @@ const updateUsername = async () => {
       closeModals();
       newUsername.value = '';
     } else {
-      alert(result.message || '用户名修改失败');
+      ElNotification({
+        title: '❌ 修改失败',
+        message: result.message || '用户名修改失败',
+        type: 'error',
+        duration: 3000,
+        offset: 80
+      });
     }
   } catch (err) {
-    alert('用户名修改失败: ' + (err.message || '网络错误'));
+    ElNotification({
+      title: '❌ 修改失败',
+      message: '用户名修改失败：' + (err.message || '网络错误'),
+      type: 'error',
+      duration: 3000,
+      offset: 80
+    });
   }
 };
 
 // 修改密码
 const updatePassword = async () => {
   if (!canUpdatePassword.value) {
-    alert('请检查密码输入是否正确');
+    ElNotification({
+      title: '⚠️ 提示',
+      message: '请检查密码输入是否正确',
+      type: 'warning',
+      duration: 2000,
+      offset: 80
+    });
     return;
   }
 
   try {
     const result = await healthApi.updatePassword(
-      userInfo.value.username, 
-      oldPassword.value, 
-      newPassword.value
+        userInfo.value.username,
+        oldPassword.value,
+        newPassword.value
     );
-    
+
     if (result.success) {
-      alert('密码修改成功！');
+      ElNotification({
+        title: '✅ 修改成功',
+        message: '密码修改成功！',
+        type: 'success',
+        duration: 3000,
+        offset: 80
+      });
       closeModals();
       clearPasswordFields();
     } else {
-      alert(result.message || '密码修改失败');
+      ElNotification({
+        title: '❌ 修改失败',
+        message: result.message || '密码修改失败',
+        type: 'error',
+        duration: 3000,
+        offset: 80
+      });
     }
   } catch (err) {
-    alert('密码修改失败: ' + (err.message || '网络错误'));
+    ElNotification({
+      title: '❌ 修改失败',
+      message: '密码修改失败：' + (err.message || '网络错误'),
+      type: 'error',
+      duration: 3000,
+      offset: 80
+    });
   }
 };
 
 // 注销用户
 const logoutUser = async () => {
-  if (confirm('确定要注销登录吗？')) {
     try {
-      await healthApi.logout(userInfo.value.username);
+      await ElMessageBox.confirm(
+          '确定要注销登录吗？',
+          '注销确认',
+          {
+            confirmButtonText: '确定',
+            cancelButtonText: '取消',
+            type: 'info'
+          }
+      );
+
+      try {
+        await healthApi.logout(userInfo.value.username);
+      } catch (err) {
+        console.error('注销 API 调用失败:', err);
+        // 即使 API 失败也继续执行注销流程
+      }
+
+      // 执行本地注销
+      userStore.logout();
+
+      // 直接跳转到登录页面
+      router.push('/login');
     } catch (err) {
-      console.error('注销API调用失败:', err);
-      // 即使API失败也继续执行注销流程
+      // 用户取消操作
+      return;
     }
-    
-    // 执行本地注销
-    userStore.logout();
-    
-    // 直接跳转到登录页面
-    router.push('/login');
-  }
-};
+  };
 
 // 删除用户账户
 const deleteUserAccount = async () => {
-  if (deleteConfirmation.value !== userInfo.value.username) {
-    alert('用户名输入不正确');
-    return;
-  }
+    if (deleteConfirmation.value !== userInfo.value.username) {
+      ElNotification({
+        title: '⚠️ 提示',
+        message: '用户名输入不正确',
+        type: 'warning',
+        duration: 2000,
+        offset: 80
+      });
+      return;
+    }
 
-  if (confirm('最后一次确认：确定要永久删除您的账户吗？此操作无法撤销！')) {
     try {
-      const result = await healthApi.deleteUser(userInfo.value.username);
-      if (result.success) {
-        alert('账户删除成功，感谢您曾经的使用！');
-        userStore.logout();
-        router.push('/login');
-      } else {
-        alert(result.message || '账户删除失败');
+      await ElMessageBox.confirm(
+          '最后一次确认：确定要永久删除您的账户吗？此操作无法撤销！',
+          '⚠️ 危险操作',
+          {
+            confirmButtonText: '确定删除',
+            cancelButtonText: '取消',
+            type: 'error'
+          }
+      );
+
+      try {
+        const result = await healthApi.deleteUser(userInfo.value.username);
+        if (result.success) {
+          ElNotification({
+            title: '✅ 已删除',
+            message: '账户删除成功，感谢您曾经的使用！',
+            type: 'success',
+            duration: 3000,
+            offset: 80
+          });
+          userStore.logout();
+          router.push('/login');
+        } else {
+          ElNotification({
+            title: '❌ 删除失败',
+            message: result.message || '账户删除失败',
+            type: 'error',
+            duration: 3000,
+            offset: 80
+          });
+        }
+      } catch (err) {
+        ElNotification({
+          title: '❌ 删除失败',
+          message: '账户删除失败：' + (err.message || '网络错误'),
+          type: 'error',
+          duration: 3000,
+          offset: 80
+        });
       }
     } catch (err) {
-      alert('账户删除失败: ' + (err.message || '网络错误'));
+      // 用户取消操作
+      return;
     }
-  }
-};
+  };
 
 // 关闭所有模态框
 const closeModals = () => {
-  showUsernameModal.value = false;
-  showPasswordModal.value = false;
-  showDeleteModal.value = false;
-  clearFormFields();
-};
+    showUsernameModal.value = false;
+    showPasswordModal.value = false;
+    showDeleteModal.value = false;
+    clearFormFields();
+  };
 
 // 清空表单字段
 const clearFormFields = () => {
-  newUsername.value = '';
-  deleteConfirmation.value = '';
-};
+    newUsername.value = '';
+    deleteConfirmation.value = '';
+  };
 
 // 清空密码字段
 const clearPasswordFields = () => {
-  oldPassword.value = '';
-  newPassword.value = '';
-  confirmPassword.value = '';
-};
+    oldPassword.value = '';
+    newPassword.value = '';
+    confirmPassword.value = '';
+  };
 
 // 格式化日期
 const formatDate = (dateString) => {

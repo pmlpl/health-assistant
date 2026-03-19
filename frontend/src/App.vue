@@ -23,6 +23,7 @@
       <div
         v-for="effect in clickEffects"
         :key="effect.id"
+        ref="starElements"
         class="star-effect"
         :style="effect.style"
       >
@@ -39,16 +40,20 @@
     >
       <span class="back-to-top-icon">↑</span>
     </button>
+
+    <!-- AI 精灵悬浮球 -->
+    <AISpirit v-if="showNavigation" />
   </div>
 </template>
 
 <script setup>
-import { onMounted, computed, ref, onUnmounted } from 'vue';
+import { onMounted, computed, ref, onUnmounted, onUpdated } from 'vue';
 import { useRoute } from 'vue-router';
 import Header from './components/layout/Header.vue';
 import Navigation from './components/layout/Navigation.vue';
 import Footer from './components/layout/Footer.vue';
 import LoadingSpinner from './components/common/LoadingSpinner.vue';
+import AISpirit from './components/AISpirit.vue';
 import { useUserStore } from './stores/userStore';
 
 const userStore = useUserStore();
@@ -63,6 +68,7 @@ const showNavigation = computed(() => {
 
 // 点击特效状态
 const clickEffects = ref([]);
+const starElements = ref([]);
 let effectId = 0;
 
 // 返回顶部按钮显示状态
@@ -114,23 +120,56 @@ const createStar = (x, y, index) => {
   const color = rainbowColors[Math.floor(Math.random() * rainbowColors.length)];
   const size = 16 + Math.random() * 16;
   const duration = 600 + Math.random() * 400;
+  
+  // 计算飞散方向的偏移量
+  const angleRad = (index / 8) * 2 * Math.PI;
+  const scatterX = Math.cos(angleRad) * 80;
+  const scatterY = Math.sin(angleRad) * 80;
+  
+  // 创建关键帧动画
+  const keyframes = [
+    { 
+      transform: 'translate(-50%, -50%) scale(0) rotate(0deg)', 
+      opacity: '1' 
+    },
+    { 
+      transform: 'translate(-50%, -50%) scale(1.5) rotate(180deg)', 
+      opacity: '1',
+      offset: 0.2
+    },
+    { 
+      transform: `translate(-50%, -50%) translate(${scatterX}px, ${scatterY}px) scale(0.3) rotate(360deg)`, 
+      opacity: '0' 
+    }
+  ];
 
   const effect = {
     id,
+    element: null,
+    animated: false,
     style: {
       left: `${x}px`,
       top: `${y}px`,
-      '--angle': `${angle}deg`,
-      '--color': color,
-      '--size': `${size}px`,
-      '--duration': `${duration}ms`,
       fontSize: `${size}px`,
       color: color,
-      animationDuration: `${duration}ms`,
     },
+    animation: {
+      keyframes,
+      duration,
+      easing: 'ease-out',
+      fill: 'forwards'
+    }
   };
 
   clickEffects.value.push(effect);
+  
+  // 下一帧获取元素并应用动画
+  setTimeout(() => {
+    const index = clickEffects.value.findIndex(e => e.id === id);
+    if (index > -1 && starElements.value[index]) {
+      effect.element = starElements.value[index];
+    }
+  }, 0);
 
   // 动画结束后移除
   setTimeout(() => {
@@ -140,6 +179,23 @@ const createStar = (x, y, index) => {
     }
   }, duration);
 };
+
+onUpdated(() => {
+  // 为每个星星元素应用 Web Animations API 动画
+  clickEffects.value.forEach((effect) => {
+    if (effect.element && !effect.animated) {
+      effect.element.animate(
+        effect.animation.keyframes,
+        {
+          duration: effect.animation.duration,
+          easing: effect.animation.easing,
+          fill: effect.animation.fill
+        }
+      );
+      effect.animated = true;
+    }
+  });
+});
 
 onMounted(() => {
   // 应用初始化逻辑
@@ -267,27 +323,8 @@ input, textarea, select {
   position: absolute;
   transform: translate(-50%, -50%);
   pointer-events: none;
-  animation: starBurst var(--duration) ease-out forwards;
   filter: drop-shadow(0 0 8px var(--color)) drop-shadow(0 0 16px var(--color));
   will-change: transform, opacity;
-}
-
-@keyframes starBurst {
-  0% {
-    transform: translate(-50%, -50%) scale(0) rotate(0deg);
-    opacity: 1;
-  }
-  20% {
-    transform: translate(-50%, -50%) scale(1.5) rotate(180deg);
-    opacity: 1;
-  }
-  100% {
-    transform: translate(-50%, -50%) 
-      translateX(calc(cos(var(--angle)) * 80px))
-      translateY(calc(sin(var(--angle)) * 80px))
-      scale(0.3) rotate(360deg);
-    opacity: 0;
-  }
 }
 
 /* 返回顶部按钮 */
