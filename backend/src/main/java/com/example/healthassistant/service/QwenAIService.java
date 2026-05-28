@@ -4,10 +4,10 @@ package com.example.healthassistant.service;
 import com.alibaba.dashscope.aigc.generation.Generation;
 import com.alibaba.dashscope.aigc.generation.GenerationParam;
 import com.alibaba.dashscope.aigc.generation.GenerationResult;
-import com.alibaba.dashscope.aigc.imagesynthesis.ImageSynthesis;
-import com.alibaba.dashscope.aigc.imagesynthesis.ImageSynthesisParam;
-import com.alibaba.dashscope.aigc.imagesynthesis.ImageSynthesisResult;
 import com.alibaba.dashscope.common.Message;
+import com.example.healthassistant.ai.ChatClientRouter;
+import com.example.healthassistant.ai.ChatMessage;
+import com.example.healthassistant.exception.AiNotConfiguredException;
 import com.alibaba.dashscope.common.Role;
 import com.alibaba.dashscope.exception.ApiException;
 import com.alibaba.dashscope.exception.InputRequiredException;
@@ -22,6 +22,7 @@ import org.springframework.stereotype.Service;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
+import com.example.healthassistant.config.ApiKeyResolver;
 import com.example.healthassistant.config.EnvConfig;
 
 @Service
@@ -30,23 +31,27 @@ public class QwenAIService {
     @Autowired
     private UserProfileRepository userProfileRepository;
 
-    @Value("${dashscope.api.key:}")
-    private String configApiKey;
+    @Autowired
+    private ApiKeyResolver apiKeyResolver;
+
+    @Autowired
+    private ChatClientRouter chatClientRouter;
+
+    @Autowired
+    private RecipeImageSearchService recipeImageSearchService;
+
+    @Autowired
+    private UserAiSettingsService userAiSettingsService;
 
     /**
-     * 获取 API Key，优先从 .env 文件加载
+     * 获取 API Key，统一走 ApiKeyResolver
      */
     private String getApiKey() {
-        // 优先从 EnvConfig 获取（支持 .env 文件）
-        String key = EnvConfig.getDashscopeApiKey();
-        if (key != null && !key.isEmpty() && !key.contains("your_")) {
-            return key;
-        }
-        // 其次从 Spring 配置获取
-        if (configApiKey != null && !configApiKey.isEmpty()) {
-            return configApiKey;
-        }
-        return null;
+        return apiKeyResolver.getDashscopeApiKey();
+    }
+
+    private String getApiKey(String userId) {
+        return apiKeyResolver.getDashscopeApiKey(userId);
     }
 
     private static final String MODEL_NAME = "qwen-plus"; // 或者使用 "qwen-plus" 或 "qwen-max"/qwen-turbo
@@ -70,189 +75,86 @@ public class QwenAIService {
         System.out.println("正在调用 AI 服务，用户 ID: " + userId + ", 用户消息：" + userMessage);
     
         // 检查 API 密钥是否配置，优先从 .env 文件加载
-        String apiKey = getApiKey();
-    
-        if (apiKey == null || apiKey.isEmpty()) {
-            System.out.println("==============================================");
-            System.out.println("通义千问 API 密钥未配置，切换到本地演示模式");
-            System.out.println("提示：如需使用真实 AI 服务，请在 backend/.env 文件中设置 DASHSCOPE_API_KEY");
-            System.out.println("==============================================");
-            return generateMockResponse(userMessage);
-        }
-    
         try {
-            // 获取用户档案信息
             UserProfile userProfile = userProfileRepository.findByUserIdWithDietaryRestrictions(userId);
             String userProfileInfo = buildUserProfileInfo(userProfile);
 
-            // 获取或创建该用户的会话历史
             List<Message> history = sessionHistories.computeIfAbsent(userId, k -> new ArrayList<>());
-
-            // 添加系统角色设定（只在第一次对话时添加）
             if (history.isEmpty()) {
-                String systemPrompt = buildSystemPrompt(userProfileInfo);
-                Message systemMsg = Message.builder()
+                history.add(Message.builder()
                         .role(Role.SYSTEM.getValue())
-                        .content(systemPrompt)
-                        .build();
-                history.add(systemMsg);
+                        .content(buildSystemPrompt(userProfileInfo))
+                        .build());
             }
+            history.add(Message.builder().role(Role.USER.getValue()).content(userMessage).build());
+            trimHistory(history);
 
-            // 添加用户当前消息
-            Message userMsg = Message.builder()
-                    .role(Role.USER.getValue())
-                    .content(userMessage)
-                    .build();
-            history.add(userMsg);
+            List<ChatMessage> chatMessages = toChatMessages(history);
+            String response = chatClientRouter.completeWithMessages(userId, chatMessages);
 
-            // 如果历史太长，保留最近的几条消息
-            if (history.size() > MAX_HISTORY_LENGTH) {
-                // 保留系统消息和最近的用户和助手消息
-                List<Message> trimmedHistory = new ArrayList<>();
-                // 保留系统消息
-                if (!history.isEmpty() && Role.SYSTEM.getValue().equals(history.get(0).getRole())) {
-                    trimmedHistory.add(history.get(0));
-                }
-                // 保留最近的用户和助手消息
-                int startIndex = Math.max(1, history.size() - (MAX_HISTORY_LENGTH - 1));
-                trimmedHistory.addAll(history.subList(startIndex, history.size()));
-                history.clear();
-                history.addAll(trimmedHistory);
-            }
-
-            // 构建参数
-            GenerationParam param = GenerationParam.builder()
-                    .apiKey(apiKey) // 使用配置文件或环境变量中的API密钥
-                    .model(MODEL_NAME)
-                    .messages(history)
-                    .resultFormat("message")
-                    .temperature(0.7f) // 设置随机性，使用float类型
-                    .topP(0.8) // 设置采样参数，使用float类型
-                    .build();
-
-            // 调用API（带超时和重试机制）
-            GenerationResult result = callApiWithRetry(param);
-
-            // 提取回复内容
-            String response = result.getOutput().getChoices().get(0).getMessage().getContent();
-
-            // 添加助手回复到历史记录
-            Message assistantMsg = Message.builder()
-                    .role(Role.ASSISTANT.getValue())
-                    .content(response)
-                    .build();
-            history.add(assistantMsg);
-
+            history.add(Message.builder().role(Role.ASSISTANT.getValue()).content(response).build());
             System.out.println("AI返回内容: " + response);
             return response;
 
-        } catch (NoApiKeyException e) {
-            System.err.println("API密钥缺失: " + e.getMessage());
-            return generateMockResponse(userMessage);
-        } catch (ApiException | InputRequiredException e) {
-            System.err.println("API调用异常: " + e.getMessage());
-            e.printStackTrace();
-            return "服务暂时不可用：" + e.getMessage();
+        } catch (AiNotConfiguredException e) {
+            throw e;
         } catch (Exception e) {
-            System.err.println("未知异常: " + e.getMessage());
-            e.printStackTrace();
+            System.err.println("营养咨询异常: " + e.getMessage());
+            if (userAiSettingsService.isDevMode()) {
+                return generateMockResponse(userMessage);
+            }
             return "服务暂时不可用：" + e.getMessage();
         }
     }
 
     public Map<String, Object> generateRecipeRecommendations(UserProfile userProfile,
             Map<String, Double> consumedNutrition, String mealType) {
-        String effectiveApiKey = getApiKey();
-    
-        if (effectiveApiKey == null || effectiveApiKey.isEmpty()) {
-            System.out.println("通义千问 API 密钥未配置，使用模拟食谱推荐");
-            return generateMockRecommendations(userProfile, mealType);
-        }
+        String userId = userProfile.getUserId();
 
         try {
             String prompt = buildRecipePrompt(userProfile, consumedNutrition, mealType);
+            String system = "你是一名顶级营养师和厨师。请以JSON格式返回，格式为：{\"analysis\": \"...\", \"recommendations\": [{\"recipeName\": \"...\", \"description\": \"...\", \"calories\": 0, \"protein\": 0, \"carbs\": 0, \"fat\": 0, \"ingredients\": [], \"instructions\": []}]}。只返回JSON，不要 markdown 代码块。";
+            String jsonResponse = chatClientRouter.complete(userId, system, prompt);
 
-            Message systemMsg = Message.builder()
-                    .role(Role.SYSTEM.getValue())
-                    .content(
-                            "你是一名顶级营养师和厨师。你的任务是根据用户的详细健康数据和今日已摄入的营养，为他们推荐下一餐的食谱。请以JSON格式返回，格式为：{\"analysis\": \"分析用户今日营养摄入情况，指出缺少的营养素或需要控制的营养素，以及推荐理由（100字以内）\", \"recommendations\": [{\"recipeName\": \"食谱名称\", \"description\": \"描述\", \"calories\": 卡路里, \"protein\": 蛋白质, \"carbs\": 碳水, \"fat\": 脂肪, \"ingredients\": [\"食材1\", \"食材2\"], \"instructions\": [\"步骤1\", \"步骤2\"]}]}。只返回JSON，不要任何多余的解释。")
-                    .build();
-
-            Message userMsg = Message.builder()
-                    .role(Role.USER.getValue())
-                    .content(prompt)
-                    .build();
-
-            GenerationParam param = GenerationParam.builder()
-                    .model(MODEL_NAME)
-                    .messages(List.of(systemMsg, userMsg))
-                    .apiKey(effectiveApiKey)
-                    .resultFormat(GenerationParam.ResultFormat.MESSAGE)
-                    .build();
-
-            // 调用API（带超时和重试机制）
-            GenerationResult result = callApiWithRetry(param);
-
-            String jsonResponse = result.getOutput().getChoices().get(0).getMessage().getContent();
             ObjectMapper objectMapper = new ObjectMapper();
-            Map<String, Object> responseMap = objectMapper.readValue(jsonResponse, Map.class);
-            
-            // 为所有食谱生成图片（异步串行处理，避免触发频率限制）
+            String cleaned = jsonResponse.trim();
+            if (cleaned.startsWith("```")) {
+                cleaned = cleaned.replaceAll("^```json?", "").replaceAll("```$", "").trim();
+            }
+            Map<String, Object> responseMap = objectMapper.readValue(cleaned, Map.class);
+
             @SuppressWarnings("unchecked")
             List<Map<String, Object>> recommendations = (List<Map<String, Object>>) responseMap.get("recommendations");
-            if (recommendations != null && !recommendations.isEmpty()) {
-                System.out.println("📊 共有 " + recommendations.size() + " 个食谱，开始串行生成图片...");
-                
-                // 串行生成图片，每个间隔 1 秒，避免触发 429 限流
+            if (recommendations != null) {
                 int successCount = 0;
                 for (int i = 0; i < recommendations.size(); i++) {
-                    final int index = i;
-                    final Map<String, Object> recipe = recommendations.get(i);
-                    
-                    try {
-                        String recipeName = (String) recipe.get("recipeName");
-                        String description = (String) recipe.get("description");
-                        @SuppressWarnings("unchecked")
-                        List<String> ingredients = (List<String>) recipe.get("ingredients");
-                        
-                        // 生成图片提示词
-                        String imagePrompt = buildImagePrompt(recipeName, description, ingredients);
-                        
-                        // 调用通义万相生成图片
-                        String imageUrl = generateRecipeImage(imagePrompt, effectiveApiKey);
-                        
-                        if (imageUrl != null && !imageUrl.isEmpty()) {
-                            recipe.put("image", imageUrl);
-                            System.out.println("✅ 第 " + (index + 1) + " 张图片生成成功：" + recipeName);
-                            successCount++;
-                        } else {
-                            System.out.println("⚠️ 第 " + (index + 1) + " 张图片生成失败：" + recipeName);
-                        }
-                        
-                        // 延迟 1.5 秒，避免触发 429 限流
-                        if (i < recommendations.size() - 1) {
-                            Thread.sleep(1500);
-                        }
-                    } catch (InterruptedException e) {
-                        System.err.println("⚠️ 第 " + (index + 1) + " 张图片生成被中断：" + e.getMessage());
-                        Thread.currentThread().interrupt();
-                        break;
-                    } catch (Exception e) {
-                        System.err.println("❌ 第 " + (index + 1) + " 张图片生成异常：" + e.getMessage());
-                        e.printStackTrace();
-                        // 继续生成下一张，不中断整个流程
+                    Map<String, Object> recipe = recommendations.get(i);
+                    String recipeName = (String) recipe.get("recipeName");
+                    @SuppressWarnings("unchecked")
+                    List<String> ingredients = (List<String>) recipe.get("ingredients");
+                    String imageUrl = recipeImageSearchService.findAndStoreRecipeImage(userId, recipeName, ingredients);
+                    if (imageUrl != null) {
+                        recipe.put("imageUrl", imageUrl);
+                        recipe.put("image", imageUrl);
+                        successCount++;
+                    }
+                    if (i < recommendations.size() - 1) {
+                        Thread.sleep(800);
                     }
                 }
-                
-                System.out.println("✨ 所有食谱图片生成完成！成功：" + successCount + "/" + recommendations.size());
+                System.out.println("食谱配图完成：" + successCount + "/" + recommendations.size());
             }
-            
             return responseMap;
 
+        } catch (AiNotConfiguredException e) {
+            throw e;
         } catch (Exception e) {
             System.err.println("AI食谱推荐失败: " + e.getMessage());
             e.printStackTrace();
-            return generateMockRecommendations(userProfile, mealType);
+            if (userAiSettingsService.isDevMode()) {
+                return generateMockRecommendations(userProfile, mealType);
+            }
+            throw new RuntimeException("食谱推荐失败: " + e.getMessage(), e);
         }
     }
 
@@ -429,63 +331,27 @@ public class QwenAIService {
         System.out.println("接收到的数据：" + nutritionData);
         System.out.println("analysisType: " + nutritionData.get("analysisType"));
 
-        String apiKey = configApiKey;
-        if (apiKey == null || apiKey.isEmpty()) {
-            apiKey = System.getenv("DASHSCOPE_API_KEY");
-        }
-
-        if (apiKey == null || apiKey.isEmpty()) {
-            System.out.println("通义千问 API 密钥未配置，切换到本地演示模式");
-            return generateMockNutritionAnalysis(userId, nutritionData);
-        }
-
         try {
             UserProfile userProfile = userProfileRepository.findByUserIdWithDietaryRestrictions(userId);
             String userProfileInfo = buildUserProfileInfo(userProfile);
-
-            // 判断是否为健身分析
             boolean isFitnessAnalysis = "fitness".equals(nutritionData.get("analysisType"));
-
-            System.out.println("是否健身分析：" + isFitnessAnalysis);
 
             String analysisPrompt;
             String systemMessage;
-
             if (isFitnessAnalysis) {
-                // 健身分析模式
-                System.out.println("使用健身分析提示词");
                 analysisPrompt = buildFitnessAnalysisPrompt(userProfileInfo, nutritionData);
-                systemMessage = "你是一名专业的健身教练，专注于运动训练指导。请根据用户的身体数据和今日健身训练情况，给出专业的健身分析和建议。**注意这是健身训练分析，不是饮食营养分析**。重点评估训练强度、动作质量、训练计划等健身相关内容。";
+                systemMessage = "你是一名专业的健身教练，请给出健身训练分析（非饮食分析）。";
             } else {
-                // 营养分析模式（默认）
-                System.out.println("使用营养分析提示词");
                 analysisPrompt = buildNutritionAnalysisPrompt(userProfileInfo, nutritionData);
-                systemMessage = "你是一名专业的营养师，请根据用户的身体数据和今日营养摄入情况，给出专业的分析和建议。";
+                systemMessage = "你是一名专业的营养师，请根据用户数据给出分析和建议。";
             }
 
-            Message systemMsg = Message.builder()
-                    .role(Role.SYSTEM.getValue())
-                    .content(systemMessage)
-                    .build();
-
-            Message userMsg = Message.builder()
-                    .role(Role.USER.getValue())
-                    .content(analysisPrompt)
-                    .build();
-
-            GenerationParam param = GenerationParam.builder()
-                    .model(MODEL_NAME)
-                    .messages(Arrays.asList(systemMsg, userMsg))
-                    .apiKey(apiKey)
-                    .resultFormat(GenerationParam.ResultFormat.MESSAGE)
-                    .build();
-
-            // 调用API（带超时和重试机制）
-            GenerationResult result = callApiWithRetry(param);
-            String response = result.getOutput().getChoices().get(0).getMessage().getContent();
+            String response = chatClientRouter.complete(userId, systemMessage, analysisPrompt);
             System.out.println("AI分析完成，类型：" + (isFitnessAnalysis ? "健身" : "营养"));
             return response;
 
+        } catch (AiNotConfiguredException e) {
+            throw e;
         } catch (Exception e) {
             System.err.println("AI分析失败：" + e.getMessage());
             e.printStackTrace();
@@ -789,46 +655,18 @@ public class QwenAIService {
         System.out.println("正在调用 AI 分析健身收获，用户 ID: " + userId);
         System.out.println("健身数据：" + workoutData);
 
-        String apiKey = configApiKey;
-        if (apiKey == null || apiKey.isEmpty()) {
-            apiKey = System.getenv("DASHSCOPE_API_KEY");
-        }
-
-        if (apiKey == null || apiKey.isEmpty()) {
-            System.out.println("通义千问 API 密钥未配置，切换到本地演示模式");
-            return generateMockFitnessWorkoutAnalysis(userId, workoutData);
-        }
-
         try {
             UserProfile userProfile = userProfileRepository.findByUserIdWithDietaryRestrictions(userId);
             String userProfileInfo = buildUserProfileInfo(userProfile);
-
-            // 构建健身收获分析提示词
             String analysisPrompt = buildFitnessWorkoutPrompt(userProfileInfo, workoutData);
-
-            Message systemMsg = Message.builder()
-                    .role(Role.SYSTEM.getValue())
-                    .content("你是一名专业的健身教练，请根据用户的身体数据和今日健身训练情况，重点分析健身收获（训练效果）和热量消耗，给出专业的评估和建议。**注意这是健身训练分析，不是饮食营养分析**。")
-                    .build();
-
-            Message userMsg = Message.builder()
-                    .role(Role.USER.getValue())
-                    .content(analysisPrompt)
-                    .build();
-
-            GenerationParam param = GenerationParam.builder()
-                    .model(MODEL_NAME)
-                    .messages(Arrays.asList(systemMsg, userMsg))
-                    .apiKey(apiKey)
-                    .resultFormat(GenerationParam.ResultFormat.MESSAGE)
-                    .build();
-
-            // 调用API（带超时和重试机制）
-            GenerationResult result = callApiWithRetry(param);
-            String response = result.getOutput().getChoices().get(0).getMessage().getContent();
+            String response = chatClientRouter.complete(userId,
+                    "你是专业健身教练，分析训练收获与热量消耗（非饮食分析）。",
+                    analysisPrompt);
             System.out.println("AI 健身收获分析完成");
             return response;
 
+        } catch (AiNotConfiguredException e) {
+            throw e;
         } catch (Exception e) {
             System.err.println("AI 健身收获分析失败：" + e.getMessage());
             e.printStackTrace();
@@ -1134,77 +972,21 @@ public class QwenAIService {
     public String getMentalHealthAdvice(String userId, String userMessage) {
         System.out.println("正在调用AI服务进行心理健康咨询，用户ID: " + userId + ", 用户消息: " + userMessage);
 
-        // 检查API密钥是否配置，优先读取配置文件，其次读取环境变量
-        String apiKey = configApiKey;
-        if (apiKey == null || apiKey.isEmpty()) {
-            apiKey = System.getenv("DASHSCOPE_API_KEY");
-        }
-
-        if (apiKey == null || apiKey.isEmpty()) {
-            System.out.println("==============================================");
-            System.out.println("通义千问API密钥未配置，切换到本地演示模式");
-            System.out.println("提示：如需使用真实AI服务，请在application.properties中设置qwen.api.key");
-            System.out.println("==============================================");
-            return generateMockMentalHealthResponse(userMessage);
-        }
-
         try {
-            Generation gen = new Generation();
-
-            // 获取用户档案信息
             UserProfile userProfile = userProfileRepository.findByUserIdWithDietaryRestrictions(userId);
             String userProfileInfo = buildUserProfileInfo(userProfile);
 
-            // 获取或创建该用户的会话历史
             List<Message> history = sessionHistories.computeIfAbsent(userId, k -> new ArrayList<>());
-
-            // 添加系统角色设定（只在第一次对话时添加）
             if (history.isEmpty()) {
-                String systemPrompt = buildMentalHealthSystemPrompt(userProfileInfo);
-                Message systemMsg = Message.builder()
+                history.add(Message.builder()
                         .role(Role.SYSTEM.getValue())
-                        .content(systemPrompt)
-                        .build();
-                history.add(systemMsg);
+                        .content(buildMentalHealthSystemPrompt(userProfileInfo))
+                        .build());
             }
+            history.add(Message.builder().role(Role.USER.getValue()).content(userMessage).build());
+            trimHistory(history);
 
-            // 添加用户当前消息
-            Message userMsg = Message.builder()
-                    .role(Role.USER.getValue())
-                    .content(userMessage)
-                    .build();
-            history.add(userMsg);
-
-            // 如果历史太长，保留最近的几条消息
-            if (history.size() > MAX_HISTORY_LENGTH) {
-                // 保留系统消息和最近的用户和助手消息
-                List<Message> trimmedHistory = new ArrayList<>();
-                // 保留系统消息
-                if (!history.isEmpty() && Role.SYSTEM.getValue().equals(history.get(0).getRole())) {
-                    trimmedHistory.add(history.get(0));
-                }
-                // 保留最近的用户和助手消息
-                int startIndex = Math.max(1, history.size() - (MAX_HISTORY_LENGTH - 1));
-                trimmedHistory.addAll(history.subList(startIndex, history.size()));
-                history.clear();
-                history.addAll(trimmedHistory);
-            }
-
-            // 构建参数
-            GenerationParam param = GenerationParam.builder()
-                    .apiKey(apiKey) // 使用配置文件或环境变量中的API密钥
-                    .model(MODEL_NAME)
-                    .messages(history)
-                    .resultFormat("message")
-                    .temperature(0.7f) // 设置随机性，使用float类型
-                    .topP(0.8) // 设置采样参数，使用float类型
-                    .build();
-
-            // 调用API
-            GenerationResult result = gen.call(param);
-
-            // 提取回复内容
-            String response = result.getOutput().getChoices().get(0).getMessage().getContent();
+            String response = chatClientRouter.completeWithMessages(userId, toChatMessages(history));
 
             // 添加助手回复到历史记录
             Message assistantMsg = Message.builder()
@@ -1216,18 +998,37 @@ public class QwenAIService {
             System.out.println("AI返回内容: " + response);
             return response;
 
-        } catch (NoApiKeyException e) {
-            System.err.println("API密钥缺失: " + e.getMessage());
-            return generateMockMentalHealthResponse(userMessage);
-        } catch (ApiException | InputRequiredException e) {
-            System.err.println("API调用异常: " + e.getMessage());
-            e.printStackTrace();
-            return "服务暂时不可用：" + e.getMessage();
+        } catch (AiNotConfiguredException e) {
+            throw e;
         } catch (Exception e) {
-            System.err.println("未知异常: " + e.getMessage());
-            e.printStackTrace();
+            System.err.println("心理健康咨询异常: " + e.getMessage());
+            if (userAiSettingsService.isDevMode()) {
+                return generateMockMentalHealthResponse(userMessage);
+            }
             return "服务暂时不可用：" + e.getMessage();
         }
+    }
+
+    private void trimHistory(List<Message> history) {
+        if (history.size() <= MAX_HISTORY_LENGTH) {
+            return;
+        }
+        List<Message> trimmedHistory = new ArrayList<>();
+        if (!history.isEmpty() && Role.SYSTEM.getValue().equals(history.get(0).getRole())) {
+            trimmedHistory.add(history.get(0));
+        }
+        int startIndex = Math.max(1, history.size() - (MAX_HISTORY_LENGTH - 1));
+        trimmedHistory.addAll(history.subList(startIndex, history.size()));
+        history.clear();
+        history.addAll(trimmedHistory);
+    }
+
+    private List<ChatMessage> toChatMessages(List<Message> history) {
+        List<ChatMessage> list = new ArrayList<>();
+        for (Message m : history) {
+            list.add(new ChatMessage(m.getRole(), m.getContent()));
+        }
+        return list;
     }
 
     // 构建心理健康系统提示词
@@ -1264,134 +1065,4 @@ public class QwenAIService {
         }
     }
 
-    /**
-     * 构建食谱图片生成提示词
-     */
-    private String buildImagePrompt(String recipeName, String description, List<String> ingredients) {
-        StringBuilder prompt = new StringBuilder();
-        prompt.append("一张写实风格的美食摄影作品，高清，专业拍摄。");
-        prompt.append("菜肴名称：").append(recipeName).append("。");
-        prompt.append(description).append("。");
-        prompt.append("主要食材：").append(String.join(",", ingredients)).append("。");
-        prompt.append("画面要求：精美的摆盘，柔和的自然光，浅景深，食物特写，诱人的色泽，高分辨率，细节清晰。");
-        return prompt.toString();
-    }
-
-    /**
-     * 使用通义万相生成食谱图片（同步调用 + 详细调试）
-     */
-    private String generateRecipeImage(String prompt, String apiKey) {
-        try {
-            ImageSynthesis imageSynthesis = new ImageSynthesis();
-            
-            // 使用更快的配置 - 使用合法尺寸
-            ImageSynthesisParam param = ImageSynthesisParam.builder()
-                    .apiKey(apiKey)
-                    .model("wanx-v1")
-                    .prompt(prompt)
-                    .n(1)  // 生成 1 张图片
-                    .size("1024*1024")  // 使用支持的尺寸（虽然大一点但能成功）
-                    .build();
-
-            System.out.println("🎨 正在生成图片：" + prompt.substring(0, Math.min(30, prompt.length())) + "...");
-            System.out.println("📋 使用的模型：wanx-v1");
-            System.out.println("📋 图片尺寸：512*512");
-            
-            // 直接同步调用
-            ImageSynthesisResult result = imageSynthesis.call(param);
-            
-            if (result == null) {
-                System.err.println("⚠️ 图片生成结果为 null");
-                return null;
-            }
-            
-            System.out.println("✅ API 调用成功，开始解析结果...");
-            
-            // 尝试获取输出对象
-            var output = result.getOutput();
-            if (output == null) {
-                System.err.println("⚠️ API 输出对象为 null");
-                return null;
-            }
-            
-            // 尝试获取 results 字段
-            var results = output.getResults();
-            if (results == null) {
-                System.err.println("⚠️ API 结果列表为 null");
-                System.err.println("🔍 完整输出对象：" + output.toString());
-                return null;
-            }
-            
-            if (results.isEmpty()) {
-                System.err.println("⚠️ API 结果列表为空数组");
-                System.err.println("🔍 完整输出对象：" + output.toString());
-                return null;
-            }
-            
-            // 从 Map 中获取 URL
-            Object firstResult = results.get(0);
-            if (!(firstResult instanceof Map)) {
-                System.err.println("⚠️ 结果不是 Map 类型：" + firstResult.getClass().getName());
-                return null;
-            }
-            @SuppressWarnings("unchecked")
-            Map<String, Object> resultMap = (Map<String, Object>) firstResult;
-            
-            if (resultMap == null) {
-                System.err.println("⚠️ 第一个结果对象为 null");
-                return null;
-            }
-            
-            System.out.println("🔍 结果数据类型：" + resultMap.getClass().getName());
-            System.out.println("🔍 结果包含的键：" + resultMap.keySet());
-            
-            // 尝试多种方式获取 URL
-            String imageUrl = null;
-            
-            // 方式 1: 直接获取 url 字段（小写）
-            if (resultMap.containsKey("url")) {
-                imageUrl = String.valueOf(resultMap.get("url"));
-                System.out.println("🔍 从 'url' 字段获取到：" + imageUrl);
-            }
-            // 方式 2: 尝试 output 字段（某些 API 返回格式）
-            else if (resultMap.containsKey("output")) {
-                Object outputObj = resultMap.get("output");
-                if (outputObj instanceof Map) {
-                    @SuppressWarnings("unchecked")
-                    Map<String, Object> outputMap = (Map<String, Object>) outputObj;
-                    if (outputMap.containsKey("url")) {
-                        imageUrl = String.valueOf(outputMap.get("url"));
-                        System.out.println("🔍 从 'output.url' 获取到：" + imageUrl);
-                    }
-                }
-            }
-            // 方式 3: 尝试 results 嵌套
-            else if (resultMap.containsKey("results")) {
-                Object nestedResults = resultMap.get("results");
-                if (nestedResults instanceof java.util.List && !((java.util.List<?>) nestedResults).isEmpty()) {
-                    @SuppressWarnings("unchecked")
-                    Map<String, Object> nestedMap = (Map<String, Object>) ((java.util.List<?>) nestedResults).get(0);
-                    if (nestedMap.containsKey("url")) {
-                        imageUrl = String.valueOf(nestedMap.get("url"));
-                        System.out.println("🔍 从 'results[0].url' 获取到：" + imageUrl);
-                    }
-                }
-            }
-            
-            if (imageUrl != null && !imageUrl.isEmpty()) {
-                System.out.println("✅ 图片生成成功：" + imageUrl);
-                return imageUrl;
-            } else {
-                System.err.println("⚠️ 所有方式都未获取到 URL");
-                System.err.println("🔍 完整结果对象：" + resultMap.toString());
-                return null;
-            }
-            
-        } catch (Exception e) {
-            System.err.println("❌ 图片生成异常：" + e.getMessage());
-            System.err.println("🔍 异常类型：" + e.getClass().getName());
-            e.printStackTrace();
-            return null;
-        }
-    }
 }

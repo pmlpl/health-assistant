@@ -1,7 +1,6 @@
 package com.example.healthassistant.controller;
 
-import com.example.healthassistant.model.UserProfile;
-import com.example.healthassistant.repository.UserProfileRepository;
+import com.example.healthassistant.security.AuthSupport;
 import com.example.healthassistant.service.QwenAIService;
 import com.example.healthassistant.service.RecommendationService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -9,12 +8,10 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 @RestController
 @RequestMapping("/api/ai")
-@CrossOrigin(origins = "*")
 public class AIController {
 
     @Autowired
@@ -22,9 +19,6 @@ public class AIController {
 
     @Autowired
     private RecommendationService recommendationService;
-
-    @Autowired
-    private UserProfileRepository userProfileRepository;
 
     @PostMapping("/nutrition-advice")
     public ResponseEntity<Map<String, Object>> getNutritionAdvice(@RequestBody Map<String, Object> request) {
@@ -37,6 +31,7 @@ public class AIController {
                 errorResponse.put("error", "用户ID不能为空");
                 return ResponseEntity.badRequest().body(errorResponse);
             }
+            AuthSupport.requireSelf(userId);
 
             if (query == null || query.trim().isEmpty()) {
                 Map<String, Object> errorResponse = new HashMap<>();
@@ -44,7 +39,6 @@ public class AIController {
                 return ResponseEntity.badRequest().body(errorResponse);
             }
 
-            // 直接传递用户消息，不再构建复杂的提示词
             String advice = qwenAIService.getNutritionAdvice(userId, query);
 
             Map<String, Object> response = new HashMap<>();
@@ -66,6 +60,7 @@ public class AIController {
     public ResponseEntity<Map<String, Object>> recommendRecipes(@RequestBody Map<String, String> request) {
         String userId = request.get("userId");
         String mealType = request.get("mealType");
+        AuthSupport.requireSelf(userId);
         try {
             Map<String, Object> recommendations = recommendationService.getRecipeRecommendations(userId, mealType);
             return ResponseEntity.ok(recommendations);
@@ -78,6 +73,7 @@ public class AIController {
 
     @DeleteMapping("/session/{userId}")
     public ResponseEntity<Map<String, Object>> clearSession(@PathVariable String userId) {
+        AuthSupport.requireSelf(userId);
         try {
             qwenAIService.clearSessionHistory(userId);
 
@@ -95,6 +91,7 @@ public class AIController {
 
     @GetMapping("/session/history/{userId}")
     public ResponseEntity<Map<String, Object>> getSessionHistory(@PathVariable String userId) {
+        AuthSupport.requireSelf(userId);
         try {
             int historyLength = qwenAIService.getSessionHistoryLength(userId);
 
@@ -111,24 +108,12 @@ public class AIController {
         }
     }
 
-    // 新增：健身收获分析 API - 专注于分析用户的健身收获和热量消耗
     @PostMapping("/analyze-fitness-workout/{userId}")
     public ResponseEntity<Map<String, Object>> analyzeFitnessWorkout(
             @PathVariable String userId,
             @RequestBody Map<String, Object> workoutData) {
+        AuthSupport.requireSelf(userId);
         try {
-            // 验证必要参数
-            Integer totalCalories = (Integer) workoutData.get("totalCalories");
-            Integer totalDuration = (Integer) workoutData.get("totalDuration");
-            List<Map<String, Object>> workouts = (List<Map<String, Object>>) workoutData.get("workouts");
-
-            if (workouts == null || workouts.isEmpty()) {
-                Map<String, Object> errorResponse = new HashMap<>();
-                errorResponse.put("error", "训练项目不能为空");
-                return ResponseEntity.badRequest().body(errorResponse);
-            }
-
-            // 调用 AI 服务进行分析
             String analysis = qwenAIService.analyzeFitnessWorkout(userId, workoutData);
 
             Map<String, Object> response = new HashMap<>();
@@ -140,12 +125,11 @@ public class AIController {
         } catch (Exception e) {
             Map<String, Object> errorResponse = new HashMap<>();
             errorResponse.put("success", false);
-            errorResponse.put("error", "健身收获分析失败：" + e.getMessage());
+            errorResponse.put("error", "健身分析失败: " + e.getMessage());
             return ResponseEntity.internalServerError().body(errorResponse);
         }
     }
 
-    // 新增：心理健康咨询 API
     @PostMapping("/mental-health")
     public ResponseEntity<Map<String, Object>> getMentalHealthAdvice(@RequestBody Map<String, Object> request) {
         try {
@@ -154,19 +138,17 @@ public class AIController {
 
             if (userId == null || userId.trim().isEmpty()) {
                 Map<String, Object> errorResponse = new HashMap<>();
-                errorResponse.put("success", false);
                 errorResponse.put("error", "用户ID不能为空");
                 return ResponseEntity.badRequest().body(errorResponse);
             }
+            AuthSupport.requireSelf(userId);
 
             if (message == null || message.trim().isEmpty()) {
                 Map<String, Object> errorResponse = new HashMap<>();
-                errorResponse.put("success", false);
                 errorResponse.put("error", "消息内容不能为空");
                 return ResponseEntity.badRequest().body(errorResponse);
             }
 
-            // 调用 AI 服务获取心理健康建议
             String response = qwenAIService.getMentalHealthAdvice(userId, message);
 
             Map<String, Object> responseMap = new HashMap<>();
@@ -175,11 +157,10 @@ public class AIController {
             responseMap.put("userId", userId);
 
             return ResponseEntity.ok(responseMap);
-
         } catch (Exception e) {
             Map<String, Object> errorResponse = new HashMap<>();
             errorResponse.put("success", false);
-            errorResponse.put("error", "心理健康咨询失败：" + e.getMessage());
+            errorResponse.put("error", "心理健康咨询失败: " + e.getMessage());
             return ResponseEntity.internalServerError().body(errorResponse);
         }
     }

@@ -2,6 +2,9 @@ package com.example.healthassistant.repository;
 
 import com.example.healthassistant.model.FitnessRecord;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDate;
@@ -23,4 +26,9 @@ public interface FitnessRecordRepository extends JpaRepository<FitnessRecord, Lo
         @org.springframework.data.repository.query.Param("year") int year,
         @org.springframework.data.repository.query.Param("month") int month
     );
+
+    /** 用户名变更时级联更新健身记录中的 userId */
+    @Modifying
+    @Query("UPDATE FitnessRecord f SET f.userId = :newUserId WHERE f.userId = :oldUserId")
+    int updateUserId(@Param("oldUserId") String oldUserId, @Param("newUserId") String newUserId);
 }

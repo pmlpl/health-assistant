@@ -285,7 +285,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue';
-import axios from 'axios';
+import { apiClient } from '../api/healthApi';
 import { useUserStore } from '../stores/userStore';
 // 导入 healthApi
 import { healthApi } from '../api/healthApi';
@@ -549,11 +549,11 @@ const analyzeFitnessItems = async () => {
     
     console.log('发送健身收获分析请求:', { userId, fitnessAnalysisData });
     
-    const response = await axios.post(
-      `/api/ai/analyze-fitness-workout/${userId}`,
+    const response = await apiClient.post(
+      `/ai/analyze-fitness-workout/${userId}`,
       fitnessAnalysisData,
       {
-        timeout: 600000,  // 健身分析可能需要更长时间，设置为 10 分钟
+        timeout: 600000,
         headers: { 'Content-Type': 'application/json' }
       }
     );

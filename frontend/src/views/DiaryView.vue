@@ -330,7 +330,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import axios from 'axios'
+import { apiClient } from '../api/healthApi'
 import { healthApi } from '../api/healthApi'
 import { useUserStore } from '../stores/userStore'
 import ManualNutritionInput from '../components/ManualNutritionInput.vue'
@@ -482,10 +482,10 @@ const analyzeFoodItems = async () => {
     // 直接调用后端智能分析 API（后端会优先查询 ingredient 数据库）
     console.log('调用后端智能分析接口...')
     // 使用 axios 调用后端智能分析 API
-    const response = await axios.post('/api/diet/smart-analyze', {
+    const response = await apiClient.post('/diet/smart-analyze', {
         foodDescription: foodDescription
       }, {
-        timeout: 600000,  // AI 分析可能需要更长时间，设置为 10 分钟
+        timeout: 600000,
         headers: {
           'Content-Type': 'application/json'
         }
@@ -752,15 +752,11 @@ const analyzeNutrition = async () => {
 
     console.log('发送营养分析请求:', { userId, nutritionData })
 
-    const apiUrl = API_BASE_URL.startsWith('/api') 
-      ? window.location.origin + API_BASE_URL 
-      : API_BASE_URL;
-
-    const response = await axios.post(
-      `${apiUrl}/diet/analyze-nutrition/${userId}`,
+    const response = await apiClient.post(
+      `/diet/analyze-nutrition/${userId}`,
       nutritionData,
       {
-        timeout: 600000,  // 营养分析可能需要更长时间，设置为 10 分钟
+        timeout: 600000,
         headers: { 'Content-Type': 'application/json' }
       }
     )
@@ -833,11 +829,7 @@ const handleImageUpload = async (event) => {
 
   try {
     // 使用环境变量配置的 API 地址
-    const apiUrl = API_BASE_URL.startsWith('/api') 
-      ? window.location.origin + API_BASE_URL 
-      : API_BASE_URL;
-    
-    const response = await axios.post(`${apiUrl}/image/recognize`, formData, {
+    const response = await apiClient.post('/image/recognize', formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },

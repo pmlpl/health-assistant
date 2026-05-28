@@ -69,8 +69,8 @@ public class Recipe {
     @Column(name = "suitable_for_diet")
     private Boolean suitableForDiet = false; // 是否适合特定饮食
     
-    @Column(name = "image_url", length = 500)
-    private String imageUrl; // 食谱图片URL
+    @Column(name = "image_url", columnDefinition = "LONGTEXT")
+    private String imageUrl; // 食谱图片 URL（禁止 Base64 内联）
     
     @Column(name = "video_url", length = 500)
     private String videoUrl; // 教学视频URL

@@ -34,10 +34,9 @@ public class RecommendationServiceImpl implements RecommendationService {
         }
 
         // 2. 获取今日已摄入的营养
-        List<DietRecord> todayRecords = dietRecordRepository.findByUserIdAndRecordedAtBetween(
+        List<DietRecord> todayRecords = dietRecordRepository.findByUserIdAndDate(
                 userId,
-                LocalDate.now().atStartOfDay(),
-                LocalDate.now().plusDays(1).atStartOfDay()
+                LocalDate.now()
         );
 
         // 3. 计算今日已摄入的总营养

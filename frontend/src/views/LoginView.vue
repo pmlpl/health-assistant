@@ -109,7 +109,7 @@
       width="400px"
       destroy-on-close
     >
-      <p class="modal-desc">请输入用户名，密码将重置为：12345678</p>
+      <p class="modal-desc">在线重置密码功能暂未开放，请登录后在个人中心使用「修改密码」。</p>
       
       <el-form @submit.prevent="handleForgotPassword" :model="forgotForm" :rules="forgotRules" ref="forgotFormRef">
         <el-form-item prop="username">
@@ -214,7 +214,7 @@ const handleLogin = async () => {
           goal: response.user.healthGoal || '未设置',
           currentWeight: response.user.weight || 0,
           targetWeight: response.user.weight || 0
-        });
+        }, response.token);
 
         ElNotification({
           title: '登录成功',
@@ -330,20 +330,12 @@ const handleForgotPassword = async () => {
       username: loginForm.username.trim()
     });
 
-    if (response.success) {
+    if (!response.success) {
       ElNotification({
-        title: '重置成功',
-        message: '密码已重置为：12345678',
-        type: 'success',
-        duration: 3000
-      });
-      showForgotModal.value = false;
-    } else {
-      ElNotification({
-        title: '重置失败',
-        message: response.message || '用户不存在',
-        type: 'error',
-        duration: 3000
+        title: '无法重置',
+        message: response.message || '暂不支持在线重置密码',
+        type: 'warning',
+        duration: 4000
       });
     }
   } catch (error) {

@@ -3,37 +3,74 @@ import axios from 'axios';
 
 // 使用环境变量配置 API 基础 URL
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
+const TOKEN_KEY = 'authToken';
+
+// 读取/保存 JWT，供拦截器与登录流程使用
+export const getAuthToken = () => localStorage.getItem(TOKEN_KEY);
+export const setAuthToken = (token) => {
+    if (token) {
+        localStorage.setItem(TOKEN_KEY, token);
+    } else {
+        localStorage.removeItem(TOKEN_KEY);
+    }
+};
 
 const api = axios.create({
     baseURL: API_BASE_URL,
-    timeout: 300000,  // 增加超时时间到 5 分钟，等待 AI 分析完成
-    withCredentials: false,  // 临时禁用凭证以避免 CORS 问题
+    timeout: 300000,
+    withCredentials: false,
 });
 
-// 请求拦截器
+// 请求拦截器：自动附加 Bearer Token
 api.interceptors.request.use(
     config => {
-        // 可以在这里添加认证token等
+        const token = getAuthToken();
+        if (token) {
+            config.headers.Authorization = `Bearer ${token}`;
+        }
         return config;
     },
-    error => {
-        return Promise.reject(error);
-    }
+    error => Promise.reject(error)
 );
 
-// 响应拦截器
+// 响应拦截器：401 跳转登录；自动解包 ApiResponse 格式
 api.interceptors.response.use(
     response => {
+        const body = response.data;
+        // 统一解包 { code, message, data } 为扁平结构，兼容旧版 success 字段
+        if (body && typeof body.code === 'number' && body.code === 200) {
+            const payload = body.data;
+            if (payload === null || payload === undefined) {
+                response.data = { success: true, message: body.message };
+            } else if (Array.isArray(payload)) {
+                response.data = payload;
+            } else if (typeof payload === 'object') {
+                response.data = { ...payload, success: true, message: body.message };
+            } else {
+                response.data = payload;
+            }
+        }
         return response;
     },
     error => {
-        // 只在状态码不是 403/404 时才输出错误（这些通常是 CORS 或路由问题，可以忽略）
-        if (error.response && error.response.status !== 403 && error.response.status !== 404) {
+        if (error.response?.status === 401) {
+            setAuthToken(null);
+            localStorage.removeItem('isLoggedIn');
+            localStorage.removeItem('userProfile');
+            if (!window.location.pathname.includes('/login')) {
+                window.location.href = '/login';
+            }
+        } else if (error.response?.data?.message) {
+            error.message = error.response.data.message;
+        } else if (error.response && error.response.status !== 403 && error.response.status !== 404) {
             console.error('API 请求错误:', error);
         }
         return Promise.reject(error);
     }
 );
+
+// 导出带 JWT 拦截器的 axios 实例，供各页面替代裸 axios
+export const apiClient = api;
 
 export const healthApi = {
     getUserProfile: async (userId) => {
@@ -341,48 +378,29 @@ export const healthApi = {
 
     // 心理健康咨询相关
     getMentalHealthAdvice: async (requestData) => {
-        // 创建一个新的 axios 实例，不使用全局拦截器，以确保错误能被正确捕获
-        const mentalHealthApi = axios.create({
-            baseURL: API_BASE_URL,
-            timeout: 600000  // 增加超时时间到 10 分钟，等待 AI 分析完成
+        const response = await api.post('/ai/mental-health', requestData, {
+            timeout: 600000,
         });
-
-        try {
-            const response = await mentalHealthApi.post('/ai/mental-health', requestData);
-            return response;
-        } catch (error) {
-            console.error('获取心理健康建议失败:', error);
-            // 模拟响应，当后端服务不可用时使用
-            return {
-                data: {
-                    success: true,
-                    response: '您好！我是您的心理陪伴助手。由于系统暂时无法连接到AI服务，我将为您提供一些基本的心理健康建议。如果您有任何情绪问题、压力管理或心理健康方面的疑问，请随时告诉我，我会尽力为您提供支持和建议。\n\n记住，保持积极的心态，适当运动，保持良好的作息，与亲友保持联系，这些都是维护心理健康的重要因素。如果您的情绪问题持续存在，建议寻求专业心理咨询师的帮助。',
-                    userId: requestData.userId
-                }
-            };
-        }
+        return response;
     },
 
-    // API 状态检测
     getApiStatus: async () => {
-        try {
-            const response = await api.get('/status/api-availability');
-            return response.data;
-        } catch (error) {
-            console.error('获取 API 状态失败:', error);
-            // 当后端服务不可用时，返回不可用状态
-            return {
-                qwen: {
-                    available: false,
-                    message: '后端服务不可用',
-                    hasApiKey: false
-                },
-                doubao: {
-                    available: false,
-                    message: '后端服务不可用',
-                    hasApiKey: false
-                }
-            };
-        }
+        const response = await api.get('/status/api-availability');
+        return response.data;
+    },
+
+    getAiSettings: async () => {
+        const response = await api.get('/users/me/ai-settings');
+        return response.data?.data ?? response.data;
+    },
+
+    updateAiSettings: async (payload) => {
+        const response = await api.put('/users/me/ai-settings', payload);
+        return response.data?.data ?? response.data;
+    },
+
+    testAiConnection: async (type) => {
+        const response = await api.post('/users/me/ai-settings/test', { type });
+        return response.data?.data ?? response.data;
     }
 };

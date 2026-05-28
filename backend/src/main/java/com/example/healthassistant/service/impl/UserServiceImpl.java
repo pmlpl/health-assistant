@@ -3,12 +3,16 @@ package com.example.healthassistant.service.impl;
 import com.example.healthassistant.dto.LoginRequestDto;
 import com.example.healthassistant.dto.UserProfileDto;
 import com.example.healthassistant.model.UserProfile;
+import com.example.healthassistant.repository.DietRecordRepository;
+import com.example.healthassistant.repository.FitnessRecordRepository;
 import com.example.healthassistant.repository.UserProfileRepository;
+import com.example.healthassistant.service.UserAiSettingsService;
 import com.example.healthassistant.service.UserService;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -19,8 +23,18 @@ public class UserServiceImpl implements UserService {
 
     @Autowired
     private UserProfileRepository userProfileRepository;
-    
-    private BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
+
+    @Autowired
+    private DietRecordRepository dietRecordRepository;
+
+    @Autowired
+    private FitnessRecordRepository fitnessRecordRepository;
+
+    @Autowired
+    private PasswordEncoder passwordEncoder;
+
+    @Autowired
+    private UserAiSettingsService userAiSettingsService;
 
     @Override
     public UserProfile createOrUpdateUserProfile(UserProfileDto profileDto) {
@@ -167,6 +181,7 @@ public class UserServiceImpl implements UserService {
         newUser.setTastePreferences(new ArrayList<>());
         
         UserProfile savedUser = userProfileRepository.save(newUser);
+        userAiSettingsService.initForNewUser(savedUser.getUserId());
         System.out.println("用户注册成功: " + savedUser.getUserId());
         
         return savedUser;
@@ -205,25 +220,27 @@ public class UserServiceImpl implements UserService {
     }
     
     @Override
+    @Transactional
     public boolean updateUsername(String userId, String newUsername) {
         System.out.println("开始修改用户名: " + userId + " -> " + newUsername);
         
         try {
-            // 检查新用户名是否已存在
             UserProfile existingUser = userProfileRepository.findByUserId(newUsername);
             if (existingUser != null && !existingUser.getUserId().equals(userId)) {
                 System.out.println("新用户名已存在: " + newUsername);
                 return false;
             }
             
-            // 查找当前用户
             UserProfile currentUser = userProfileRepository.findByUserId(userId);
             if (currentUser == null) {
                 System.out.println("未找到用户: " + userId);
                 return false;
             }
+
+            // 级联更新关联表中的 userId 字符串
+            dietRecordRepository.updateUserId(userId, newUsername);
+            fitnessRecordRepository.updateUserId(userId, newUsername);
             
-            // 更新用户名
             currentUser.setUserId(newUsername);
             currentUser.setUpdatedAt(LocalDateTime.now());
             userProfileRepository.save(currentUser);

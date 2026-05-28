@@ -338,7 +338,7 @@ import { useRouter } from 'vue-router';
 import { healthApi } from '../api/healthApi';
 import { useUserStore } from '../stores/userStore';
 import HealthCharts from '../components/dashboard/HealthCharts.vue';
-import axios from 'axios';
+import { apiClient } from '../api/healthApi';
 import { ElNotification, ElMessageBox } from 'element-plus';
 
 const router = useRouter();
@@ -448,7 +448,7 @@ const fetchHealthData = async () => {
   const formatDate = (date) => date.toISOString().split('T')[0];
 
   try {
-    const response = await axios.get(`/api/diet/range/${userInfo.value.username}`,
+    const response = await apiClient.get(`/diet/range/${userInfo.value.username}`,
      {
       params: {
         startDate: formatDate(startDate),

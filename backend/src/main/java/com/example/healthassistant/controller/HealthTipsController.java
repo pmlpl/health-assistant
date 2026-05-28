@@ -1,6 +1,7 @@
 package com.example.healthassistant.controller;
 
 import com.example.healthassistant.model.UserProfile;
+import com.example.healthassistant.security.AuthSupport;
 import com.example.healthassistant.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -11,7 +12,6 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/health-tips")
-@CrossOrigin(origins = "*")
 public class HealthTipsController {
 
     @Autowired
@@ -19,6 +19,7 @@ public class HealthTipsController {
 
     @GetMapping("/personalized/{userId}")
     public ResponseEntity<Map<String, Object>> getPersonalizedTips(@PathVariable String userId) {
+        AuthSupport.requireSelf(userId);
         UserProfile profile = userService.getUserProfile(userId);
         Map<String, Object> tips = new HashMap<>();
 

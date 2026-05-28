@@ -2,7 +2,12 @@ package com.example.healthassistant.controller;
 
 import com.example.healthassistant.model.Recipe;
 import com.example.healthassistant.repository.RecipeRepository;
+import com.example.healthassistant.security.AuthSupport;
+import com.example.healthassistant.util.ImageUrlUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -27,12 +32,11 @@ public class RecipeController {
         try {
             Recipe recipe = new Recipe();
             
-            // 设置基本信息
             recipe.setName((String) request.get("name"));
             recipe.setDescription((String) request.get("description"));
             recipe.setMealType((String) request.get("mealType"));
+            recipe.setCreatedBy(AuthSupport.currentUserId());
             
-            // 设置营养成分
             if (request.get("calories") != null) {
                 recipe.setCalories(Double.parseDouble(request.get("calories").toString()));
             }
@@ -46,34 +50,28 @@ public class RecipeController {
                 recipe.setFat(Double.parseDouble(request.get("fat").toString()));
             }
             
-            // 设置图片（Base64 格式）
-            if (request.get("image") != null) {
-                recipe.setImageUrl((String) request.get("image"));
+            String imageUrl = ImageUrlUtils.resolveImageUrl(request.get("imageUrl"), request.get("image"));
+            if (imageUrl != null) {
+                recipe.setImageUrl(imageUrl);
             }
             
-            // 将食材列表转换为 JSON 字符串
             if (request.get("ingredients") != null) {
                 @SuppressWarnings("unchecked")
                 List<String> ingredients = (List<String>) request.get("ingredients");
-                // 使用 JSON 格式存储，方便前端解析
                 recipe.setIngredientsList(String.join("|", ingredients));
             }
             
-            // 将制作步骤转换为 JSON 字符串
             if (request.get("instructions") != null) {
                 @SuppressWarnings("unchecked")
                 List<String> instructions = (List<String>) request.get("instructions");
-                // 使用 JSON 格式存储，方便前端解析
                 recipe.setInstructions(String.join("|", instructions));
             }
             
-            // 设置其他默认值
             recipe.setCreatedAt(LocalDateTime.now());
             recipe.setUpdatedAt(LocalDateTime.now());
             recipe.setIsPublic(true);
             recipe.setSuitableForDiet(true);
             
-            // 保存到数据库
             Recipe savedRecipe = recipeRepository.save(recipe);
             
             Map<String, Object> response = new HashMap<>();
@@ -92,14 +90,24 @@ public class RecipeController {
     }
 
     /**
-     * 获取用户的所有食谱（从数据库读取）
+     * 获取当前用户的 AI 食谱（分页，默认每页 20 条）
      */
     @GetMapping("/my-ai-recipes")
-    public ResponseEntity<List<Recipe>> getMyRecipes() {
+    public ResponseEntity<Map<String, Object>> getMyRecipes(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
         try {
-            // 获取所有食谱，按创建时间倒序排列
-            List<Recipe> recipes = recipeRepository.findAll();
-            return ResponseEntity.ok(recipes);
+            String userId = AuthSupport.currentUserId();
+            Pageable pageable = PageRequest.of(page, Math.min(Math.max(size, 1), 100));
+            Page<Recipe> recipePage = recipeRepository.findByCreatedByOrderByCreatedAtDesc(userId, pageable);
+
+            Map<String, Object> body = new HashMap<>();
+            body.put("content", recipePage.getContent());
+            body.put("totalElements", recipePage.getTotalElements());
+            body.put("totalPages", recipePage.getTotalPages());
+            body.put("page", recipePage.getNumber());
+            body.put("size", recipePage.getSize());
+            return ResponseEntity.ok(body);
         } catch (Exception e) {
             e.printStackTrace();
             return ResponseEntity.internalServerError().build();
@@ -107,7 +115,7 @@ public class RecipeController {
     }
 
     /**
-     * 更新食谱图片到数据库
+     * 更新食谱图片（仅接受 URL，拒绝 Base64）
      */
     @PutMapping("/update-recipe-image/{id}")
     public ResponseEntity<?> updateRecipeImage(
@@ -116,8 +124,22 @@ public class RecipeController {
         try {
             Recipe recipe = recipeRepository.findById(id)
                     .orElseThrow(() -> new RuntimeException("食谱不存在"));
-            
-            recipe.setImageUrl(request.get("image"));
+
+            if (recipe.getCreatedBy() != null) {
+                AuthSupport.requireSelf(recipe.getCreatedBy());
+            }
+
+            String imageUrl = ImageUrlUtils.resolveImageUrl(
+                    request.get("imageUrl"), request.get("image"));
+            if (imageUrl == null && (request.get("image") != null || request.get("imageUrl") != null)) {
+                Map<String, Object> errorResponse = new HashMap<>();
+                errorResponse.put("error", "请提供 HTTP(S) 图片 URL，不支持 Base64 内联存储");
+                errorResponse.put("success", false);
+                return ResponseEntity.badRequest().body(errorResponse);
+            }
+            if (imageUrl != null) {
+                recipe.setImageUrl(imageUrl);
+            }
             recipe.setUpdatedAt(LocalDateTime.now());
             
             recipeRepository.save(recipe);
@@ -137,13 +159,13 @@ public class RecipeController {
     }
 
     /**
-     * 根据餐类型获取食谱
+     * 根据餐类型获取食谱（JOIN FETCH 标签）
      */
     @GetMapping("/meal-type/{mealType}")
     public ResponseEntity<List<Recipe>> getRecipesByMealType(
             @PathVariable String mealType) {
         try {
-            List<Recipe> recipes = recipeRepository.findByMealType(mealType);
+            List<Recipe> recipes = recipeRepository.findByMealTypeWithTags(mealType);
             return ResponseEntity.ok(recipes);
         } catch (Exception e) {
             e.printStackTrace();
@@ -151,12 +173,13 @@ public class RecipeController {
         }
     }
 
-    /**
-     * 删除食谱
-     */
     @DeleteMapping("/{id}")
     public ResponseEntity<?> deleteRecipe(@PathVariable Long id) {
         try {
+            Recipe recipe = recipeRepository.findById(id).orElse(null);
+            if (recipe != null && recipe.getCreatedBy() != null) {
+                AuthSupport.requireSelf(recipe.getCreatedBy());
+            }
             recipeRepository.deleteById(id);
             
             Map<String, Object> response = new HashMap<>();

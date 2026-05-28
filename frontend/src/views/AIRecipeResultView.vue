@@ -152,16 +152,8 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue';
 import { useRoute } from 'vue-router';
-import axios from 'axios';
+import { apiClient } from '../api/healthApi';
 import { ElNotification } from 'element-plus';
-
-// 配置 axios 携带凭证
-axios.defaults.withCredentials = true;
-// 从 localStorage 或 opener 窗口获取 token
-const token = localStorage.getItem('token') || 
-              (window.opener && window.opener.localStorage.getItem('token')) || 
-              '';
-axios.defaults.headers.common['Authorization'] = token;
 
 const route = useRoute();
 const loading = ref(true);
@@ -239,7 +231,7 @@ const loadData = async () => {
     simulateInitialProgress(); // 确保初始动画已启动
     updateProgress(3, '正在绘制精美图片...', 60);
     
-    const response = await axios.post('/api/ai/recommend-recipes', {
+    const response = await apiClient.post('/ai/recommend-recipes', {
       userId: userId,
       mealType: mealType,
     });
@@ -250,7 +242,7 @@ const loadData = async () => {
         ...r,
         id: `ai-${r.recipeName || r.name}-${Date.now()}`,
         name: r.recipeName || r.name,
-        image: r.image || null,
+        image: r.imageUrl || r.image || null,
         imageLoading: !r.image,
         mealType: mealTypeName.value,
         isAiRecommended: true
@@ -341,7 +333,7 @@ const addToMyRecipes = async (recipe) => {
       body: JSON.stringify({
         name: serializableRecipe.name,
         description: serializableRecipe.description,
-        image: serializableRecipe.image, // Base64 图片
+        imageUrl: serializableRecipe.image,
         mealType: serializableRecipe.mealType,
         calories: serializableRecipe.calories,
         protein: serializableRecipe.protein,
@@ -427,7 +419,7 @@ const updateRecipeImage = async (recipe) => {
         'Authorization': token
       },
       body: JSON.stringify({
-        image: recipe.image
+        imageUrl: recipe.image
       })
     });
     

@@ -211,12 +211,12 @@ const handleRegister = async () => {
 
     if (response.success) {
       userStore.setUserData({
-        userId: registerForm.username.trim(),
+        userId: response.user?.userId || registerForm.username.trim(),
         name: registerForm.username.trim(),
         goal: '',
         currentWeight: 0,
         targetWeight: 0
-      });
+      }, response.token);
 
       ElNotification({
         title: '注册成功',

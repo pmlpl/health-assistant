@@ -313,7 +313,8 @@ const loadAiRecipesFromDatabase = async () => {
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
     
-    const dbRecipes = await response.json();
+    const dbRecipesRaw = await response.json();
+    const dbRecipes = Array.isArray(dbRecipesRaw) ? dbRecipesRaw : (dbRecipesRaw.content || []);
     
     // 解析列表字段的辅助函数（兼容多种分隔符）
     const parseListField = (str) => {

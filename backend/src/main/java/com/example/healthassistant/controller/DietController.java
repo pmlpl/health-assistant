@@ -5,10 +5,11 @@ import com.example.healthassistant.model.DietRecord;
 import com.example.healthassistant.model.FitnessRecord;
 import com.example.healthassistant.model.Ingredient;
 import com.example.healthassistant.repository.FitnessRecordRepository;
-import com.example.healthassistant.repository.IngredientRepository;
 import com.example.healthassistant.service.DietRecordService;
 import com.example.healthassistant.service.DoubaoFoodRecognitionService;
+import com.example.healthassistant.service.IngredientLookupService;
 import com.example.healthassistant.service.QwenAIService;
+import com.example.healthassistant.security.AuthSupport;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
@@ -41,6 +42,7 @@ public class DietController {
 
     @PostMapping("/record")
     public ResponseEntity<DietRecord> recordDiet(@RequestBody DietRecordDto dietRecordDto) {
+        AuthSupport.requireSelf(dietRecordDto.getUserId());
         DietRecord record = dietRecordService.saveDietRecord(dietRecordDto);
         return ResponseEntity.ok(record);
     }
@@ -48,6 +50,7 @@ public class DietController {
     @GetMapping("/daily/{userId}/{date}")
     public ResponseEntity<List<DietRecord>> getDailyDiet(@PathVariable String userId,
             @PathVariable @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+        AuthSupport.requireSelf(userId);
         List<DietRecord> records = dietRecordService.getDailyRecords(userId, date);
         return ResponseEntity.ok(records);
     }
@@ -55,6 +58,7 @@ public class DietController {
     @GetMapping("/weekly/{userId}/{weekStart}")
     public ResponseEntity<List<DietRecord>> getWeeklyDiet(@PathVariable String userId,
             @PathVariable @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate weekStart) {
+        AuthSupport.requireSelf(userId);
         List<DietRecord> records = dietRecordService.getWeeklyRecords(userId, weekStart);
         return ResponseEntity.ok(records);
     }
@@ -65,6 +69,7 @@ public class DietController {
             @PathVariable String userId,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
+        AuthSupport.requireSelf(userId);
         List<DietRecord> records = dietRecordService.getRecordsInRange(userId, startDate, endDate);
         return ResponseEntity.ok(records);
     }
@@ -75,6 +80,7 @@ public class DietController {
             @PathVariable String userId,
             @PathVariable int year,
             @PathVariable int month) {
+        AuthSupport.requireSelf(userId);
         Map<String, Object> summary = dietRecordService.getMonthlySummary(userId, year, month);
         return ResponseEntity.ok(summary);
     }
@@ -85,8 +91,12 @@ public class DietController {
             @PathVariable String userId,
             @PathVariable int year,
             @PathVariable int month) {
+        AuthSupport.requireSelf(userId);
         try {
-            List<FitnessRecord> records = fitnessRecordRepository.findByUserIdAndYearMonth(userId, year, month);
+            LocalDate startDate = LocalDate.of(year, month, 1);
+            LocalDate endDate = startDate.plusMonths(1).minusDays(1);
+            List<FitnessRecord> records = fitnessRecordRepository.findByUserIdAndDateBetween(
+                    userId, startDate, endDate);
                 
             // 计算每日数据
             Map<String, Double> dailyData = new HashMap<>();
@@ -147,7 +157,8 @@ public class DietController {
     @DeleteMapping("/batch")
     public ResponseEntity<Map<String, Object>> deleteBatchDietRecords(@RequestBody List<Long> ids) {
         try {
-            int deletedCount = dietRecordService.deleteBatchDietRecords(ids);
+            String userId = AuthSupport.currentUserId();
+            int deletedCount = dietRecordService.deleteBatchDietRecords(userId, ids);
             Map<String, Object> response = new HashMap<>();
             response.put("message", "批量删除饮食记录成功");
             response.put("deletedCount", deletedCount);
@@ -162,7 +173,7 @@ public class DietController {
     }
 
     @Autowired
-    private IngredientRepository ingredientRepository;
+    private IngredientLookupService ingredientLookupService;
     
     // 智能分析 API - 优先使用数据库匹配，没有才调用豆包 AI
     @PostMapping("/smart-analyze")
@@ -174,15 +185,16 @@ public class DietController {
         }
     
         try {
-            // 第一步：解析食物描述，提取食材名称和重量
             List<FoodItem> foodItems = parseFoodItems(foodDescription);
+
+            List<String> names = foodItems.stream().map(item -> item.name).toList();
+            Map<String, Ingredient> ingredientMap = ingredientLookupService.findByNames(names);
                 
-            // 第二步：尝试从数据库匹配食材
             List<IngredientMatchResult> matchResults = new ArrayList<>();
             List<String> unmatchedFoods = new ArrayList<>();
                 
             for (FoodItem item : foodItems) {
-                Ingredient dbIngredient = ingredientRepository.findByName(item.name);
+                Ingredient dbIngredient = ingredientMap.get(item.name);
                     
                 if (dbIngredient != null) {
                     // 数据库中找到，计算营养
@@ -504,6 +516,7 @@ public class DietController {
     public ResponseEntity<Map<String, Object>> analyzeNutrition(
             @PathVariable String userId,
             @RequestBody Map<String, Object> nutritionData) {
+        AuthSupport.requireSelf(userId);
         try {
             String analysis = qwenAIService.analyzeDailyNutrition(userId, nutritionData);
 
@@ -543,6 +556,7 @@ public class DietController {
                 errorResponse.put("error", "用户 ID 不能为空");
                 return ResponseEntity.badRequest().body(errorResponse);
             }
+            AuthSupport.requireSelf(userId);
 
             List<FitnessRecord> savedRecords = new ArrayList<>();
 
@@ -612,6 +626,7 @@ public class DietController {
     public ResponseEntity<List<Map<String, Object>>> getDailyFitnessRecords(
             @PathVariable String userId,
             @PathVariable @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+        AuthSupport.requireSelf(userId);
         try {
             List<FitnessRecord> records = fitnessRecordRepository.findByUserIdAndDate(userId, date);
 
