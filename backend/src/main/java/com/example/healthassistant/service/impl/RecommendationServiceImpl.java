@@ -4,8 +4,9 @@ import com.example.healthassistant.model.DietRecord;
 import com.example.healthassistant.model.UserProfile;
 import com.example.healthassistant.repository.DietRecordRepository;
 import com.example.healthassistant.repository.UserProfileRepository;
-import com.example.healthassistant.service.QwenAIService;
+import com.example.healthassistant.service.HealthAiService;
 import com.example.healthassistant.service.RecommendationService;
+import com.example.healthassistant.service.UserProfileLoadService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -23,12 +24,15 @@ public class RecommendationServiceImpl implements RecommendationService {
     private DietRecordRepository dietRecordRepository;
 
     @Autowired
-    private QwenAIService qwenAIService;
+    private HealthAiService healthAiService;
+
+    @Autowired
+    private UserProfileLoadService userProfileLoadService;
 
     @Override
     public Map<String, Object> getRecipeRecommendations(String userId, String mealType) {
-        // 1. 获取用户档案
-        UserProfile userProfile = userProfileRepository.findByUserIdWithDietaryRestrictions(userId);
+        // 1. 获取用户档案（含口味偏好，避免懒加载异常）
+        UserProfile userProfile = userProfileLoadService.loadWithCollections(userId);
         if (userProfile == null) {
             throw new RuntimeException("未找到用户档案: " + userId);
         }
@@ -43,7 +47,7 @@ public class RecommendationServiceImpl implements RecommendationService {
         Map<String, Double> consumedNutrition = calculateConsumedNutrition(todayRecords);
 
         // 4. 调用AI服务获取推荐
-        return qwenAIService.generateRecipeRecommendations(userProfile, consumedNutrition, mealType);
+        return healthAiService.generateRecipeRecommendations(userProfile, consumedNutrition, mealType);
     }
 
     private Map<String, Double> calculateConsumedNutrition(List<DietRecord> records) {

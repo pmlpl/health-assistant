@@ -102,7 +102,7 @@ mvn spring-boot:run
 
 ```
 2024-01-01 12:00:00.000  INFO 12345 --- [           main] c.e.h.s.DoubaoFoodRecognitionService     : 豆包 API 密钥已配置
-2024-01-01 12:00:00.000  INFO 12345 --- [           main] c.e.h.service.QwenAIService             : Qwen API 密钥已配置
+2024-01-01 12:00:00.000  INFO 12345 --- [           main] c.e.h.service.HealthAiService             : AI 服务已配置
 ```
 
 ## 故障排查

@@ -1,12 +1,13 @@
-package com.example.healthassistant.ai;
+package com.example.healthassistant.dto;
 
-import lombok.Builder;
 import lombok.Data;
 
+/**
+ * AI 连通性测试请求：支持保存前用表单预览。
+ */
 @Data
-@Builder
-public class ResolvedAiConfig {
-    private String textProvider;
+public class AiConnectionTestRequestDto {
+    private String type;
     private String lmstudioBaseUrl;
     private String lmstudioModel;
     private String cloudModel;
@@ -16,6 +17,4 @@ public class ResolvedAiConfig {
     private String customApiKey;
     private String doubaoApiKey;
     private String pexelsApiKey;
-    private boolean configured;
-    private String activeTextBackend;
 }

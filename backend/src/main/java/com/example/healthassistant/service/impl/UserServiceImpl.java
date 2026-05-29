@@ -12,6 +12,7 @@ import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.hibernate.Hibernate;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
@@ -130,10 +131,13 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public UserProfile getUserProfile(String userId) {
-        // 使用优化后的查询方法，加载用户档案和饮食禁忌
-        // tastePreferences 通过 @BatchSize 懒加载优化
-        return userProfileRepository.findByUserIdWithDietaryRestrictions(userId);
+        UserProfile profile = userProfileRepository.findByUserIdWithDietaryRestrictions(userId);
+        if (profile != null) {
+            Hibernate.initialize(profile.getTastePreferences());
+        }
+        return profile;
     }
 
     @Override

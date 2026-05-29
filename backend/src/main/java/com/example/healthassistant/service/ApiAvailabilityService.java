@@ -78,13 +78,16 @@ public class ApiAvailabilityService {
 
         ResolvedAiConfig config = userAiSettingsService.resolve(userId);
 
-        boolean reachable = config.getLmstudioBaseUrl() != null
-
-                && lmStudioChatClient.testConnection(config.getLmstudioBaseUrl());
+        boolean reachable = false;
+        if (config.getLmstudioBaseUrl() != null && !config.getLmstudioBaseUrl().isBlank()) {
+            reachable = lmStudioChatClient
+                    .testConnectionDetailed(config.getLmstudioBaseUrl(), config.getLmstudioModel())
+                    .success();
+        }
 
         return new ApiStatus(reachable,
 
-                reachable ? "LM Studio 可达" : "请启动 LM Studio 并配置地址",
+                reachable ? "LM Studio 可达" : "请启动 LM Studio 并配置地址与模型",
 
                 config.getLmstudioBaseUrl() != null);
 

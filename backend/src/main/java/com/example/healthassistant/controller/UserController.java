@@ -8,7 +8,7 @@ import com.example.healthassistant.dto.UserProfileResponseDto;
 import com.example.healthassistant.model.UserProfile;
 import com.example.healthassistant.security.AuthSupport;
 import com.example.healthassistant.security.JwtTokenProvider;
-import com.example.healthassistant.service.QwenAIService;
+import com.example.healthassistant.service.HealthAiService;
 import com.example.healthassistant.service.RecommendationService;
 import com.example.healthassistant.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -29,7 +29,7 @@ public class UserController {
     private RecommendationService recommendationService;
 
     @Autowired
-    private QwenAIService qwenAIService;
+    private HealthAiService healthAiService;
 
     @Autowired
     private JwtTokenProvider jwtTokenProvider;
@@ -51,7 +51,7 @@ public class UserController {
     public ResponseEntity<ApiResponse<UserProfileResponseDto>> createUserProfile(@RequestBody UserProfileDto profileDto) {
         AuthSupport.requireSelf(profileDto.getUserId());
         UserProfile profile = userService.createOrUpdateUserProfile(profileDto);
-        qwenAIService.clearSessionHistory(profile.getUserId());
+        healthAiService.clearSessionHistory(profile.getUserId());
         return ApiResponse.ok(UserProfileResponseDto.from(profile));
     }
 

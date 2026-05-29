@@ -285,13 +285,15 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue';
-import { apiClient } from '../api/healthApi';
 import { useUserStore } from '../stores/userStore';
-// 导入 healthApi
 import { healthApi } from '../api/healthApi';
+import { useAiPageJobsStore } from '../stores/aiPageJobsStore';
+import { aiPageJobRunner } from '../services/aiPageJobRunner';
+import { AI_PAGE_JOB_IDS } from '../constants/aiPageJobIds';
 import { ElNotification, ElMessageBox } from 'element-plus';
 
 const userStore = useUserStore();
+const aiPageJobs = useAiPageJobsStore();
 
 // 健身类型选项
 const fitnessOptions = [
@@ -326,7 +328,7 @@ const newFitnessEntry = ref({
 // 已添加的健身项目
 const fitnessItems = ref([]);
 // 分析状态
-const analyzing = ref(false);
+const analyzing = computed(() => aiPageJobs.isRunning(AI_PAGE_JOB_IDS.FITNESS_WORKOUT_ANALYZE));
 // 保存状态
 const saving = ref(false);
 // 加载状态
@@ -514,9 +516,8 @@ const analyzeFitnessItems = async () => {
     return;
   }
   
-  analyzing.value = true;
   aiAnalysis.value = '';
-  
+
   try {
     const userId = userStore.userData?.userId;
     if (!userId) {
@@ -547,23 +548,12 @@ const analyzeFitnessItems = async () => {
       analysisType: 'fitness_workout'
     };
     
-    console.log('发送健身收获分析请求:', { userId, fitnessAnalysisData });
-    
-    const response = await apiClient.post(
-      `/ai/analyze-fitness-workout/${userId}`,
-      fitnessAnalysisData,
-      {
-        timeout: 600000,
-        headers: { 'Content-Type': 'application/json' }
-      }
-    );
-    
-    console.log('健身收获分析响应:', response.data);
-    
-    if (response.data.success) {
-      aiAnalysis.value = response.data.analysis;
+    const data = await aiPageJobRunner.runFitnessWorkoutAnalyze(userId, fitnessAnalysisData);
+    if (!data) return;
+    if (data.success) {
+      aiAnalysis.value = data.analysis;
     } else {
-      aiAnalysis.value = '分析失败：' + response.data.error;
+      aiAnalysis.value = '分析失败：' + (data.error || '未知错误');
     }
   } catch (error) {
     console.error('AI 分析失败:', error);
@@ -572,8 +562,13 @@ const analyzeFitnessItems = async () => {
     } else {
       aiAnalysis.value = 'AI 分析失败：' + error.message;
     }
-  } finally {
-    analyzing.value = false;
+  }
+};
+
+const restoreAiPageJobs = () => {
+  const job = aiPageJobs.jobs[AI_PAGE_JOB_IDS.FITNESS_WORKOUT_ANALYZE];
+  if (job.status === 'success' && job.result?.success) {
+    aiAnalysis.value = job.result.analysis;
   }
 };
 
@@ -879,6 +874,7 @@ const deleteRecord = async (recordId, index) => {
 // 组件挂载时加载数据
 onMounted(() => {
   loadTodayData();
+  restoreAiPageJobs();
 });
 </script>
 

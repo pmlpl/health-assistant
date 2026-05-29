@@ -28,7 +28,13 @@ export default defineConfig({
                 changeOrigin: true,
                 secure: false,
                 rewrite: (path) => path,
-            }
+            },
+            // 食谱配图保存在后端 uploads，开发时需代理否则图片 404
+            '/uploads': {
+                target: 'http://localhost:8080',
+                changeOrigin: true,
+                secure: false,
+            },
         }
     },
     build: {

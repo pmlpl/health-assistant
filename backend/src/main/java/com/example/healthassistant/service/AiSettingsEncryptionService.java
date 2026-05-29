@@ -1,5 +1,7 @@
 package com.example.healthassistant.service;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -17,6 +19,8 @@ import java.util.Base64;
  */
 @Service
 public class AiSettingsEncryptionService {
+
+    private static final Logger log = LoggerFactory.getLogger(AiSettingsEncryptionService.class);
 
     private static final String ALGORITHM = "AES/GCM/NoPadding";
     private static final int GCM_IV_LENGTH = 12;
@@ -71,6 +75,19 @@ public class AiSettingsEncryptionService {
             return new String(cipher.doFinal(cipherText), StandardCharsets.UTF_8);
         } catch (Exception e) {
             throw new IllegalStateException("解密 API Key 失败", e);
+        }
+    }
+
+    /** 解密失败时返回 null，避免因密钥轮换导致整个设置接口 500 */
+    public String decryptSafe(String encoded) {
+        if (encoded == null || encoded.isBlank()) {
+            return null;
+        }
+        try {
+            return decrypt(encoded);
+        } catch (Exception e) {
+            log.warn("API Key 解密失败（可能更换了 ai.settings.encryption-secret）: {}", e.getMessage());
+            return null;
         }
     }
 

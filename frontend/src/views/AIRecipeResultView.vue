@@ -72,19 +72,25 @@
           :style="{ animationDelay: index * 0.15 + 's' }"
         >
           <div class="recipe-image">
-            <img 
-              v-if="recipe.image && !recipe.imageLoading" 
-              :src="recipe.image" 
-              :alt="recipe.name" 
+            <img
+              v-if="recipe.image && !recipe.imageLoading && !recipe.imageError"
+              :src="recipe.image"
+              :alt="recipe.name"
               class="recipe-img"
+              @load="onImageLoad(recipe)"
+              @error="onImageError(recipe)"
             />
-            <div v-else class="image-loading-overlay">
+            <div v-else-if="recipe.imageLoading" class="image-loading-overlay">
               <div class="loading-spinner">
                 <div class="spinner-ring"></div>
                 <div class="spinner-ring"></div>
                 <div class="spinner-ring"></div>
               </div>
-              <p class="loading-hint">绘制中...</p>
+              <p class="loading-hint">配图加载中...</p>
+            </div>
+            <div v-else class="image-placeholder">
+              <span class="placeholder-icon">🍽️</span>
+              <p class="placeholder-text">{{ recipe.imageHint || '暂无配图' }}</p>
             </div>
           </div>
 
@@ -150,10 +156,39 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useRoute } from 'vue-router';
 import { apiClient } from '../api/healthApi';
-import { ElNotification } from 'element-plus';
+import { notifySuccess, notifyError, notifyWarning, messageFromError } from '../utils/notify';
+
+const RECIPE_API_TIMEOUT_MS = 180000;
+const IMAGE_LOAD_TIMEOUT_MS = 20000;
+
+const IMAGE_STATUS_HINTS = {
+  NO_PEXELS_KEY: '未配置 Pexels Key：请在右上角「AI 设置」填写 Pexels Key，或在服务端配置 PEXELS_API_KEY',
+  PEXELS_NO_RESULT: '未找到合适的美食配图，可稍后重试',
+  DOWNLOAD_FAILED: '配图下载失败，请稍后重试',
+  SEARCH_FAILED: '配图获取失败，请检查 Pexels Key 与网络',
+};
+
+/** 将后端返回的 /uploads/... 转为可访问的完整地址 */
+const resolveUploadUrl = (path) => {
+  if (!path || typeof path !== 'string') return null;
+  if (path.startsWith('http://') || path.startsWith('https://') || path.startsWith('data:')) {
+    return path;
+  }
+  const apiBase = import.meta.env.VITE_API_BASE_URL || '';
+  if (apiBase.startsWith('http')) {
+    try {
+      return new URL(path, apiBase).href;
+    } catch {
+      return path;
+    }
+  }
+  return path.startsWith('/') ? path : `/${path}`;
+};
+
+const imageTimers = [];
 
 const route = useRoute();
 const loading = ref(true);
@@ -163,8 +198,40 @@ const analysis = ref('');
 const currentStep = ref(0);
 const progressWidth = ref(0);
 const progressText = ref('准备中...');
-const generatedCount = ref(0); // 已生成的图片数量
-const totalCount = ref(4); // 总共需要生成的图片数
+const generatedCount = ref(0);
+const totalCount = ref(4);
+
+const mapRecipe = (r, mealTypeLabel) => {
+  const image = resolveUploadUrl(r.imageUrl || r.image || null);
+  return {
+    ...r,
+    id: r.id || `ai-${r.recipeName || r.name}-${Date.now()}-${Math.random()}`,
+    name: r.recipeName || r.name,
+    image,
+    imageLoading: Boolean(image),
+    imageError: false,
+    imageHint: image ? null : (IMAGE_STATUS_HINTS[r.imageStatus] || '暂无配图'),
+    mealType: mealTypeLabel,
+    isAiRecommended: true,
+  };
+};
+
+const scheduleImageTimeout = (recipe) => {
+  if (!recipe?.image) return;
+  const timer = setTimeout(() => {
+    if (recipe.imageLoading) {
+      recipe.imageLoading = false;
+      recipe.imageError = true;
+      recipe.imageHint = '图片加载超时，请检查网络或稍后重试';
+    }
+  }, IMAGE_LOAD_TIMEOUT_MS);
+  imageTimers.push(timer);
+};
+
+const clearImageTimers = () => {
+  imageTimers.forEach((t) => clearTimeout(t));
+  imageTimers.length = 0;
+};
 
 // 从路由参数获取数据
 const mealTypeName = computed(() => {
@@ -231,24 +298,19 @@ const loadData = async () => {
     simulateInitialProgress(); // 确保初始动画已启动
     updateProgress(3, '正在绘制精美图片...', 60);
     
-    const response = await apiClient.post('/ai/recommend-recipes', {
-      userId: userId,
-      mealType: mealType,
-    });
+    const response = await apiClient.post(
+      '/ai/recommend-recipes',
+      { userId, mealType },
+      { timeout: RECIPE_API_TIMEOUT_MS, showErrorToast: false }
+    );
 
     if (response.data && response.data.recommendations) {
-      // 处理推荐结果
-      const processedRecommendations = response.data.recommendations.map((r, index) => ({
-        ...r,
-        id: `ai-${r.recipeName || r.name}-${Date.now()}`,
-        name: r.recipeName || r.name,
-        image: r.imageUrl || r.image || null,
-        imageLoading: !r.image,
-        mealType: mealTypeName.value,
-        isAiRecommended: true
-      }));
+      const processedRecommendations = response.data.recommendations.map((r) =>
+        mapRecipe(r, mealTypeName.value)
+      );
 
       recommendations.value = processedRecommendations;
+      processedRecommendations.forEach(scheduleImageTimeout);
       analysis.value = response.data.analysis || '';
       
       // 根据实际生成的图片数量更新进度
@@ -278,15 +340,17 @@ const loadData = async () => {
     loading.value = false;
   } catch (err) {
     console.error('加载 AI 推荐失败:', err);
-    error.value = err.message || '加载失败，请重试';
+    const serverMsg = err.response?.data?.error || err.response?.data?.message;
+    error.value = serverMsg || messageFromError(err, '生成食谱失败，请检查 AI 设置后重试');
     loading.value = false;
     updateProgress(4, '加载失败', 0);
+    notifyError(error.value, '食谱生成失败');
   }
 };
 
-// 图片加载完成
 const onImageLoad = (recipe) => {
   recipe.imageLoading = false;
+  recipe.imageError = false;
   generatedCount.value++;
   
   // 更新进度
@@ -297,8 +361,17 @@ const onImageLoad = (recipe) => {
     updateProgress(4, '所有图片绘制完成！', 100);
   }
   
-  console.log('图片加载完成:', recipe.name, `(${generatedCount.value}/${totalCount.value})`);
 };
+
+const onImageError = (recipe) => {
+  recipe.imageLoading = false;
+  recipe.imageError = true;
+  recipe.imageHint = '图片无法显示，可稍后重试生成';
+};
+
+onUnmounted(() => {
+  clearImageTimers();
+});
 
 // 添加到我的食谱
 const addToMyRecipes = async (recipe) => {
@@ -979,6 +1052,30 @@ onMounted(() => {
   color: white;
   font-size: 14px;
   font-weight: 500;
+}
+
+.image-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.95);
+}
+
+.placeholder-icon {
+  font-size: 48px;
+  margin-bottom: 12px;
+  opacity: 0.9;
+}
+
+.placeholder-text {
+  font-size: 14px;
+  line-height: 1.5;
+  max-width: 220px;
 }
 
 .recipe-content {

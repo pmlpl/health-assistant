@@ -1,5 +1,6 @@
 package com.example.healthassistant.controller;
 
+import com.example.healthassistant.dto.AiConnectionTestRequestDto;
 import com.example.healthassistant.dto.ApiResponse;
 import com.example.healthassistant.dto.UserAiSettingsDto;
 import com.example.healthassistant.dto.UserAiSettingsUpdateDto;
@@ -35,9 +36,8 @@ public class UserAiSettingsController {
     }
 
     @PostMapping("/test")
-    public ResponseEntity<ApiResponse<Map<String, Object>>> testConnection(@RequestBody Map<String, String> body) {
+    public ResponseEntity<ApiResponse<Map<String, Object>>> testConnection(@RequestBody AiConnectionTestRequestDto body) {
         String userId = AuthSupport.currentUserId();
-        String type = body.get("type");
-        return ApiResponse.ok(aiConnectionTestService.test(userId, type));
+        return ApiResponse.ok(aiConnectionTestService.test(userId, body));
     }
 }

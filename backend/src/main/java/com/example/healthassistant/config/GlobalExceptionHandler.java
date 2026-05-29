@@ -28,6 +28,12 @@ public class GlobalExceptionHandler {
         return ApiResponse.fail(400, ex.getMessage());
     }
 
+    @ExceptionHandler(IllegalStateException.class)
+    public ResponseEntity<ApiResponse<Void>> handleIllegalState(IllegalStateException ex) {
+        log.warn("业务状态异常: {}", ex.getMessage());
+        return ApiResponse.fail(400, ex.getMessage());
+    }
+
     @ExceptionHandler(AiNotConfiguredException.class)
     public ResponseEntity<ApiResponse<Void>> handleAiNotConfigured(AiNotConfiguredException ex) {
         return ApiResponse.fail(428, ex.getMessage());

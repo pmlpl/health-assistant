@@ -8,7 +8,7 @@ import com.example.healthassistant.repository.FitnessRecordRepository;
 import com.example.healthassistant.service.DietRecordService;
 import com.example.healthassistant.service.DoubaoFoodRecognitionService;
 import com.example.healthassistant.service.IngredientLookupService;
-import com.example.healthassistant.service.QwenAIService;
+import com.example.healthassistant.service.HealthAiService;
 import com.example.healthassistant.security.AuthSupport;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -35,7 +35,7 @@ public class DietController {
     private DoubaoFoodRecognitionService doubaoFoodService;
 
     @Autowired
-    private QwenAIService qwenAIService;
+    private HealthAiService healthAiService;
 
     @Autowired
     private FitnessRecordRepository fitnessRecordRepository;
@@ -518,7 +518,7 @@ public class DietController {
             @RequestBody Map<String, Object> nutritionData) {
         AuthSupport.requireSelf(userId);
         try {
-            String analysis = qwenAIService.analyzeDailyNutrition(userId, nutritionData);
+            String analysis = healthAiService.analyzeDailyNutrition(userId, nutritionData);
 
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);

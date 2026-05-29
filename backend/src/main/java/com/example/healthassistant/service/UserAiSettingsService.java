@@ -76,47 +76,41 @@ public class UserAiSettingsService {
 
         String lmUrl = firstNonBlank(settings.getLmstudioBaseUrl(), isDevMode() ? defaultLmBaseUrl : null);
         String lmModel = firstNonBlank(settings.getLmstudioModel(), isDevMode() ? defaultLmModel : null);
-        String dashKey = encryptionService.decrypt(settings.getDashscopeApiKeyEnc());
-        String doubaoKey = encryptionService.decrypt(settings.getDoubaoApiKeyEnc());
-        String pexelsKey = encryptionService.decrypt(settings.getPexelsApiKeyEnc());
+        String dashKey = encryptionService.decryptSafe(settings.getDashscopeApiKeyEnc());
+        String deepseekKey = encryptionService.decryptSafe(settings.getDeepseekApiKeyEnc());
+        String customKey = encryptionService.decryptSafe(settings.getCustomApiKeyEnc());
+        String doubaoKey = encryptionService.decryptSafe(settings.getDoubaoApiKeyEnc());
+        String pexelsKey = encryptionService.decryptSafe(settings.getPexelsApiKeyEnc());
 
-        boolean configured = isConfigured(provider, lmUrl, dashKey);
-        String activeBackend = resolveActiveBackend(provider, lmUrl, dashKey);
+        boolean configured = isConfigured(provider, lmUrl, dashKey, deepseekKey, customKey, doubaoKey, settings);
 
         return ResolvedAiConfig.builder()
                 .textProvider(provider)
                 .lmstudioBaseUrl(lmUrl)
                 .lmstudioModel(lmModel)
+                .cloudModel(settings.getCloudModel())
+                .customApiBaseUrl(settings.getCustomApiBaseUrl())
                 .dashscopeApiKey(dashKey)
+                .deepseekApiKey(deepseekKey)
+                .customApiKey(customKey)
                 .doubaoApiKey(doubaoKey)
                 .pexelsApiKey(pexelsKey)
                 .configured(configured)
-                .activeTextBackend(activeBackend)
+                .activeTextBackend(provider)
                 .build();
     }
 
-    private boolean isConfigured(String provider, String lmUrl, String dashKey) {
-        if ("dashscope".equals(provider)) {
-            return dashKey != null && !dashKey.isBlank();
-        }
-        if ("lmstudio".equals(provider)) {
-            return lmUrl != null && !lmUrl.isBlank();
-        }
-        if ("auto".equals(provider)) {
-            return (lmUrl != null && !lmUrl.isBlank()) || (dashKey != null && !dashKey.isBlank());
-        }
-        if (isDevMode()) {
-            return lmUrl != null && !lmUrl.isBlank();
-        }
-        return false;
-    }
-
-    private String resolveActiveBackend(String provider, String lmUrl, String dashKey) {
+    private boolean isConfigured(String provider, String lmUrl, String dashKey, String deepseekKey,
+            String customKey, String doubaoKey, UserAiSettings settings) {
         return switch (provider) {
-            case "dashscope" -> "dashscope";
-            case "lmstudio" -> "lmstudio";
-            case "auto" -> (lmUrl != null && !lmUrl.isBlank()) ? "lmstudio" : "dashscope";
-            default -> isDevMode() ? "lmstudio" : "unset";
+            case "dashscope" -> hasText(dashKey);
+            case "deepseek" -> hasText(deepseekKey);
+            case "doubao" -> hasText(doubaoKey);
+            case "other" -> hasText(customKey) && hasText(settings.getCustomApiBaseUrl());
+            case "lmstudio" -> hasText(lmUrl);
+            case "auto" -> hasText(lmUrl) || hasText(dashKey) || hasText(deepseekKey)
+                    || hasText(doubaoKey) || (hasText(customKey) && hasText(settings.getCustomApiBaseUrl()));
+            default -> isDevMode() && hasText(lmUrl);
         };
     }
 
@@ -128,12 +122,18 @@ public class UserAiSettingsService {
         dto.setTextProvider(settings.getTextProvider());
         dto.setLmstudioBaseUrl(settings.getLmstudioBaseUrl());
         dto.setLmstudioModel(settings.getLmstudioModel());
+        dto.setCloudModel(settings.getCloudModel());
+        dto.setCustomApiBaseUrl(settings.getCustomApiBaseUrl());
         dto.setConfigured(resolved.isConfigured());
         dto.setActiveTextBackend(resolved.getActiveTextBackend());
         dto.setDashscopeKeyMasked(maskIfPresent(settings.getDashscopeApiKeyEnc()));
+        dto.setDeepseekKeyMasked(maskIfPresent(settings.getDeepseekApiKeyEnc()));
+        dto.setCustomKeyMasked(maskIfPresent(settings.getCustomApiKeyEnc()));
         dto.setDoubaoKeyMasked(maskIfPresent(settings.getDoubaoApiKeyEnc()));
         dto.setPexelsKeyMasked(maskIfPresent(settings.getPexelsApiKeyEnc()));
         dto.setHasDashscopeKey(settings.getDashscopeApiKeyEnc() != null);
+        dto.setHasDeepseekKey(settings.getDeepseekApiKeyEnc() != null);
+        dto.setHasCustomKey(settings.getCustomApiKeyEnc() != null);
         dto.setHasDoubaoKey(settings.getDoubaoApiKeyEnc() != null);
         dto.setHasPexelsKey(settings.getPexelsApiKeyEnc() != null);
         return dto;
@@ -151,8 +151,20 @@ public class UserAiSettingsService {
         if (update.getLmstudioModel() != null) {
             settings.setLmstudioModel(update.getLmstudioModel().isBlank() ? null : update.getLmstudioModel());
         }
+        if (update.getCloudModel() != null) {
+            settings.setCloudModel(update.getCloudModel().isBlank() ? null : update.getCloudModel());
+        }
+        if (update.getCustomApiBaseUrl() != null) {
+            settings.setCustomApiBaseUrl(update.getCustomApiBaseUrl().isBlank() ? null : update.getCustomApiBaseUrl());
+        }
         if (update.getDashscopeApiKey() != null && !update.getDashscopeApiKey().isBlank()) {
             settings.setDashscopeApiKeyEnc(encryptionService.encrypt(update.getDashscopeApiKey()));
+        }
+        if (update.getDeepseekApiKey() != null && !update.getDeepseekApiKey().isBlank()) {
+            settings.setDeepseekApiKeyEnc(encryptionService.encrypt(update.getDeepseekApiKey()));
+        }
+        if (update.getCustomApiKey() != null && !update.getCustomApiKey().isBlank()) {
+            settings.setCustomApiKeyEnc(encryptionService.encrypt(update.getCustomApiKey()));
         }
         if (update.getDoubaoApiKey() != null && !update.getDoubaoApiKey().isBlank()) {
             settings.setDoubaoApiKeyEnc(encryptionService.encrypt(update.getDoubaoApiKey()));
@@ -178,7 +190,55 @@ public class UserAiSettingsService {
     }
 
     public void assertTextAiConfigured(String userId) {
-        if (requireUserConfig && !resolve(userId).isConfigured()) {
+        ResolvedAiConfig config = resolve(userId);
+        String provider = config.getTextProvider();
+        switch (provider) {
+            case "lmstudio" -> {
+                if (!hasText(config.getLmstudioBaseUrl())) {
+                    throw new com.example.healthassistant.exception.AiNotConfiguredException(
+                            "请先在 AI 设置中选择「本地 LM Studio」并填写服务地址（如 http://127.0.0.1:1234/v1）");
+                }
+            }
+            case "dashscope" -> {
+                if (!hasText(config.getDashscopeApiKey())) {
+                    throw new com.example.healthassistant.exception.AiNotConfiguredException(
+                            "当前为通义千问，请配置 DashScope API Key，或改选「本地 LM Studio」");
+                }
+            }
+            case "deepseek" -> {
+                if (!hasText(config.getDeepseekApiKey())) {
+                    throw new com.example.healthassistant.exception.AiNotConfiguredException(
+                            "当前为 DeepSeek，请配置 API Key，或改选「本地 LM Studio」");
+                }
+            }
+            case "doubao" -> {
+                if (!hasText(config.getDoubaoApiKey())) {
+                    throw new com.example.healthassistant.exception.AiNotConfiguredException(
+                            "当前为豆包，请配置 API Key，或改选「本地 LM Studio」");
+                }
+            }
+            case "other" -> {
+                if (!hasText(config.getCustomApiBaseUrl()) || !hasText(config.getCustomApiKey())) {
+                    throw new com.example.healthassistant.exception.AiNotConfiguredException(
+                            "请配置「其他」API 地址与 Key，或改选「本地 LM Studio」");
+                }
+            }
+            case "auto" -> {
+                if (!hasText(config.getLmstudioBaseUrl())
+                        && !hasText(config.getDashscopeApiKey())
+                        && !hasText(config.getDeepseekApiKey())
+                        && !hasText(config.getDoubaoApiKey())) {
+                    throw new com.example.healthassistant.exception.AiNotConfiguredException(
+                            "自动模式需要 LM Studio 地址或至少一个云端 API Key");
+                }
+            }
+            default -> {
+                if (requireUserConfig && !config.isConfigured()) {
+                    throw new com.example.healthassistant.exception.AiNotConfiguredException();
+                }
+            }
+        }
+        if (requireUserConfig && !config.isConfigured()) {
             throw new com.example.healthassistant.exception.AiNotConfiguredException();
         }
     }
@@ -187,7 +247,7 @@ public class UserAiSettingsService {
         if (enc == null) {
             return null;
         }
-        return AiSettingsEncryptionService.maskKey(encryptionService.decrypt(enc));
+        return AiSettingsEncryptionService.maskKey(encryptionService.decryptSafe(enc));
     }
 
     private static String firstNonBlank(String a, String b) {
@@ -195,5 +255,9 @@ public class UserAiSettingsService {
             return a;
         }
         return b;
+    }
+
+    private static boolean hasText(String s) {
+        return s != null && !s.isBlank();
     }
 }

@@ -2,6 +2,9 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import { setAuthToken, getAuthToken } from '../api/healthApi';
+import { aiPageJobRunner } from '../services/aiPageJobRunner';
+import { aiStreamRunner } from '../services/aiStreamRunner';
+import { useAiConsultStore } from './aiConsultStore';
 
 export const useUserStore = defineStore('user', () => {
     const userData = ref({
@@ -52,6 +55,9 @@ export const useUserStore = defineStore('user', () => {
     };
 
     const logout = () => {
+        aiStreamRunner.cancel();
+        aiPageJobRunner.cancelAll();
+        useAiConsultStore().clearAll();
         userData.value = {
             userId: '',
             name: '',

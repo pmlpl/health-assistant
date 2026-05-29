@@ -1,11 +1,20 @@
 package com.example.healthassistant.controller;
 
+import com.example.healthassistant.ai.ChatClientRouter;
+import com.example.healthassistant.exception.AiNotConfiguredException;
 import com.example.healthassistant.security.AuthSupport;
-import com.example.healthassistant.service.QwenAIService;
+import com.example.healthassistant.service.HealthAiService;
 import com.example.healthassistant.service.RecommendationService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
+import org.springframework.security.core.context.SecurityContext;
+import org.springframework.security.core.context.SecurityContextHolder;
+
+import java.util.concurrent.CompletableFuture;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -15,10 +24,16 @@ import java.util.Map;
 public class AIController {
 
     @Autowired
-    private QwenAIService qwenAIService;
+    private HealthAiService healthAiService;
 
     @Autowired
     private RecommendationService recommendationService;
+
+    @Autowired
+    private ChatClientRouter chatClientRouter;
+
+    @Value("${ai.consult.stream-enabled:true}")
+    private boolean streamEnabled;
 
     @PostMapping("/nutrition-advice")
     public ResponseEntity<Map<String, Object>> getNutritionAdvice(@RequestBody Map<String, Object> request) {
@@ -39,21 +54,61 @@ public class AIController {
                 return ResponseEntity.badRequest().body(errorResponse);
             }
 
-            String advice = qwenAIService.getNutritionAdvice(userId, query);
+            String advice = healthAiService.getNutritionAdvice(userId, query);
 
             Map<String, Object> response = new HashMap<>();
             response.put("userId", userId);
             response.put("query", query);
             response.put("advice", advice);
+            response.put("aiBackend", chatClientRouter.getLastUsedBackend());
+            response.put("aiModel", chatClientRouter.getLastUsedModel());
             response.put("timestamp", System.currentTimeMillis());
 
             return ResponseEntity.ok(response);
 
+        } catch (AiNotConfiguredException e) {
+            throw e;
         } catch (Exception e) {
             Map<String, Object> errorResponse = new HashMap<>();
             errorResponse.put("error", "处理请求时发生错误: " + e.getMessage());
             return ResponseEntity.internalServerError().body(errorResponse);
         }
+    }
+
+    @PostMapping(value = "/nutrition-advice/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public SseEmitter streamNutritionAdvice(@RequestBody Map<String, Object> request) {
+        String userId = (String) request.get("userId");
+        String query = (String) request.get("query");
+        if (userId == null || userId.isBlank()) {
+            SseEmitter err = new SseEmitter(0L);
+            err.completeWithError(new IllegalArgumentException("用户ID不能为空"));
+            return err;
+        }
+        AuthSupport.requireSelf(userId);
+        if (query == null || query.isBlank()) {
+            SseEmitter err = new SseEmitter(0L);
+            err.completeWithError(new IllegalArgumentException("查询内容不能为空"));
+            return err;
+        }
+        SseEmitter emitter = new SseEmitter(600_000L);
+        SecurityContext securityContext = SecurityContextHolder.getContext();
+        String trimmedQuery = query.trim();
+        CompletableFuture.runAsync(() -> {
+            SecurityContextHolder.setContext(securityContext);
+            try {
+                healthAiService.streamNutritionAdvice(userId, trimmedQuery, emitter);
+            } finally {
+                SecurityContextHolder.clearContext();
+            }
+        });
+        return emitter;
+    }
+
+    @GetMapping("/consult-stream-enabled")
+    public ResponseEntity<Map<String, Object>> consultStreamEnabled() {
+        Map<String, Object> body = new HashMap<>();
+        body.put("streamEnabled", streamEnabled);
+        return ResponseEntity.ok(body);
     }
 
     @PostMapping("/recommend-recipes")
@@ -64,9 +119,12 @@ public class AIController {
         try {
             Map<String, Object> recommendations = recommendationService.getRecipeRecommendations(userId, mealType);
             return ResponseEntity.ok(recommendations);
+        } catch (AiNotConfiguredException e) {
+            throw e;
         } catch (Exception e) {
             Map<String, Object> errorResponse = new HashMap<>();
             errorResponse.put("error", "食谱推荐失败: " + e.getMessage());
+            errorResponse.put("success", false);
             return ResponseEntity.internalServerError().body(errorResponse);
         }
     }
@@ -75,7 +133,7 @@ public class AIController {
     public ResponseEntity<Map<String, Object>> clearSession(@PathVariable String userId) {
         AuthSupport.requireSelf(userId);
         try {
-            qwenAIService.clearSessionHistory(userId);
+            healthAiService.clearSessionHistory(userId);
 
             Map<String, Object> response = new HashMap<>();
             response.put("message", "用户 " + userId + " 的会话历史已清除");
@@ -93,7 +151,7 @@ public class AIController {
     public ResponseEntity<Map<String, Object>> getSessionHistory(@PathVariable String userId) {
         AuthSupport.requireSelf(userId);
         try {
-            int historyLength = qwenAIService.getSessionHistoryLength(userId);
+            int historyLength = healthAiService.getSessionHistoryLength(userId);
 
             Map<String, Object> response = new HashMap<>();
             response.put("userId", userId);
@@ -114,7 +172,7 @@ public class AIController {
             @RequestBody Map<String, Object> workoutData) {
         AuthSupport.requireSelf(userId);
         try {
-            String analysis = qwenAIService.analyzeFitnessWorkout(userId, workoutData);
+            String analysis = healthAiService.analyzeFitnessWorkout(userId, workoutData);
 
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
@@ -149,7 +207,7 @@ public class AIController {
                 return ResponseEntity.badRequest().body(errorResponse);
             }
 
-            String response = qwenAIService.getMentalHealthAdvice(userId, message);
+            String response = healthAiService.getMentalHealthAdvice(userId, message);
 
             Map<String, Object> responseMap = new HashMap<>();
             responseMap.put("success", true);

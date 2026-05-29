@@ -90,6 +90,11 @@ public class EnvConfig {
     public static String getDoubaoApiKey() {
         return get("DOUBAO_API_KEY");
     }
+
+    /** Pexels 食谱配图 API Key */
+    public static String getPexelsApiKey() {
+        return get("PEXELS_API_KEY");
+    }
     
     /**
      * 检查是否已加载 .env 文件

@@ -1,5 +1,6 @@
 // src/api/healthApi.js
 import axios from 'axios';
+import { notifyError, messageFromError } from '../utils/notify';
 
 // 使用环境变量配置 API 基础 URL
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
@@ -45,7 +46,12 @@ api.interceptors.response.use(
             } else if (Array.isArray(payload)) {
                 response.data = payload;
             } else if (typeof payload === 'object') {
-                response.data = { ...payload, success: true, message: body.message };
+                const merged = { ...payload, success: true };
+                // 保留业务 data 内的 message（如连接测试详情），勿被外层 "Success" 覆盖
+                if (payload.message == null || String(payload.message).trim() === '') {
+                    merged.message = body.message;
+                }
+                response.data = merged;
             } else {
                 response.data = payload;
             }
@@ -53,15 +59,25 @@ api.interceptors.response.use(
         return response;
     },
     error => {
+        if (error.response?.data?.message) {
+            error.message = error.response.data.message;
+        } else if (error.response?.data?.error) {
+            error.message = error.response.data.error;
+        }
         if (error.response?.status === 401) {
             setAuthToken(null);
             localStorage.removeItem('isLoggedIn');
             localStorage.removeItem('userProfile');
-            if (!window.location.pathname.includes('/login')) {
+            const onLoginPage = window.location.pathname.includes('/login');
+            if (!onLoginPage) {
+                notifyError('登录已过期，请重新登录', '未授权');
                 window.location.href = '/login';
             }
-        } else if (error.response?.data?.message) {
-            error.message = error.response.data.message;
+        } else if (error.config?.showErrorToast !== false) {
+            const skipSilent = [403, 404].includes(error.response?.status);
+            if (!skipSilent) {
+                notifyError(messageFromError(error), '请求失败');
+            }
         } else if (error.response && error.response.status !== 403 && error.response.status !== 404) {
             console.error('API 请求错误:', error);
         }
@@ -117,7 +133,7 @@ export const healthApi = {
 
     login: async (credentials) => {
         try {
-            const response = await api.post('/users/login', credentials);
+            const response = await api.post('/users/login', credentials, { showErrorToast: false });
             return response.data;
         } catch (error) {
             console.error('用户登录失败:', error);
@@ -376,6 +392,26 @@ export const healthApi = {
         }
     },
 
+    // AI 营养咨询（需登录 JWT）
+    getNutritionAdvice: async (userId, query) => {
+        const response = await api.post(
+            '/ai/nutrition-advice',
+            { userId, query },
+            { timeout: 300000, showErrorToast: false }
+        );
+        return response.data;
+    },
+
+    clearAiSession: async (userId) => {
+        const encodedUserId = encodeURIComponent(userId);
+        await api.delete(`/ai/session/${encodedUserId}`, { showErrorToast: false });
+    },
+
+    getConsultStreamEnabled: async () => {
+        const response = await api.get('/ai/consult-stream-enabled', { showErrorToast: false });
+        return response.data;
+    },
+
     // 心理健康咨询相关
     getMentalHealthAdvice: async (requestData) => {
         const response = await api.post('/ai/mental-health', requestData, {
@@ -390,17 +426,19 @@ export const healthApi = {
     },
 
     getAiSettings: async () => {
-        const response = await api.get('/users/me/ai-settings');
+        const response = await api.get('/users/me/ai-settings', { showErrorToast: false });
         return response.data?.data ?? response.data;
     },
 
     updateAiSettings: async (payload) => {
-        const response = await api.put('/users/me/ai-settings', payload);
+        const response = await api.put('/users/me/ai-settings', payload, { showErrorToast: false });
         return response.data?.data ?? response.data;
     },
 
-    testAiConnection: async (type) => {
-        const response = await api.post('/users/me/ai-settings/test', { type });
+    testAiConnection: async (payload) => {
+        const response = await api.post('/users/me/ai-settings/test', payload, {
+            showErrorToast: false,
+        });
         return response.data?.data ?? response.data;
     }
 };

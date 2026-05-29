@@ -13,6 +13,7 @@ import org.springframework.http.server.ServerHttpResponse;
 import org.springframework.http.server.ServletServerHttpResponse;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseBodyAdvice;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
@@ -22,6 +23,10 @@ public class ApiResponseBodyAdvice implements ResponseBodyAdvice<Object> {
 
     @Override
     public boolean supports(MethodParameter returnType, Class<? extends HttpMessageConverter<?>> converterType) {
+        // SSE 流式接口不能包装成 JSON
+        if (SseEmitter.class.isAssignableFrom(returnType.getParameterType())) {
+            return false;
+        }
         return !isAlreadyApiResponse(returnType);
     }
 
@@ -29,7 +34,10 @@ public class ApiResponseBodyAdvice implements ResponseBodyAdvice<Object> {
     public Object beforeBodyWrite(Object body, MethodParameter returnType, MediaType selectedContentType,
                                   Class<? extends HttpMessageConverter<?>> selectedConverterType,
                                   ServerHttpRequest request, ServerHttpResponse response) {
-        if (body instanceof ApiResponse) {
+        if (body instanceof ApiResponse || body instanceof SseEmitter) {
+            return body;
+        }
+        if (selectedContentType != null && MediaType.TEXT_EVENT_STREAM.includes(selectedContentType)) {
             return body;
         }
         if (response instanceof ServletServerHttpResponse servletResponse) {

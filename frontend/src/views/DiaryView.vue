@@ -330,15 +330,18 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { apiClient } from '../api/healthApi'
 import { healthApi } from '../api/healthApi'
 import { useUserStore } from '../stores/userStore'
+import { useAiPageJobsStore } from '../stores/aiPageJobsStore'
+import { aiPageJobRunner } from '../services/aiPageJobRunner'
+import { AI_PAGE_JOB_IDS } from '../constants/aiPageJobIds'
 import ManualNutritionInput from '../components/ManualNutritionInput.vue'
 import { ElNotification, ElMessageBox } from 'element-plus'
 
 // 使用环境变量配置 API 基础 URL
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api'
 const userStore = useUserStore()
+const aiPageJobs = useAiPageJobsStore()
 
 // 当前正在输入的食物项
 const currentFoodItem = ref({
@@ -364,15 +367,17 @@ const newDiaryEntry = ref({
 const diaryEntries = ref([])
 const loading = ref(false)
 const savingRecord = ref(false) // 保存记录时的加载状态
-const analyzing = ref(false)
+const analyzing = computed(() => aiPageJobs.isRunning(AI_PAGE_JOB_IDS.DIARY_SMART_ANALYZE))
 const recognizedFoods = ref([])
 const nutritionEstimate = ref(null)
 const showManualInput = ref(false)
 const currentManualFood = ref(null)
-const analyzingNutrition = ref(false)
+const analyzingNutrition = computed(() =>
+  aiPageJobs.isRunning(AI_PAGE_JOB_IDS.DIARY_NUTRITION_ANALYZE)
+)
 const nutritionAnalysis = ref('')
 const imageUploader = ref(null)
-const uploading = ref(false)
+const uploading = computed(() => aiPageJobs.isRunning(AI_PAGE_JOB_IDS.DIARY_IMAGE_RECOGNIZE))
 const hasAnalyzed = ref(false) // 是否已经过 AI 分析
 
 // 批量删除相关
@@ -456,7 +461,21 @@ const removeFoodItem = (index) => {
   foodItems.value.splice(index, 1)
 }
 
-// 智能分析食物输入 - 优先使用数据库匹配
+// 将智能分析结果应用到表单
+const applySmartAnalyzeResult = (result) => {
+  if (!result) return
+  recognizedFoods.value = result.foods || []
+  newDiaryEntry.value.consumedIngredients = (result.foods || []).map((food) => food.name)
+  nutritionEstimate.value = result.totalNutrition
+  newDiaryEntry.value.calories = result.totalNutrition?.calories ?? null
+  newDiaryEntry.value.protein = result.totalNutrition?.protein ?? null
+  newDiaryEntry.value.carbs = result.totalNutrition?.carbs ?? null
+  newDiaryEntry.value.fat = result.totalNutrition?.fat ?? null
+  newDiaryEntry.value.fiber = result.totalNutrition?.fiber ?? null
+  hasAnalyzed.value = true
+}
+
+// 智能分析食物 - 全局 Runner，切路由不中断
 const analyzeFoodItems = async () => {
   if (foodItems.value.length === 0) {
     ElNotification({
@@ -469,45 +488,14 @@ const analyzeFoodItems = async () => {
     return
   }
 
-  analyzing.value = true
+  const foodDescription = foodItems.value
+    .map((item) => `${item.quantity}${item.unit}${item.name}`)
+    .join('、')
 
-  // 构造食物描述字符串
-  const foodDescription = foodItems.value.map(item => 
-    `${item.quantity}${item.unit}${item.name}`
-  ).join('、')
-
-  console.log('🔍 准备进行 AI 营养分析，食物描述:', foodDescription)
-  
   try {
-    // 直接调用后端智能分析 API（后端会优先查询 ingredient 数据库）
-    console.log('调用后端智能分析接口...')
-    // 使用 axios 调用后端智能分析 API
-    const response = await apiClient.post('/diet/smart-analyze', {
-        foodDescription: foodDescription
-      }, {
-        timeout: 600000,
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      })
-
-    const result = response.data
-    
-    console.log('智能分析结果:', result)
-    console.log('数据库匹配数量:', result.databaseMatchCount)
-    console.log('AI 分析数量:', result.aiAnalysisCount)
-    console.log('模式:', result.mode)
-    
-    // 显示识别到的食物
-    recognizedFoods.value = result.foods || []
-    
-    // 将识别到的食物名称填充到 consumedIngredients
-    newDiaryEntry.value.consumedIngredients = (result.foods || []).map(food => food.name)
-
-    // 显示营养成分预估
-    nutritionEstimate.value = result.totalNutrition
-    
-    // 根据匹配模式显示不同提示
+    const result = await aiPageJobRunner.runDiarySmartAnalyze(foodDescription)
+    if (!result) return
+    applySmartAnalyzeResult(result)
     if (result.mode === '数据库匹配') {
       ElNotification({
         title: '✅ 数据库匹配成功',
@@ -525,17 +513,6 @@ const analyzeFoodItems = async () => {
         offset: 80
       })
     }
-
-    // 自动填充营养成分
-    newDiaryEntry.value.calories = result.totalNutrition?.calories || null
-    newDiaryEntry.value.protein = result.totalNutrition?.protein || null
-    newDiaryEntry.value.carbs = result.totalNutrition?.carbs || null
-    newDiaryEntry.value.fat = result.totalNutrition?.fat || null
-    newDiaryEntry.value.fiber = result.totalNutrition?.fiber || null
-
-    // 标记已完成 AI 分析
-    hasAnalyzed.value = true
-
     ElNotification({
       title: '✅ 分析成功',
       message: '食物营养分析完成！',
@@ -543,18 +520,15 @@ const analyzeFoodItems = async () => {
       duration: 2000,
       offset: 80
     })
-
   } catch (error) {
-    console.error('分析失败:', error);
+    console.error('分析失败:', error)
     ElNotification({
       title: '❌ 分析失败',
       message: error.response?.data?.message || error.message || '分析过程中出现错误',
       type: 'error',
       duration: 3000,
       offset: 80
-    });
-  } finally {
-    analyzing.value = false
+    })
   }
 }
 
@@ -726,7 +700,6 @@ const analyzeNutrition = async () => {
   }
 
   try {
-    analyzingNutrition.value = true
     nutritionAnalysis.value = ''
 
     const userId = userStore.userData?.userId
@@ -750,25 +723,14 @@ const analyzeNutrition = async () => {
       mealCount: diaryEntries.value.length
     }
 
-    console.log('发送营养分析请求:', { userId, nutritionData })
-
-    const response = await apiClient.post(
-      `/diet/analyze-nutrition/${userId}`,
-      nutritionData,
-      {
-        timeout: 600000,
-        headers: { 'Content-Type': 'application/json' }
-      }
-    )
-
-    console.log('营养分析响应:', response.data)
-
-    if (response.data.success) {
-      nutritionAnalysis.value = response.data.analysis
+    const data = await aiPageJobRunner.runDiaryNutritionAnalyze(userId, nutritionData)
+    if (!data) return
+    if (data.success) {
+      nutritionAnalysis.value = data.analysis
     } else {
       ElNotification({
         title: '❌ 分析失败',
-        message: response.data.error,
+        message: data.error,
         type: 'error',
         duration: 3000,
         offset: 80
@@ -793,8 +755,6 @@ const analyzeNutrition = async () => {
         offset: 80
       })
     }
-  } finally {
-    analyzingNutrition.value = false
   }
 }
 
@@ -820,7 +780,6 @@ const handleImageUpload = async (event) => {
   const file = event.target.files[0]
   if (!file) return
 
-  uploading.value = true
   const formData = new FormData()
   formData.append('image', file)
   if (userStore.userData?.userId) {
@@ -828,15 +787,8 @@ const handleImageUpload = async (event) => {
   }
 
   try {
-    // 使用环境变量配置的 API 地址
-    const response = await apiClient.post('/image/recognize', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-      timeout: 600000, // 图片识别可能需要更长时间，设置为 10 分钟
-    });
-
-    const result = response.data;
+    const result = await aiPageJobRunner.runDiaryImageRecognize(formData)
+    if (!result) return
     if (result.foods && result.foods.length > 0) {
       // 清空现有食物项
       foodItems.value = [];
@@ -899,11 +851,21 @@ const handleImageUpload = async (event) => {
       });
     }
   } finally {
-    uploading.value = false;
-    // 清空文件输入框，以便可以再次上传同一张图片
     event.target.value = '';
   }
 };
+
+// 从全局任务 store 恢复切路由前的分析结果
+const restoreAiPageJobs = () => {
+  const smart = aiPageJobs.jobs[AI_PAGE_JOB_IDS.DIARY_SMART_ANALYZE]
+  if (smart.status === 'success' && smart.result) {
+    applySmartAnalyzeResult(smart.result)
+  }
+  const nut = aiPageJobs.jobs[AI_PAGE_JOB_IDS.DIARY_NUTRITION_ANALYZE]
+  if (nut.status === 'success' && nut.result?.success) {
+    nutritionAnalysis.value = nut.result.analysis
+  }
+}
 
 // 工具函数
 const getMealTypeName = (mealType) => {
@@ -1128,6 +1090,7 @@ onMounted(async () => {
   // 如果已认证，加载记录
   if (userStore.isAuthenticated) {
     await loadTodayRecords()
+    restoreAiPageJobs()
   } else {
     // 尝试从 localStorage 恢复用户状态
     const storedUserData = localStorage.getItem('userProfile')
