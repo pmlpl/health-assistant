@@ -11,7 +11,6 @@
       <h1 class="app-title">AI健康助手</h1>
     </div>
     <div class="user-actions">
-      <router-link to="/guide" class="guide-nav-link">📖 使用手册</router-link>
       <!-- API 状态下拉菜单 -->
       <div class="api-status-dropdown">
         <button 
@@ -193,20 +192,6 @@ const handleLogoError = (event) => {
   display: flex;
   align-items: center;
   gap: 20px;
-}
-
-.guide-nav-link {
-  font-size: 14px;
-  color: #007bff;
-  text-decoration: none;
-  white-space: nowrap;
-  padding: 6px 12px;
-  border-radius: 6px;
-  background: #f0f7ff;
-}
-
-.guide-nav-link:hover {
-  background: #e0efff;
 }
 
 .user-info {

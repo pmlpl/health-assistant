@@ -5,15 +5,11 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
-import java.util.Collection;
 import java.util.List;
 
 @Repository
 public interface IngredientRepository extends JpaRepository<Ingredient, Long> {
     Ingredient findByName(String name);
-
-    /** 批量按名称查询，消除 N+1 */
-    List<Ingredient> findByNameIn(Collection<String> names);
     
     // 根据类别查找食材
     List<Ingredient> findByCategory(String category);

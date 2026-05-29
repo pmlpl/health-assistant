@@ -1,30 +1,26 @@
-import { apiClient } from './healthApi';
+import axios from 'axios';
 
-/** 提交问卷给 AI 分析（后端无专用接口时使用心理健康咨询接口） */
-export async function submitQuestionnaireToAI(userId, questionnaireLabel, answersData, totalScore) {
-    const summary = answersData
-        .map((item, i) => `${i + 1}. ${item.question}\n   回答：${item.answer}（${item.score}分）`)
-        .join('\n');
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api';
 
-    const message = `请根据以下「${questionnaireLabel}」问卷结果给出专业、温和的分析与建议（总分 ${totalScore}）：\n\n${summary}`;
+/**
+ * 提交问卷到 AI 分析
+ */
+export async function submitQuestionnaireToAI(userId, questionnaireType, answers, totalScore) {
+  try {
+    const response = await axios.post(`${API_BASE_URL}/ai/analyze-questionnaire`, {
+      userId,
+      questionnaireType,
+      answers,
+      totalScore
+    });
 
-    try {
-        const response = await apiClient.post('/ai/mental-health', {
-            userId,
-            message,
-        }, { timeout: 600000 });
-
-        const data = response.data;
-        if (typeof data === 'string') return data;
-        if (data?.response) return data.response;
-        if (data?.advice) return data.advice;
-        return data?.message || '分析完成，请查看详细建议。';
-    } catch (error) {
-        console.error('问卷 AI 分析失败:', error);
-        throw error;
+    if (response.data.success) {
+      return response.data.report;
+    } else {
+      throw new Error(response.data.error || '问卷分析失败');
     }
+  } catch (error) {
+    console.error('问卷分析请求失败:', error);
+    throw error;
+  }
 }
-
-export const questionnaireApi = {
-    submitQuestionnaireToAI,
-};

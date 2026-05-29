@@ -109,7 +109,7 @@
       width="400px"
       destroy-on-close
     >
-      <p class="modal-desc">在线重置密码功能暂未开放，请登录后在个人中心使用「修改密码」。</p>
+      <p class="modal-desc">请输入用户名，密码将重置为：12345678</p>
       
       <el-form @submit.prevent="handleForgotPassword" :model="forgotForm" :rules="forgotRules" ref="forgotFormRef">
         <el-form-item prop="username">
@@ -138,7 +138,7 @@ import { ref, reactive, onMounted, onUnmounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { healthApi } from '../api/healthApi';
 import { useUserStore } from '../stores/userStore';
-import { notifySuccess, notifyError, notifyWarning } from '../utils/notify';
+import { ElNotification, ElMessage } from 'element-plus';
 
 const router = useRouter();
 const userStore = useUserStore();
@@ -214,15 +214,25 @@ const handleLogin = async () => {
           goal: response.user.healthGoal || '未设置',
           currentWeight: response.user.weight || 0,
           targetWeight: response.user.weight || 0
-        }, response.token);
+        });
 
-        notifySuccess('欢迎回来！', '登录成功');
+        ElNotification({
+          title: '登录成功',
+          message: '欢迎回来！',
+          type: 'success',
+          duration: 3000
+        });
 
         setTimeout(() => {
           router.push('/');
         }, 500);
       } else {
-        notifyError(response.message || '用户名或密码错误', '登录失败');
+        ElNotification({
+          title: '登录失败',
+          message: response.message || '用户名或密码错误',
+          type: 'error',
+          duration: 3000
+        });
       }
     } catch (error) {
       console.log('后端连接失败，使用模拟登录');
@@ -245,13 +255,23 @@ const handleLogin = async () => {
           targetWeight: 60
         });
 
-        notifySuccess('欢迎回来！当前为演示模式，部分功能可能受限', '登录成功（演示）');
+        ElNotification({
+          title: '登录成功（演示模式）',
+          message: '欢迎回来！当前为演示模式，部分功能可能受限',
+          type: 'success',
+          duration: 3000
+        });
 
         setTimeout(() => {
           router.push('/');
         }, 500);
       } else {
-        notifyError('演示账户：testuser / 123456', '登录失败');
+        ElNotification({
+          title: '登录失败',
+          message: '演示账户：testuser/123456',
+          type: 'error',
+          duration: 3000
+        });
       }
     }
   } catch (error) {
@@ -260,16 +280,41 @@ const handleLogin = async () => {
     if (error.response) {
       const status = error.response.status;
       if (status === 401) {
-        notifyError('用户名或密码错误', '登录失败');
+        ElNotification({
+          title: '登录失败',
+          message: '用户名或密码错误',
+          type: 'error',
+          duration: 3000
+        });
       } else if (status === 403) {
-        notifyError('账号已被锁定，请联系管理员', '账号锁定');
+        ElNotification({
+          title: '账号锁定',
+          message: '账号已被锁定，请联系管理员',
+          type: 'error',
+          duration: 3000
+        });
       } else if (status === 500) {
-        notifyError('请稍后重试', '服务器错误');
+        ElNotification({
+          title: '服务器错误',
+          message: '请稍后重试',
+          type: 'error',
+          duration: 3000
+        });
       } else {
-        notifyError(error.response.data?.message || `错误代码：${status}`, '登录失败');
+        ElNotification({
+          title: '登录失败',
+          message: error.response.data?.message || `错误代码：${status}`,
+          type: 'error',
+          duration: 3000
+        });
       }
     } else {
-      notifyError(error.message || '请稍后重试', '登录失败');
+      ElNotification({
+        title: '登录失败',
+        message: error.message || '请稍后重试',
+        type: 'error',
+        duration: 3000
+      });
     }
   } finally {
     loading.value = false;
@@ -285,11 +330,29 @@ const handleForgotPassword = async () => {
       username: loginForm.username.trim()
     });
 
-    if (!response.success) {
-      notifyWarning(response.message || '暂不支持在线重置密码', '无法重置');
+    if (response.success) {
+      ElNotification({
+        title: '重置成功',
+        message: '密码已重置为：12345678',
+        type: 'success',
+        duration: 3000
+      });
+      showForgotModal.value = false;
+    } else {
+      ElNotification({
+        title: '重置失败',
+        message: response.message || '用户不存在',
+        type: 'error',
+        duration: 3000
+      });
     }
   } catch (error) {
-    notifyError(error.message || '请稍后重试', '操作失败');
+    ElNotification({
+      title: '操作失败',
+      message: error.message || '请稍后重试',
+      type: 'error',
+      duration: 3000
+    });
   } finally {
     loadingLocal.value = false;
   }

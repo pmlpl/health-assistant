@@ -37,8 +37,8 @@ public class DietRecord {
     @Column(name = "food_description", length = 500)
     private String foodDescription; // 食物描述
     
-    @Column(name = "image_url", columnDefinition = "LONGTEXT")
-    private String imageUrl; // 食物图片 URL（禁止 Base64 内联）
+    @Column(name = "image_url", length = 500)
+    private String imageUrl; // 食物图片URL
     
     @BatchSize(size = 10)  // 性能优化：批量加载食材成分，减少 SQL 查询次数
     @ElementCollection(fetch = FetchType.LAZY)

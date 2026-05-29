@@ -17,8 +17,8 @@
 
     
     <div class="main-container">
-      <!-- AI 智能推荐 + 手动创建 -->
-      <div class="ai-generate-section action-row">
+      <!-- AI 智能推荐按钮 -->
+      <div class="ai-generate-section">
         <button class="ai-generate-btn" @click="showMealTypeSelector">
           <div class="btn-content">
             <span class="ai-icon">✨</span>
@@ -28,10 +28,6 @@
             </div>
             <span class="ai-arrow">→</span>
           </div>
-        </button>
-        <button class="manual-create-btn" @click="openCreateModal">
-          <span class="manual-icon">➕</span>
-          <span>手动创建食谱</span>
         </button>
       </div>
 
@@ -74,72 +70,6 @@
         </div>
       </div>
 
-      <!-- 手动创建食谱弹窗 -->
-      <div v-if="showCreateModal" class="modal-overlay" @click="closeCreateModal">
-        <div class="create-recipe-modal" @click.stop>
-          <div class="selector-header">
-            <h3>➕ 手动创建食谱</h3>
-            <p>填写基本信息，可选上传封面或填写图片链接</p>
-          </div>
-
-          <div class="create-form">
-            <label class="form-field">
-              <span>食谱名称 *</span>
-              <input v-model="manualForm.name" type="text" placeholder="例如：清炒西兰花" />
-            </label>
-
-            <label class="form-field">
-              <span>描述</span>
-              <textarea v-model="manualForm.description" rows="2" placeholder="简短介绍"></textarea>
-            </label>
-
-            <label class="form-field">
-              <span>餐别</span>
-              <select v-model="manualForm.mealType">
-                <option value="早餐">早餐</option>
-                <option value="午餐">午餐</option>
-                <option value="晚餐">晚餐</option>
-                <option value="加餐">加餐</option>
-              </select>
-            </label>
-
-            <div class="form-row-nutrition">
-              <label class="form-field"><span>热量 kcal</span><input v-model="manualForm.calories" type="number" min="0" /></label>
-              <label class="form-field"><span>蛋白质 g</span><input v-model="manualForm.protein" type="number" min="0" step="0.1" /></label>
-              <label class="form-field"><span>碳水 g</span><input v-model="manualForm.carbs" type="number" min="0" step="0.1" /></label>
-              <label class="form-field"><span>脂肪 g</span><input v-model="manualForm.fat" type="number" min="0" step="0.1" /></label>
-            </div>
-
-            <label class="form-field">
-              <span>食材（每行一项）</span>
-              <textarea v-model="manualForm.ingredientsText" rows="4" placeholder="鸡蛋 2 个&#10;西兰花 200g"></textarea>
-            </label>
-
-            <label class="form-field">
-              <span>步骤（每行一步）</span>
-              <textarea v-model="manualForm.instructionsText" rows="4" placeholder="1. 焯水&#10;2. 清炒"></textarea>
-            </label>
-
-            <label class="form-field">
-              <span>封面图片（可选）</span>
-              <input type="file" accept="image/*" @change="onManualImagePick" />
-            </label>
-
-            <label class="form-field">
-              <span>或图片 URL</span>
-              <input v-model="manualForm.imageUrl" type="url" placeholder="https://... 或留空" />
-            </label>
-          </div>
-
-          <div class="selector-actions">
-            <button class="cancel-btn" @click="closeCreateModal">取消</button>
-            <button class="confirm-btn" :disabled="creating" @click="submitManualRecipe">
-              {{ creating ? '保存中…' : '保存食谱' }}
-            </button>
-          </div>
-        </div>
-      </div>
-
 
 
       <!-- 食谱列表 -->
@@ -148,7 +78,6 @@
           <div class="empty-icon">📝</div>
           <p>暂无食谱</p>
           <p class="empty-hint" v-if="searchQuery || selectedType !== 'all'">尝试更换搜索词或切换分类</p>
-          <p class="empty-hint" v-else>点击上方「手动创建食谱」或「AI 智能生成」添加</p>
         </div>
 
         <div
@@ -177,8 +106,6 @@
               <div class="tags">
                 <span class="tag meal-type">{{ recipe.mealType }}</span>
                 <span class="tag calories">{{ recipe.calories }} kcal</span>
-                <span v-if="recipe.isManual" class="tag manual-tag">✏️ 手动</span>
-                <span v-else-if="recipe.isAiRecommended" class="tag ai-tag">🤖 AI</span>
               </div>
 
               <div class="nutrition-preview" v-if="recipe.protein || recipe.carbs || recipe.fat">
@@ -271,23 +198,8 @@
 import { ref, computed, watch, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { healthApi } from '../api/healthApi';
 
 const router = useRouter();
-
-/** 解析 /uploads 相对路径为可访问 URL */
-const resolveUploadUrl = (path) => {
-  if (!path || typeof path !== 'string') return null;
-  if (path.startsWith('http://') || path.startsWith('https://')) return path;
-  return path.startsWith('/') ? path : `/${path}`;
-};
-
-/** 文本域按行拆成数组 */
-const parseLines = (text) =>
-  (text || '')
-    .split('\n')
-    .map((s) => s.trim())
-    .filter(Boolean);
 
 // 状态管理
 const allRecipes = ref([]);
@@ -299,113 +211,6 @@ const pageSize = ref(12); // 每页显示 12 个食谱
 // 餐类型选择器相关状态
 const showSelector = ref(false);
 const selectedMealType = ref('');
-
-// 手动创建食谱弹窗
-const showCreateModal = ref(false);
-const creating = ref(false);
-const manualImageFile = ref(null);
-const manualForm = ref({
-  name: '',
-  description: '',
-  mealType: '午餐',
-  calories: '',
-  protein: '',
-  carbs: '',
-  fat: '',
-  ingredientsText: '',
-  instructionsText: '',
-  imageUrl: '',
-});
-
-const resetManualForm = () => {
-  manualForm.value = {
-    name: '',
-    description: '',
-    mealType: '午餐',
-    calories: '',
-    protein: '',
-    carbs: '',
-    fat: '',
-    ingredientsText: '',
-    instructionsText: '',
-    imageUrl: '',
-  };
-  manualImageFile.value = null;
-};
-
-const openCreateModal = () => {
-  resetManualForm();
-  showCreateModal.value = true;
-};
-
-const closeCreateModal = () => {
-  showCreateModal.value = false;
-};
-
-const onManualImagePick = (event) => {
-  manualImageFile.value = event.target.files?.[0] || null;
-};
-
-const submitManualRecipe = async () => {
-  if (!manualForm.value.name.trim()) {
-    ElMessage.warning('请填写食谱名称');
-    return;
-  }
-  creating.value = true;
-  try {
-    let imageUrl = manualForm.value.imageUrl.trim() || null;
-    if (manualImageFile.value) {
-      const upload = await healthApi.uploadRecipeImage(manualImageFile.value);
-      if (upload?.imageUrl) {
-        imageUrl = upload.imageUrl;
-      }
-    }
-
-    const payload = {
-      name: manualForm.value.name.trim(),
-      description: manualForm.value.description.trim(),
-      mealType: manualForm.value.mealType,
-      calories: manualForm.value.calories || null,
-      protein: manualForm.value.protein || null,
-      carbs: manualForm.value.carbs || null,
-      fat: manualForm.value.fat || null,
-      ingredients: parseLines(manualForm.value.ingredientsText),
-      instructions: parseLines(manualForm.value.instructionsText),
-      imageUrl,
-    };
-
-    const saved = await healthApi.createRecipe(payload);
-    if (saved?.success === false) {
-      throw new Error(saved.error || '保存失败');
-    }
-
-    const newRecipe = {
-      id: saved.id || `manual-${Date.now()}`,
-      databaseId: saved.id,
-      name: payload.name,
-      description: payload.description,
-      image: resolveUploadUrl(saved.imageUrl || imageUrl),
-      mealType: payload.mealType,
-      calories: Number(payload.calories) || 0,
-      protein: Number(payload.protein) || 0,
-      carbs: Number(payload.carbs) || 0,
-      fat: Number(payload.fat) || 0,
-      ingredients: payload.ingredients,
-      instructions: payload.instructions,
-      isManual: true,
-    };
-
-    allRecipes.value.unshift(newRecipe);
-    saveAllRecipesToStorage();
-    closeCreateModal();
-    ElMessage.success('食谱创建成功');
-  } catch (err) {
-    console.error('手动创建食谱失败:', err);
-    ElMessage.error(err.response?.data?.error || err.message || '创建失败');
-  } finally {
-    creating.value = false;
-  }
-};
 
 // 可供选择的膳食类型（带 emoji 和描述）
 const selectableMealTypes = [
@@ -447,7 +252,19 @@ const removeFromAllRecipes = async (recipeId) => {
     
     // 如果是数据库中的食谱（有 databaseId），调用后端 API 删除
     if (recipe.databaseId) {
-      await healthApi.deleteRecipe(recipe.databaseId);
+      const response = await fetch(`/api/recipes/${recipe.databaseId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': localStorage.getItem('token') || '',
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`删除失败：HTTP ${response.status}`);
+      }
+      
       console.log('✅ 数据库中的食谱已删除:', recipe.databaseId);
     }
     
@@ -483,8 +300,20 @@ const loadAllRecipesFromStorage = () => {
 // 从数据库加载用户保存的 AI 食谱
 const loadAiRecipesFromDatabase = async () => {
   try {
-    const dbRecipesRaw = await healthApi.getMyRecipes(0, 100);
-    const dbRecipes = Array.isArray(dbRecipesRaw) ? dbRecipesRaw : (dbRecipesRaw.content || []);
+    const response = await fetch('/api/recipes/my-ai-recipes', {
+      method: 'GET',
+      headers: {
+        'Authorization': localStorage.getItem('token') || '',
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+    
+    const dbRecipes = await response.json();
     
     // 解析列表字段的辅助函数（兼容多种分隔符）
     const parseListField = (str) => {
@@ -506,7 +335,7 @@ const loadAiRecipesFromDatabase = async () => {
       id: recipe.id,
       name: recipe.name,
       description: recipe.description || '',
-      image: resolveUploadUrl(recipe.imageUrl || null),
+      image: recipe.imageUrl || null,
       mealType: recipe.mealType || '其他',
       calories: recipe.calories || 0,
       protein: recipe.protein || 0,
@@ -514,8 +343,7 @@ const loadAiRecipesFromDatabase = async () => {
       fat: recipe.fat || 0,
       ingredients: parseListField(recipe.ingredientsList),
       instructions: parseListField(recipe.instructions),
-      isAiRecommended: (recipe.tags || []).includes('ai'),
-      isManual: (recipe.tags || []).includes('manual'),
+      isAiRecommended: true,
       databaseId: recipe.id
     }));
     
@@ -925,95 +753,6 @@ onMounted(() => {
 /* AI 生成按钮区域 */
 .ai-generate-section {
   margin-bottom: 20px;
-}
-
-.action-row {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.manual-create-btn {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 14px 20px;
-  border: 2px dashed #c7c7cc;
-  border-radius: 16px;
-  background: #fff;
-  color: #1d1d1f;
-  font-size: 16px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.manual-create-btn:hover {
-  border-color: #007aff;
-  color: #007aff;
-  background: #f0f7ff;
-}
-
-.manual-icon {
-  font-size: 18px;
-}
-
-.create-recipe-modal {
-  background: #ffffff;
-  border-radius: 24px;
-  padding: 28px;
-  width: 92%;
-  max-width: 560px;
-  max-height: 90vh;
-  overflow-y: auto;
-  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.2);
-}
-
-.create-form {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  margin: 16px 0 20px;
-}
-
-.form-field {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  font-size: 14px;
-  color: #424245;
-}
-
-.form-field span {
-  font-weight: 600;
-}
-
-.form-field input,
-.form-field textarea,
-.form-field select {
-  border: 1px solid #d2d2d7;
-  border-radius: 10px;
-  padding: 10px 12px;
-  font-size: 15px;
-  font-family: inherit;
-}
-
-.form-row-nutrition {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 10px;
-}
-
-.tag.manual-tag {
-  background: #fff3e0;
-  color: #e65100;
-}
-
-.tag.ai-tag {
-  background: #e8eaf6;
-  color: #3949ab;
 }
 
 .ai-generate-btn {

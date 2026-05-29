@@ -4,14 +4,12 @@ import com.example.healthassistant.dto.DietRecordDto;
 import com.example.healthassistant.model.DietRecord;
 import com.example.healthassistant.model.Ingredient;
 import com.example.healthassistant.model.MealType;
-import com.example.healthassistant.repository.DailyNutritionAggregate;
 import com.example.healthassistant.repository.DietRecordRepository;
+import com.example.healthassistant.repository.IngredientRepository;
 import com.example.healthassistant.service.DietRecordService;
 import com.example.healthassistant.service.DoubaoFoodRecognitionService;
-import com.example.healthassistant.service.IngredientLookupService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -27,7 +25,7 @@ public class DietRecordServiceImpl implements DietRecordService {
     private DietRecordRepository dietRecordRepository;
     
     @Autowired
-    private IngredientLookupService ingredientLookupService;
+    private IngredientRepository ingredientRepository;
     
     @Autowired
     private DoubaoFoodRecognitionService doubaoFoodService;
@@ -123,10 +121,8 @@ public class DietRecordServiceImpl implements DietRecordService {
         double totalFiber = 0;
         
         if (record.getConsumedIngredients() != null) {
-            Map<String, Ingredient> ingredientMap =
-                    ingredientLookupService.findByNames(record.getConsumedIngredients());
             for (String ingredientName : record.getConsumedIngredients()) {
-                Ingredient ingredient = ingredientMap.get(ingredientName);
+                Ingredient ingredient = ingredientRepository.findByName(ingredientName);
                 if (ingredient != null) {
                     // 假设每种食材按100g计算
                     totalCalories += ingredient.getCaloriesPer100g();
@@ -173,32 +169,62 @@ public class DietRecordServiceImpl implements DietRecordService {
         // 获取月份的第一天和最后一天
         LocalDate startDate = LocalDate.of(year, month, 1);
         LocalDate endDate = startDate.plusMonths(1).minusDays(1);
-
-        List<DailyNutritionAggregate> aggregates =
-                dietRecordRepository.aggregateDailyNutritionByUserAndDateRange(userId, startDate, endDate);
-
+        
+        // 获取该月的所有记录（使用优化查询）
+        List<DietRecord> monthlyRecords = dietRecordRepository.findByUserIdAndDateBetweenWithIngredients(userId, startDate, endDate);
+        
+        // 过滤掉喝水打卡记录
+        List<DietRecord> filteredRecords = monthlyRecords.stream()
+            .filter(record -> {
+                String desc = record.getFoodDescription();
+                return desc == null || 
+                       (!desc.contains("💧 喝水打卡") && 
+                        !desc.toLowerCase().contains("water打卡"));
+            })
+            .collect(java.util.stream.Collectors.toList());
+        
+        // 按日期分组统计
+        Map<LocalDate, DailySummary> dailySummaries = new HashMap<>();
+        
+        for (DietRecord record : filteredRecords) {
+            LocalDate date = record.getDate();
+            DailySummary dailySummary = dailySummaries.computeIfAbsent(date, k -> new DailySummary());
+            
+            if (record.getCalories() != null) dailySummary.totalCalories += record.getCalories();
+            if (record.getProtein() != null) dailySummary.totalProtein += record.getProtein();
+            if (record.getCarbs() != null) dailySummary.totalCarbs += record.getCarbs();
+            if (record.getFat() != null) dailySummary.totalFat += record.getFat();
+            dailySummary.recordCount++;
+        }
+        
+        // 转换为返回格式
         List<Map<String, Object>> dailyData = new ArrayList<>();
-        for (DailyNutritionAggregate row : aggregates) {
+        for (Map.Entry<LocalDate, DailySummary> entry : dailySummaries.entrySet()) {
             Map<String, Object> dayData = new HashMap<>();
-            dayData.put("date", row.getDate().toString());
-            dayData.put("calories", round2(row.getTotalCalories()));
-            dayData.put("protein", round2(row.getTotalProtein()));
-            dayData.put("carbs", round2(row.getTotalCarbs()));
-            dayData.put("fat", round2(row.getTotalFat()));
-            dayData.put("recordCount", row.getRecordCount());
+            dayData.put("date", entry.getKey().toString());
+            dayData.put("calories", Math.round(entry.getValue().totalCalories * 100.0) / 100.0);
+            dayData.put("protein", Math.round(entry.getValue().totalProtein * 100.0) / 100.0);
+            dayData.put("carbs", Math.round(entry.getValue().totalCarbs * 100.0) / 100.0);
+            dayData.put("fat", Math.round(entry.getValue().totalFat * 100.0) / 100.0);
+            dayData.put("recordCount", entry.getValue().recordCount);
             dailyData.add(dayData);
         }
-
+        
         summary.put("dailyData", dailyData);
         summary.put("month", month);
         summary.put("year", year);
         summary.put("totalDays", dailyData.size());
-
+        
         return summary;
     }
-
-    private static double round2(double value) {
-        return Math.round(value * 100.0) / 100.0;
+    
+    // 内部类用于每日汇总
+    private static class DailySummary {
+        double totalCalories = 0;
+        double totalProtein = 0;
+        double totalCarbs = 0;
+        double totalFat = 0;
+        int recordCount = 0;
     }
     
     @Override
@@ -207,11 +233,17 @@ public class DietRecordServiceImpl implements DietRecordService {
     }
     
     @Override
-    @Transactional
-    public int deleteBatchDietRecords(String userId, List<Long> ids) {
-        if (ids == null || ids.isEmpty()) {
-            return 0;
+    public int deleteBatchDietRecords(List<Long> ids) {
+        int deletedCount = 0;
+        for (Long id : ids) {
+            try {
+                dietRecordRepository.deleteById(id);
+                deletedCount++;
+            } catch (Exception e) {
+                // 记录删除失败的日志，但继续处理其他记录
+                System.err.println("删除记录ID " + id + " 失败: " + e.getMessage());
+            }
         }
-        return dietRecordRepository.deleteByIdInAndUserId(ids, userId);
+        return deletedCount;
     }
 }

@@ -37,18 +37,6 @@
       饮食日记
     </router-link>
     <router-link
-        to="/health-report"
-        class="nav-button bilibili-nav-button"
-        :class="{ active: $route.name === 'HealthReport' }"
-    >
-      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M4 19H20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-        <path d="M6 16L9 11L13 14L17 8L20 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-        <rect x="3" y="4" width="18" height="16" rx="2" stroke="currentColor" stroke-width="2"/>
-      </svg>
-      健康报告
-    </router-link>
-    <router-link
         to="/profile"
         class="nav-button bilibili-nav-button"
         :class="{ active: $route.name === 'Profile' }"

@@ -1,103 +1,106 @@
-# 快速启动指南
+# AI健康助手 - 快速启动指南
 
-## 环境要求
+## 🚀 一键启动（推荐）
 
-| 环境 | 版本 |
-|------|------|
-| JDK | 21+ |
-| Node.js | 18+ |
-| MySQL | 8.0+ |
-| Maven | 3.8+（或使用项目 `mvnw`） |
-
-## 启动步骤
-
-### 1. 数据库
-
-创建空库 `health_assistant`（开发 profile 下 JPA 可自动建表；生产请用 Flyway，见 [DEPLOY.md](./DEPLOY.md)）。
-
-### 2. 后端配置
-
+### Windows PowerShell
 ```powershell
-cd backend
-Copy-Item .env.example .env
-# 编辑 .env：DB_PASSWORD、JWT_SECRET、按需填写 AI Key
-.\mvnw.cmd spring-boot:run
+# 在项目根目录执行
+.\start-dev.ps1
 ```
 
-默认 `spring.profiles.active=dev`，本地 LM Studio 可在应用内 **AI 设置** 配置，无需在 `.env` 写 Key。
+### 手动启动
 
-详细变量说明：[backend/ENV_SETUP_GUIDE.md](../backend/ENV_SETUP_GUIDE.md)
+#### 1. 启动后端服务
+```bash
+cd backend
+mvn spring-boot:run
+```
 
-### 3. 前端
-
-```powershell
+#### 2. 启动前端服务（新终端窗口）
+```bash
 cd frontend
-npm install
 npm run dev
 ```
 
-确保存在 `frontend/.env.development`：
+---
 
-```env
-VITE_API_BASE_URL=/api
+## 📋 环境检查清单
+
+### 启动前检查
+- [ ] Node.js 已安装（建议 v18+）
+- [ ] Java JDK 已安装（建议 JDK 21+）
+- [ ] Maven 已安装
+- [ ] MySQL 8.0+ 已安装并运行
+- [ ] `.env.development` 文件存在（内容为 `VITE_API_BASE_URL=/api`）
+- [ ] 后端 `.env` 文件已配置（包含 AI API Key 和数据库配置）
+
+### 验证服务状态
+1. **后端服务**：访问 http://localhost:8080/test/health
+2. **前端服务**：访问 http://localhost:5173
+
+---
+
+## 🔧 配置文件说明
+
+### 开发环境（本地）
+- **前端地址**: http://localhost:5173
+- **后端地址**: http://localhost:8080
+- **API 代理**: 自动将 `/api` 请求代理到后端
+
+### 生产环境（部署）
+修改 `frontend/.env.production`:
+```bash
+VITE_API_BASE_URL=https://your-backend-domain.com
 ```
 
-### 4. 访问
-
-- 前端：http://localhost:5173
-- 后端：http://localhost:8080/test/health
-
-## 启动前检查
-
-- [ ] MySQL 已运行
-- [ ] `backend/.env` 已配置数据库与 JWT
-- [ ] `frontend/.env.development` 为 `VITE_API_BASE_URL=/api`
-- [ ] 使用 AI 功能时已在 Header → **AI 设置** 配置服务商，或 `.env` 中配置了平台试用 Key
-
-## 本地 LM Studio（可选）
-
-1. 启动 LM Studio，加载模型并开启 Local Server（默认 `http://127.0.0.1:1234/v1`）
-2. 登录应用 → Header → **AI 设置** → 文本服务商选「本地 LM Studio」
-3. 填写地址与模型名 → **测试连接**（成功后会自动保存）
-4. 打开 **AI 精灵** 发送消息；本地 LM 走同步接口，LM 终端应出现 `/v1/chat/completions` 请求
-
-## 常见问题
-
-### 端口被占用
-
-```powershell
-netstat -ano | findstr :5173
-taskkill /PID <进程ID> /F
-```
-
-或在 `frontend/vite.config.js` 修改 `server.port`。
-
-### API 401 / 连接失败
-
-1. 确认后端已启动
-2. 重新登录获取 JWT（`localStorage.authToken`）
-3. 检查 Network 请求是否带 `Authorization: Bearer ...`
-
-### AI 一直 loading、LM 无请求
-
-1. AI 设置中 **测试连接** 后确认已 **保存**
-2. 文本服务商应为「本地 LM Studio」而非仅测试表单未保存
-3. 重启前后端后再试
-
-### 生产构建
-
-```powershell
-# frontend/.env.production
-VITE_API_BASE_URL=https://你的后端域名/api
-
+然后重新构建:
+```bash
 cd frontend
 npm run build
 ```
 
-修改 `.env.production` 后必须重新 `npm run build`。
+---
 
-## 更多文档
+## ❓ 常见问题
 
-- [PROJECT_STRUCTURE.md](./PROJECT_STRUCTURE.md) — 目录与路由
-- [DEPLOY.md](./DEPLOY.md) — 生产部署
-- [frontend/API_CONFIGURATION_GUIDE.md](../frontend/API_CONFIGURATION_GUIDE.md) — 前端 API 配置
+### Q: 启动时提示端口被占用？
+**A**: 
+```bash
+# 方法 1：关闭占用端口的进程
+# Windows:
+netstat -ano | findstr :5173
+taskkill /PID <进程 ID> /F
+
+# 方法 2：修改端口（frontend/vite.config.js）
+server: {
+  port: 3000  // 改为其他端口
+}
+```
+
+### Q: API 请求失败？
+**A**: 
+1. 确认后端服务已启动
+2. 检查浏览器控制台查看具体错误
+3. 确认 `.env.development` 配置正确
+4. 检查后端 `.env` 文件是否配置了 AI API Key
+
+### Q: 如何获取 AI API Key？
+**A**: 
+1. **豆包 AI**: 访问火山引擎方舟大模型平台 (https://www.volcengine.com/product/ark)
+2. **通义千问**: 访问阿里云 DashScope 平台 (https://dashscope.console.aliyun.com/)
+3. 详细配置请查看 [后端 API 配置指南](./backend/ENV_SETUP_GUIDE.md)
+
+### Q: 打包后仍然报错？
+**A**: 
+1. 修改 `frontend/.env.production` 为实际后端地址
+2. 删除 `dist` 目录
+3. 重新执行 `npm run build`
+
+---
+
+## 📖 更多文档
+
+- [后端 API 配置指南](./backend/ENV_SETUP_GUIDE.md) - AI API Key 和数据库配置
+- [前端 API 配置指南](./frontend/API_CONFIGURATION_GUIDE.md) - API 配置原理说明
+- [服务器部署说明](./DEPLOY_INSTRUCTIONS.md) - 生产环境部署步骤
+- [项目 README](./README.md) - 项目概述

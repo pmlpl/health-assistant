@@ -284,19 +284,14 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue';
+import { ref, computed, onMounted } from 'vue';
+import axios from 'axios';
 import { useUserStore } from '../stores/userStore';
+// 导入 healthApi
 import { healthApi } from '../api/healthApi';
-import { useAiPageJobsStore } from '../stores/aiPageJobsStore';
-import { aiPageJobRunner } from '../services/aiPageJobRunner';
-import { AI_PAGE_JOB_IDS } from '../constants/aiPageJobIds';
 import { ElNotification, ElMessageBox } from 'element-plus';
-import { savePageDraft, loadPageDraft, clearPageDraft } from '../utils/pageDraftStorage';
-
-const FITNESS_DRAFT_KEY = 'fitness_form_draft';
 
 const userStore = useUserStore();
-const aiPageJobs = useAiPageJobsStore();
 
 // 健身类型选项
 const fitnessOptions = [
@@ -331,43 +326,13 @@ const newFitnessEntry = ref({
 // 已添加的健身项目
 const fitnessItems = ref([]);
 // 分析状态
-const analyzing = computed(() => aiPageJobs.isRunning(AI_PAGE_JOB_IDS.FITNESS_WORKOUT_ANALYZE));
+const analyzing = ref(false);
 // 保存状态
 const saving = ref(false);
 // 加载状态
 const loading = ref(false);
 // AI分析结果
 const aiAnalysis = ref('');
-
-/** 保存健身页未提交草稿 */
-const saveFitnessDraft = () => {
-  if (fitnessItems.value.length === 0 && !aiAnalysis.value) {
-    clearPageDraft(FITNESS_DRAFT_KEY);
-    return;
-  }
-  savePageDraft(FITNESS_DRAFT_KEY, {
-    fitnessItems: fitnessItems.value,
-    newFitnessEntry: newFitnessEntry.value,
-    aiAnalysis: aiAnalysis.value,
-  });
-};
-
-/** 恢复健身页草稿 */
-const restoreFitnessDraft = () => {
-  const draft = loadPageDraft(FITNESS_DRAFT_KEY);
-  if (!draft) return;
-  if (Array.isArray(draft.fitnessItems) && draft.fitnessItems.length > 0) {
-    fitnessItems.value = draft.fitnessItems;
-  }
-  if (draft.newFitnessEntry) {
-    newFitnessEntry.value = { ...newFitnessEntry.value, ...draft.newFitnessEntry };
-  }
-  if (draft.aiAnalysis) {
-    aiAnalysis.value = draft.aiAnalysis;
-  }
-};
-
-watch([fitnessItems, newFitnessEntry, aiAnalysis], () => saveFitnessDraft(), { deep: true });
 
 // 批量删除相关
 const selectedRecords = ref([]);
@@ -549,8 +514,9 @@ const analyzeFitnessItems = async () => {
     return;
   }
   
+  analyzing.value = true;
   aiAnalysis.value = '';
-
+  
   try {
     const userId = userStore.userData?.userId;
     if (!userId) {
@@ -581,12 +547,23 @@ const analyzeFitnessItems = async () => {
       analysisType: 'fitness_workout'
     };
     
-    const data = await aiPageJobRunner.runFitnessWorkoutAnalyze(userId, fitnessAnalysisData);
-    if (!data) return;
-    if (data.success) {
-      aiAnalysis.value = data.analysis;
+    console.log('发送健身收获分析请求:', { userId, fitnessAnalysisData });
+    
+    const response = await axios.post(
+      `/api/ai/analyze-fitness-workout/${userId}`,
+      fitnessAnalysisData,
+      {
+        timeout: 600000,  // 健身分析可能需要更长时间，设置为 10 分钟
+        headers: { 'Content-Type': 'application/json' }
+      }
+    );
+    
+    console.log('健身收获分析响应:', response.data);
+    
+    if (response.data.success) {
+      aiAnalysis.value = response.data.analysis;
     } else {
-      aiAnalysis.value = '分析失败：' + (data.error || '未知错误');
+      aiAnalysis.value = '分析失败：' + response.data.error;
     }
   } catch (error) {
     console.error('AI 分析失败:', error);
@@ -595,13 +572,8 @@ const analyzeFitnessItems = async () => {
     } else {
       aiAnalysis.value = 'AI 分析失败：' + error.message;
     }
-  }
-};
-
-const restoreAiPageJobs = () => {
-  const job = aiPageJobs.jobs[AI_PAGE_JOB_IDS.FITNESS_WORKOUT_ANALYZE];
-  if (job.status === 'success' && job.result?.success) {
-    aiAnalysis.value = job.result.analysis;
+  } finally {
+    analyzing.value = false;
   }
 };
 
@@ -655,7 +627,6 @@ const saveFitnessRecord = async () => {
       
       // 清空健身项目列表，准备重新加载
       fitnessItems.value = [];
-      clearPageDraft(FITNESS_DRAFT_KEY);
       
       // 重新加载数据，确保从后端获取最新记录
       await loadTodayData();
@@ -908,8 +879,6 @@ const deleteRecord = async (recordId, index) => {
 // 组件挂载时加载数据
 onMounted(() => {
   loadTodayData();
-  restoreFitnessDraft();
-  restoreAiPageJobs();
 });
 </script>
 

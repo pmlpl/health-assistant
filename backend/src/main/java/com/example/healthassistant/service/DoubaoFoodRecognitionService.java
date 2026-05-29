@@ -9,7 +9,6 @@ import com.volcengine.ark.runtime.model.responses.request.ResponsesInput;
 import com.volcengine.ark.runtime.model.responses.response.ResponseObject;
 import com.volcengine.ark.runtime.model.responses.constant.ResponsesConstants;
 import com.volcengine.ark.runtime.model.responses.item.MessageContent;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -18,27 +17,33 @@ import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Pattern;
 import java.util.regex.Matcher;
-import com.example.healthassistant.config.ApiKeyResolver;
 import com.example.healthassistant.config.EnvConfig;
-import com.example.healthassistant.security.AuthSupport;
 
 @Service
 public class DoubaoFoodRecognitionService {
 
+    @Value("${doubao.api.key:}")
+    private String apiKeyFromConfig;
+
     @Value("${doubao.model.name:doubao-seed-1-8-251228}")
     private String modelName;
 
-    @Autowired
-    private ApiKeyResolver apiKeyResolver;
-
     private ArkService arkService;
 
+    /**
+     * 获取 API Key，优先从 .env 文件加载
+     */
     private String getApiKey() {
-        return getApiKey(null);
-    }
-
-    private String getApiKey(String userId) {
-        return apiKeyResolver.getDoubaoApiKey(userId);
+        // 优先从 EnvConfig 获取（支持 .env 文件）
+        String key = EnvConfig.getDoubaoApiKey();
+        if (key != null && !key.isEmpty() && !key.contains("your_")) {
+            return key;
+        }
+        // 其次从 Spring 配置获取
+        if (apiKeyFromConfig != null && !apiKeyFromConfig.isEmpty()) {
+            return apiKeyFromConfig;
+        }
+        return null;
     }
 
     // API 调用超时时间（毫秒）- 增加到 60 秒
@@ -53,27 +58,30 @@ public class DoubaoFoodRecognitionService {
     /**
      * 初始化豆包 AI 服务
      */
-    private void initializeDoubaoService(String userId) {
-        String effectiveApiKey = getApiKey(userId);
+    private void initializeDoubaoService() {
+        String effectiveApiKey = getApiKey();
         if (effectiveApiKey == null || effectiveApiKey.isEmpty()) {
-            throw new RuntimeException("未配置豆包 API 密钥，请在「AI 设置」中填写");
+            throw new RuntimeException("未配置豆包 API 密钥，请在 backend/.env 文件中设置 DOUBAO_API_KEY");
         }
 
-        arkService = ArkService.builder()
-                .apiKey(effectiveApiKey)
-                .baseUrl("https://ark.cn-beijing.volces.com/api/v3")
-                .build();
+        if (arkService == null) {
+            arkService = ArkService.builder()
+                    .apiKey(effectiveApiKey)
+                    .baseUrl("https://ark.cn-beijing.volces.com/api/v3")
+                    .build();
+        }
     }
 
     /**
      * 通用 API 调用方法，包含超时处理和重试机制
      */
-    private ResponseObject callApiWithRetry(CreateResponsesRequest request, String userId) throws Exception {
+    private ResponseObject callApiWithRetry(CreateResponsesRequest request) throws Exception {
         AtomicInteger retryCount = new AtomicInteger(0);
 
         while (true) {
             try {
-                initializeDoubaoService(userId);
+                // 初始化服务
+                initializeDoubaoService();
 
                 // 创建一个线程池来执行 API 调用
                 ExecutorService executor = Executors.newSingleThreadExecutor();
@@ -109,16 +117,15 @@ public class DoubaoFoodRecognitionService {
      * 如果没有配置 API Key，自动切换到本地识别模式
      */
     public List<FoodNutrition> recognizeFoodWithDoubao(String foodDescription) {
-        String userId = null;
-        try {
-            userId = AuthSupport.currentUserId();
-        } catch (Exception ignored) {
-        }
         List<FoodNutrition> results = new ArrayList<>();
-        String effectiveApiKey = getApiKey(userId);
+        String effectiveApiKey = getApiKey();
 
+        // 检查 API 密钥配置，如果没有配置则使用本地识别模式
         if (effectiveApiKey == null || effectiveApiKey.isEmpty()) {
+            System.out.println("==============================================");
             System.out.println("豆包 API 密钥未配置，切换到本地演示模式");
+            System.out.println("提示：如需使用真实 AI 服务，请在 backend/.env 文件中设置 DOUBAO_API_KEY");
+            System.out.println("==============================================");
             return recognizeLocally(foodDescription);
         }
 
@@ -140,7 +147,7 @@ public class DoubaoFoodRecognitionService {
                     .build();
 
             // 发送请求（带超时和重试机制）
-            ResponseObject response = callApiWithRetry(request, userId);
+            ResponseObject response = callApiWithRetry(request);
 
             if (response != null) {
                 System.out.println("豆包API调用成功");

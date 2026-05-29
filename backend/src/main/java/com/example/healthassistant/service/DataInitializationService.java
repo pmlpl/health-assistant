@@ -6,10 +6,8 @@ import com.example.healthassistant.model.UserProfile;
 import com.example.healthassistant.repository.IngredientRepository;
 import com.example.healthassistant.repository.RecipeRepository;
 import com.example.healthassistant.repository.UserProfileRepository;
-import com.example.healthassistant.service.UserAiSettingsService;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import jakarta.annotation.PostConstruct;
@@ -29,14 +27,7 @@ public class DataInitializationService {
     @Autowired
     private UserProfileRepository userProfileRepository;
 
-    @Autowired
-    private PasswordEncoder passwordEncoder;
-
-    @Autowired
-    private UserAiSettingsService userAiSettingsService;
-
-    @Value("${app.seed-test-user:false}")
-    private boolean seedTestUser;
+    private BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
     @PostConstruct
     public void initializeData() {
@@ -46,11 +37,6 @@ public class DataInitializationService {
     }
 
     private void initializeUsers() {
-        if (!seedTestUser) {
-            System.out.println("测试账号种子已关闭（app.seed-test-user=false）");
-            return;
-        }
-
         System.out.println("检查用户数据初始化...");
         System.out.println("当前用户数量: " + userProfileRepository.count());
 
@@ -82,7 +68,6 @@ public class DataInitializationService {
             defaultUser.setTargetCarbs(remainingCalories / 4);
 
             UserProfile savedUser = userProfileRepository.save(defaultUser);
-            userAiSettingsService.initForNewUser(savedUser.getUserId());
             System.out.println("默认用户创建成功: " + savedUser.getUserId());
             System.out.println("用户ID: " + savedUser.getId());
 

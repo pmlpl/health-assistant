@@ -7,15 +7,6 @@
       <Navigation />
     </template>
 
-    <div
-      v-if="showNavigation && (aiPageJobs.anyRunning || aiConsult.streaming)"
-      class="ai-global-task-bar"
-      role="status"
-    >
-      <span v-if="aiPageJobs.anyRunning">⏳ 饮食/健身 AI 分析进行中…</span>
-      <span v-else-if="aiConsult.streaming">💬 AI 精灵正在回复…</span>
-    </div>
-
     <main class="main-content" :class="{ 'no-navigation': !showNavigation }">
       <LoadingSpinner :loading="userStore.loading" />
 
@@ -64,12 +55,8 @@ import Footer from './components/layout/Footer.vue';
 import LoadingSpinner from './components/common/LoadingSpinner.vue';
 import AISpirit from './components/AISpirit.vue';
 import { useUserStore } from './stores/userStore';
-import { useAiPageJobsStore } from './stores/aiPageJobsStore';
-import { useAiConsultStore } from './stores/aiConsultStore';
 
 const userStore = useUserStore();
-const aiPageJobs = useAiPageJobsStore();
-const aiConsult = useAiConsultStore();
 const route = useRoute();
 
 // 计算属性：判断是否显示导航栏
@@ -374,22 +361,6 @@ input, textarea, select {
   color: white;
   font-weight: 700;
   line-height: 1;
-}
-
-.ai-global-task-bar {
-  position: fixed;
-  top: 72px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 9998;
-  padding: 8px 20px;
-  background: rgba(0, 122, 255, 0.92);
-  color: #fff;
-  font-size: 14px;
-  font-weight: 500;
-  border-radius: 999px;
-  box-shadow: 0 4px 16px rgba(0, 122, 255, 0.35);
-  pointer-events: none;
 }
 
 @keyframes fadeInUp {

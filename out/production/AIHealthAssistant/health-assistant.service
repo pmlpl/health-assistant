@@ -1,0 +1,17 @@
+[Unit]
+Description=AI Health Assistant Backend Service
+After=syslog.target network-online.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/health-assistant/backend
+ExecStart=/usr/bin/java -jar HealthAssistant-0.0.1-SNAPSHOT.jar
+Restart=on-failure
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=health-assistant
+
+[Install]
+WantedBy=multi-user.target
