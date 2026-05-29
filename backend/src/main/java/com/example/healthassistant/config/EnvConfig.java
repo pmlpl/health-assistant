@@ -30,7 +30,11 @@ public class EnvConfig {
             
             if (inputStream == null) {
                 // 尝试从项目根目录加载
-                File envFile = new File("backend/.env");
+                File envFile = new File(".env");
+                if (!envFile.exists()) {
+                    // 尝试从 backend 子目录加载
+                    envFile = new File("backend/.env");
+                }
                 if (envFile.exists()) {
                     inputStream = new FileInputStream(envFile);
                 }
@@ -39,6 +43,14 @@ public class EnvConfig {
             if (inputStream != null) {
                 envProperties.load(inputStream);
                 loaded = true;
+                
+                // 将 .env 文件中的变量设置到系统属性中，以便 Spring Boot 可以读取
+                for (String key : envProperties.stringPropertyNames()) {
+                    String value = envProperties.getProperty(key);
+                    if (value != null && System.getProperty(key) == null && System.getenv(key) == null) {
+                        System.setProperty(key, value);
+                    }
+                }
             } else {
                 // 未找到 .env 文件，将使用系统环境变量
             }
@@ -77,6 +89,16 @@ public class EnvConfig {
      */
     public static String getDoubaoApiKey() {
         return get("DOUBAO_API_KEY");
+    }
+
+    public static String getDeepseekApiKey() {
+        return get("DEEPSEEK_API_KEY");
+    }
+
+    /** @deprecated 已改用豆包 Seedream 生图 */
+    @Deprecated
+    public static String getPexelsApiKey() {
+        return get("PEXELS_API_KEY");
     }
     
     /**

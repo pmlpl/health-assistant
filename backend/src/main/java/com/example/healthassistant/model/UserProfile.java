@@ -1,5 +1,6 @@
 package com.example.healthassistant.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Data;
 import org.hibernate.annotations.BatchSize;
@@ -88,7 +89,8 @@ public class UserProfile {
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
     
-    // Getters and Setters for password
+    // Getters and Setters for password（JSON 序列化时忽略，防止哈希泄露）
+    @JsonIgnore
     public String getPassword() {
         return password;
     }

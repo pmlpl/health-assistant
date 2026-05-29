@@ -14,5 +14,5 @@ public interface DietRecordService {
     List<DietRecord> getRecordsInRange(String userId, LocalDate startDate, LocalDate endDate);
     Map<String, Object> getMonthlySummary(String userId, int year, int month);
     void deleteDietRecord(Long id);
-    int deleteBatchDietRecords(List<Long> ids);
+    int deleteBatchDietRecords(String userId, List<Long> ids);
 }

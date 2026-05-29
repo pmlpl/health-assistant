@@ -4,6 +4,6 @@
     "builder": "NIXPACKS"
   },
   "deploy": {
-    "startCommand": "java -jar target/health-assistant-0.0.1-SNAPSHOT.jar"
+    "startCommand": "java -jar target/HealthAssistant-0.0.1-SNAPSHOT.jar"
   }
 }

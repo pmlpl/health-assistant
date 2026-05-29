@@ -1,9 +1,12 @@
 // src/stores/userStore.js
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
+import { setAuthToken, getAuthToken } from '../api/healthApi';
+import { aiPageJobRunner } from '../services/aiPageJobRunner';
+import { aiStreamRunner } from '../services/aiStreamRunner';
+import { useAiConsultStore } from './aiConsultStore';
 
 export const useUserStore = defineStore('user', () => {
-    // 状态
     const userData = ref({
         userId: '',
         name: '',
@@ -15,42 +18,46 @@ export const useUserStore = defineStore('user', () => {
     const isLoggedIn = ref(false);
     const loading = ref(false);
     const errorMessage = ref('');
-    const isInitialized = ref(false); // 新增：标记store是否已初始化
+    const isInitialized = ref(false);
 
-    // 初始化store状态
     const initializeStore = () => {
         if (isInitialized.value) return;
-        // 从localStorage恢复状态
         const storedLoginStatus = localStorage.getItem('isLoggedIn') === 'true';
         const storedUserData = localStorage.getItem('userProfile');
-        
-        if (storedLoginStatus && storedUserData) {
+        const storedToken = getAuthToken();
+
+        if (storedLoginStatus && storedUserData && storedToken) {
             try {
-                const userDataObj = JSON.parse(storedUserData);
-                userData.value = userDataObj;
+                userData.value = JSON.parse(storedUserData);
                 isLoggedIn.value = true;
             } catch (e) {
                 console.error('恢复用户状态失败:', e);
-                // 清除损坏的数据
                 localStorage.removeItem('isLoggedIn');
                 localStorage.removeItem('userProfile');
+                setAuthToken(null);
             }
+        } else if (!storedToken) {
+            localStorage.removeItem('isLoggedIn');
+            localStorage.removeItem('userProfile');
         }
         isInitialized.value = true;
     };
 
-    // 动作
-    const setUserData = (data) => {
+    const setUserData = (data, token) => {
         userData.value = { ...userData.value, ...data };
         isLoggedIn.value = true;
         isInitialized.value = true;
-        // 保存到localStorage
         localStorage.setItem('userProfile', JSON.stringify(userData.value));
         localStorage.setItem('isLoggedIn', 'true');
+        if (token) {
+            setAuthToken(token);
+        }
     };
 
     const logout = () => {
-        // 清除本地状态
+        aiStreamRunner.cancel();
+        aiPageJobRunner.cancelAll();
+        useAiConsultStore().clearAll();
         userData.value = {
             userId: '',
             name: '',
@@ -61,11 +68,9 @@ export const useUserStore = defineStore('user', () => {
         isLoggedIn.value = false;
         isInitialized.value = false;
         errorMessage.value = '';
-        
-        // 清除localStorage
         localStorage.removeItem('userProfile');
         localStorage.removeItem('isLoggedIn');
-
+        setAuthToken(null);
     };
 
     const setLoading = (status) => {
@@ -80,9 +85,8 @@ export const useUserStore = defineStore('user', () => {
         errorMessage.value = '';
     };
 
-    // 计算属性
     const isAuthenticated = computed(() => {
-        return isLoggedIn.value && userData.value.userId;
+        return isLoggedIn.value && userData.value.userId && !!getAuthToken();
     });
 
     return {

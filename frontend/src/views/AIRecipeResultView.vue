@@ -50,6 +50,9 @@
           <p class="page-subtitle">基于您的健康档案和今日营养摄入情况，智能生成的个性化建议</p>
         </div>
         <div class="header-actions">
+          <button class="btn regenerate-btn" @click="regenerateNewRecipes" :disabled="regenerating">
+            {{ regenerating ? '生成中…' : '✨ 生成新食谱' }}
+          </button>
           <button class="btn print-btn" @click="printResults">
             🖨️ 打印结果
           </button>
@@ -72,19 +75,26 @@
           :style="{ animationDelay: index * 0.15 + 's' }"
         >
           <div class="recipe-image">
-            <img 
-              v-if="recipe.image && !recipe.imageLoading" 
-              :src="recipe.image" 
-              :alt="recipe.name" 
+            <img
+              v-if="recipe.image && !recipe.imageError"
+              :src="recipe.image"
+              :alt="recipe.name"
               class="recipe-img"
+              :class="{ 'recipe-img-hidden': recipe.imageLoading }"
+              @load="onImageLoad(recipe)"
+              @error="onImageError(recipe)"
             />
-            <div v-else class="image-loading-overlay">
+            <div v-if="recipe.imageLoading" class="image-loading-overlay">
               <div class="loading-spinner">
                 <div class="spinner-ring"></div>
                 <div class="spinner-ring"></div>
                 <div class="spinner-ring"></div>
               </div>
-              <p class="loading-hint">绘制中...</p>
+              <p class="loading-hint">配图加载中...</p>
+            </div>
+            <div v-else-if="!recipe.image || recipe.imageError" class="image-placeholder">
+              <span class="placeholder-icon">🍽️</span>
+              <p class="placeholder-text">{{ recipe.imageHint || '暂无配图' }}</p>
             </div>
           </div>
 
@@ -143,36 +153,92 @@
       </div>
 
       <div class="footer-tip">
-        💡 小贴士：点击"添加到我的食谱"可以保存到您个人收藏，方便日后快速查看
+        💡 小贴士：点击「添加到我的食谱」可保存收藏；想换一批方案请点上方「生成新食谱」
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useRoute } from 'vue-router';
-import axios from 'axios';
-import { ElNotification } from 'element-plus';
+import { apiClient, healthApi } from '../api/healthApi';
+import { notifySuccess, notifyError, notifyWarning, messageFromError } from '../utils/notify';
 
-// 配置 axios 携带凭证
-axios.defaults.withCredentials = true;
-// 从 localStorage 或 opener 窗口获取 token
-const token = localStorage.getItem('token') || 
-              (window.opener && window.opener.localStorage.getItem('token')) || 
-              '';
-axios.defaults.headers.common['Authorization'] = token;
+const RECIPE_API_TIMEOUT_MS = 180000;
+const IMAGE_LOAD_TIMEOUT_MS = 20000;
+
+const IMAGE_STATUS_HINTS = {
+  NO_IMAGE: '暂无配图，请稍后重试',
+  NO_DOUBAO_KEY: '未配置豆包 Key，请在「AI 设置」填写或在「使用手册」查看说明',
+  QUOTA_EXCEEDED: '平台食谱配图试用（10 次）已用尽，请自备豆包 Key',
+  GENERATION_FAILED: '豆包生图失败，请检查 Key 与模型是否已在火山方舟开通',
+  DOWNLOAD_FAILED: '配图下载失败，请刷新重试',
+  SEARCH_FAILED: '配图获取异常，请稍后重试',
+};
+
+/** 将后端返回的 /uploads/... 转为可访问的完整地址 */
+const resolveUploadUrl = (path) => {
+  if (!path || typeof path !== 'string') return null;
+  if (path.startsWith('http://') || path.startsWith('https://') || path.startsWith('data:')) {
+    return path;
+  }
+  const apiBase = import.meta.env.VITE_API_BASE_URL || '';
+  if (apiBase.startsWith('http')) {
+    try {
+      return new URL(path, apiBase).href;
+    } catch {
+      return path;
+    }
+  }
+  return path.startsWith('/') ? path : `/${path}`;
+};
+
+const imageTimers = [];
 
 const route = useRoute();
 const loading = ref(true);
+const regenerating = ref(false);
 const error = ref(null);
 const recommendations = ref([]);
 const analysis = ref('');
 const currentStep = ref(0);
 const progressWidth = ref(0);
 const progressText = ref('准备中...');
-const generatedCount = ref(0); // 已生成的图片数量
-const totalCount = ref(4); // 总共需要生成的图片数
+const generatedCount = ref(0);
+const totalCount = ref(4);
+
+const mapRecipe = (r, mealTypeLabel) => {
+  const image = resolveUploadUrl(r.imageUrl || r.image || null);
+  return {
+    ...r,
+    id: r.id || `ai-${r.recipeName || r.name}-${Date.now()}-${Math.random()}`,
+    name: r.recipeName || r.name,
+    image,
+    imageLoading: Boolean(image),
+    imageError: false,
+    imageHint: image ? null : (IMAGE_STATUS_HINTS[r.imageStatus] || '暂无配图'),
+    mealType: mealTypeLabel,
+    isAiRecommended: true,
+  };
+};
+
+const scheduleImageTimeout = (recipe) => {
+  if (!recipe?.image) return;
+  const timer = setTimeout(() => {
+    if (recipe.imageLoading) {
+      recipe.imageLoading = false;
+      recipe.imageError = true;
+      recipe.imageHint = '图片加载超时，请检查网络或稍后重试';
+    }
+  }, IMAGE_LOAD_TIMEOUT_MS);
+  imageTimers.push(timer);
+};
+
+const clearImageTimers = () => {
+  imageTimers.forEach((t) => clearTimeout(t));
+  imageTimers.length = 0;
+};
 
 // 从路由参数获取数据
 const mealTypeName = computed(() => {
@@ -210,21 +276,31 @@ const simulateInitialProgress = () => {
   }, 2400);
 };
 
-// 加载数据
-const loadData = async () => {
+// 加载数据；forceRefresh=true 时跳过 sessionStorage 缓存并重新请求 API
+const loadData = async (forceRefresh = false) => {
   try {
+    if (forceRefresh) {
+      sessionStorage.removeItem('aiRecommendationsResult');
+    }
+
     // 启动初始进度动画
     simulateInitialProgress();
     
     // 检查是否有缓存的数据
-    const cachedData = sessionStorage.getItem('aiRecommendationsResult');
-    if (cachedData) {
-      const { recommendations: recs, analysis: ana } = JSON.parse(cachedData);
-      recommendations.value = recs;
-      analysis.value = ana;
-      loading.value = false;
-      updateProgress(4, '加载完成！', 100);
-      return;
+    if (!forceRefresh) {
+      const cachedData = sessionStorage.getItem('aiRecommendationsResult');
+      if (cachedData) {
+        const { recommendations: recs, analysis: ana } = JSON.parse(cachedData);
+        const mealLabel = mealTypeName.value;
+        const restored = recs.map((r) => mapRecipe(r, mealLabel));
+        recommendations.value = restored;
+        restored.forEach(scheduleImageTimeout);
+        analysis.value = ana;
+        loading.value = false;
+        regenerating.value = false;
+        updateProgress(4, '加载完成！', 100);
+        return;
+      }
     }
 
     // 如果没有缓存，调用 API
@@ -239,24 +315,19 @@ const loadData = async () => {
     simulateInitialProgress(); // 确保初始动画已启动
     updateProgress(3, '正在绘制精美图片...', 60);
     
-    const response = await axios.post('/api/ai/recommend-recipes', {
-      userId: userId,
-      mealType: mealType,
-    });
+    const response = await apiClient.post(
+      '/ai/recommend-recipes',
+      { userId, mealType },
+      { timeout: RECIPE_API_TIMEOUT_MS, showErrorToast: false }
+    );
 
     if (response.data && response.data.recommendations) {
-      // 处理推荐结果
-      const processedRecommendations = response.data.recommendations.map((r, index) => ({
-        ...r,
-        id: `ai-${r.recipeName || r.name}-${Date.now()}`,
-        name: r.recipeName || r.name,
-        image: r.image || null,
-        imageLoading: !r.image,
-        mealType: mealTypeName.value,
-        isAiRecommended: true
-      }));
+      const processedRecommendations = response.data.recommendations.map((r) =>
+        mapRecipe(r, mealTypeName.value)
+      );
 
       recommendations.value = processedRecommendations;
+      processedRecommendations.forEach(scheduleImageTimeout);
       analysis.value = response.data.analysis || '';
       
       // 根据实际生成的图片数量更新进度
@@ -278,23 +349,27 @@ const loadData = async () => {
       
       // 保存到 sessionStorage
       sessionStorage.setItem('aiRecommendationsResult', JSON.stringify({
-        recommendations: processedRecommendations,
+        recommendations: processedRecommendations.map(({ imageLoading, imageError, imageHint, ...rest }) => rest),
         analysis: response.data.analysis || ''
       }));
     }
 
     loading.value = false;
+    regenerating.value = false;
   } catch (err) {
     console.error('加载 AI 推荐失败:', err);
-    error.value = err.message || '加载失败，请重试';
+    const serverMsg = err.response?.data?.error || err.response?.data?.message;
+    error.value = serverMsg || messageFromError(err, '生成食谱失败，请检查 AI 设置后重试');
     loading.value = false;
+    regenerating.value = false;
     updateProgress(4, '加载失败', 0);
+    notifyError(error.value, '食谱生成失败');
   }
 };
 
-// 图片加载完成
 const onImageLoad = (recipe) => {
   recipe.imageLoading = false;
+  recipe.imageError = false;
   generatedCount.value++;
   
   // 更新进度
@@ -305,8 +380,17 @@ const onImageLoad = (recipe) => {
     updateProgress(4, '所有图片绘制完成！', 100);
   }
   
-  console.log('图片加载完成:', recipe.name, `(${generatedCount.value}/${totalCount.value})`);
 };
+
+const onImageError = (recipe) => {
+  recipe.imageLoading = false;
+  recipe.imageError = true;
+  recipe.imageHint = '图片无法显示，可稍后重试生成';
+};
+
+onUnmounted(() => {
+  clearImageTimers();
+});
 
 // 添加到我的食谱
 const addToMyRecipes = async (recipe) => {
@@ -332,30 +416,26 @@ const addToMyRecipes = async (recipe) => {
     console.log('🔍 准备保存食谱:', serializableRecipe.name);
     console.log('🖼️ 图片数据:', serializableRecipe.image ? '有图片，长度:' + serializableRecipe.image.length : '❌ 无图片');
     
-    const saveResponse = await fetch('/api/recipes/save-ai-generated', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': token
-      },
-      body: JSON.stringify({
+    const saveResponse = await healthApi.saveAiRecipe({
         name: serializableRecipe.name,
         description: serializableRecipe.description,
-        image: serializableRecipe.image, // Base64 图片
+        imageUrl: serializableRecipe.image,
         mealType: serializableRecipe.mealType,
         calories: serializableRecipe.calories,
         protein: serializableRecipe.protein,
         carbs: serializableRecipe.carbs,
         fat: serializableRecipe.fat,
         ingredients: serializableRecipe.ingredients,
-        instructions: serializableRecipe.instructions
-      })
+        instructions: serializableRecipe.instructions,
     });
-    
-    if (saveResponse.ok) {
-      const savedData = await saveResponse.json();
+
+    if (saveResponse?.success !== false) {
+      const savedData = saveResponse;
       console.log('✅ 食谱已保存到数据库:', savedData);
-      serializableRecipe.databaseId = savedData.id; // 保存数据库 ID
+      serializableRecipe.databaseId = savedData.id;
+      if (savedData.imageUrl) {
+        serializableRecipe.image = savedData.imageUrl;
+      }
     } else {
       console.error('⚠️ 后端保存失败，仅使用本地存储');
     }
@@ -420,20 +500,9 @@ const updateRecipeImage = async (recipe) => {
   try {
     console.log('🔧 正在更新食谱图片到数据库:', recipe.name);
     
-    const response = await fetch(`/api/recipes/update-recipe-image/${recipe.databaseId}`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': token
-      },
-      body: JSON.stringify({
-        image: recipe.image
-      })
-    });
-    
-    const result = await response.json();
-    
-    if (response.ok && result.success) {
+    const result = await healthApi.updateRecipeImage(recipe.databaseId, recipe.image);
+
+    if (result?.success) {
       console.log('✅ 图片已更新到数据库');
       ElNotification({
         title: '✅ 修复成功',
@@ -467,11 +536,26 @@ const updateRecipeImage = async (recipe) => {
   }
 };
 
-// 重试
-const retry = () => {
+// 重新生成一批新食谱（清缓存 + 调 API）
+const regenerateNewRecipes = async () => {
+  if (regenerating.value) return;
+  clearImageTimers();
+  regenerating.value = true;
   loading.value = true;
   error.value = null;
-  loadData();
+  recommendations.value = [];
+  analysis.value = '';
+  generatedCount.value = 0;
+  totalCount.value = 4;
+  currentStep.value = 0;
+  progressWidth.value = 0;
+  progressText.value = '准备中...';
+  await loadData(true);
+};
+
+// 失败页重试
+const retry = () => {
+  regenerateNewRecipes();
 };
 
 // 打印结果
@@ -857,6 +941,21 @@ onMounted(() => {
   border: none;
 }
 
+.regenerate-btn {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.regenerate-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(102, 126, 234, 0.4);
+}
+
+.regenerate-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
 .print-btn {
   background: #007aff;
   color: white;
@@ -936,9 +1035,15 @@ onMounted(() => {
   object-fit: cover;
 }
 
+.recipe-img-hidden {
+  opacity: 0;
+}
+
 .image-loading-overlay {
-  width: 100%;
-  height: 100%;
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.92) 0%, rgba(118, 75, 162, 0.92) 100%);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -987,6 +1092,30 @@ onMounted(() => {
   color: white;
   font-size: 14px;
   font-weight: 500;
+}
+
+.image-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.95);
+}
+
+.placeholder-icon {
+  font-size: 48px;
+  margin-bottom: 12px;
+  opacity: 0.9;
+}
+
+.placeholder-text {
+  font-size: 14px;
+  line-height: 1.5;
+  max-width: 220px;
 }
 
 .recipe-content {

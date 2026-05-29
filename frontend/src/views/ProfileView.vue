@@ -170,29 +170,6 @@
               </div>
             </div>
 
-            <!-- 营养目标显示 -->
-            <div v-if="profileData.targetCalories" class="form-section">
-              <h3 class="section-title">🎯 推荐营养目标</h3>
-              <div class="nutrition-goals">
-                <div class="goal-item">
-                  <span class="goal-label">🔥 每日热量:</span>
-                  <span class="goal-value">{{ Math.round(profileData.targetCalories) }} kcal</span>
-                </div>
-                <div class="goal-item">
-                  <span class="goal-label">🥩 蛋白质:</span>
-                  <span class="goal-value">{{ Math.round(profileData.targetProtein) }} g</span>
-                </div>
-                <div class="goal-item">
-                  <span class="goal-label">🍚 碳水化合物:</span>
-                  <span class="goal-value">{{ Math.round(profileData.targetCarbs) }} g</span>
-                </div>
-                <div class="goal-item">
-                  <span class="goal-label">🥑 脂肪:</span>
-                  <span class="goal-value">{{ Math.round(profileData.targetFat) }} g</span>
-                </div>
-              </div>
-            </div>
-
             <!-- 提交按钮 -->
             <div class="form-actions">
               <button type="submit" class="submit-btn" :disabled="loading">
@@ -200,23 +177,6 @@
               </button>
             </div>
           </form>
-        </div>
-      </div>
-
-      <!-- 第三行：健康报告和健康数据来源 -->
-      <div class="row third-row">
-        <div class="card overview-card">
-          <h2>📊 近 7 日健康报告</h2>
-          <div v-if="dataLoading" class="loading-state">
-            <p>⏳ 正在加载健康数据...</p>
-          </div>
-          <div v-else-if="healthData.length === 0" class="empty-state">
-            <p>📝 过去 7 天没有饮食记录，快去记录吧！</p>
-          </div>
-          <div v-else class="charts-grid">
-            <HealthCharts title="🔥 热量摄入趋势" :option="caloriesChartOption" />
-            <HealthCharts title="🥗 宏量营养素来源" :option="macrosChartOption" />
-          </div>
         </div>
       </div>
     </div>
@@ -337,18 +297,10 @@ import { ref, onMounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { healthApi } from '../api/healthApi';
 import { useUserStore } from '../stores/userStore';
-import HealthCharts from '../components/dashboard/HealthCharts.vue';
-import axios from 'axios';
 import { ElNotification, ElMessageBox } from 'element-plus';
 
 const router = useRouter();
 const userStore = useUserStore();
-
-// 健康报告相关状态
-const healthData = ref([]);
-const dataLoading = ref(true);
-const caloriesChartOption = ref({});
-const macrosChartOption = ref({});
 
 // 用户信息
 const userInfo = ref({
@@ -429,127 +381,10 @@ onMounted(async () => {
       profileData.value.userId = userInfo.value.username;
     }
 
-    // 获取健康数据
-    await fetchHealthData();
-
   } catch (err) {
     console.log('获取用户信息失败:', err);
-  } finally {
-    dataLoading.value = false;
   }
 });
-
-// 获取健康数据
-const fetchHealthData = async () => {
-  const endDate = new Date();
-  const startDate = new Date();
-  startDate.setDate(endDate.getDate() - 6); // 获取最近 7 天的数据
-
-  const formatDate = (date) => date.toISOString().split('T')[0];
-
-  try {
-    const response = await axios.get(`/api/diet/range/${userInfo.value.username}`,
-     {
-      params: {
-        startDate: formatDate(startDate),
-        endDate: formatDate(endDate),
-      }
-    });
-
-    
-    healthData.value = response.data;
-    updateCharts();
-  } catch (error) {
-    console.error("❌ 获取健康数据失败:", error);
-    console.error('  - 错误详情:', error.response?.data || error.message);
-  }
-};
-
-// 更新图表
-const updateCharts = () => {
-  const dailyData = processHealthData(healthData.value);
-
-  // 热量趋势图配置
-  caloriesChartOption.value = {
-    title: { text: '近7日热量摄入趋势', left: 'center' },
-    tooltip: { trigger: 'axis' },
-    xAxis: { type: 'category', data: dailyData.dates, boundaryGap: false },
-    yAxis: { type: 'value', name: '千卡 (kcal)' },
-    series: [{
-      name: '热量',
-      type: 'line',
-      data: dailyData.calories,
-      smooth: true,
-      areaStyle: {},
-      markPoint: {
-        data: [
-          { type: 'max', name: '最大值' },
-          { type: 'min', name: '最小值' }
-        ]
-      }
-    }]
-  };
-
-  // 营养素构成图配置
-  macrosChartOption.value = {
-    title: { text: '近7日宏量营养素来源', left: 'center' },
-    tooltip: { trigger: 'item', formatter: '{a} <br/>{b}: {c}g ({d}%)' },
-    legend: { orient: 'vertical', left: 'left' },
-    series: [{
-      name: '营养素',
-      type: 'pie',
-      radius: '50%',
-      data: [
-        { value: dailyData.totalProtein, name: '蛋白质' },
-        { value: dailyData.totalCarbs, name: '碳水化合物' },
-        { value: dailyData.totalFat, name: '脂肪' },
-      ],
-      emphasis: {
-        itemStyle: {
-          shadowBlur: 10,
-          shadowOffsetX: 0,
-          shadowColor: 'rgba(0, 0, 0, 0.5)'
-        }
-      }
-    }]
-  };
-};
-
-// 处理健康数据
-const processHealthData = (records) => {
-  const dailyMap = new Map();
-  const today = new Date();
-
-  // 初始化最近7天
-  for (let i = 6; i >= 0; i--) {
-    const d = new Date(today);
-    d.setDate(today.getDate() - i);
-    const dateString = d.toISOString().split('T')[0];
-    dailyMap.set(dateString, { calories: 0, protein: 0, carbs: 0, fat: 0 });
-  }
-
-  // 填充数据
-  records.forEach(record => {
-    const dateString = record.recordedAt.split('T')[0];
-    if (dailyMap.has(dateString)) {
-      const day = dailyMap.get(dateString);
-      day.calories += record.calories || 0;
-      day.protein += record.protein || 0;
-      day.carbs += record.carbs || 0;
-      day.fat += record.fat || 0;
-    }
-  });
-
-  const dates = Array.from(dailyMap.keys());
-  const calories = dates.map(date => Math.round(dailyMap.get(date).calories));
-  const totalProtein = Math.round(Array.from(dailyMap.values()).reduce((sum, day) => sum + day.protein, 0));
-  const totalCarbs = Math.round(Array.from(dailyMap.values()).reduce((sum, day) => sum + day.carbs, 0));
-  const totalFat = Math.round(Array.from(dailyMap.values()).reduce((sum, day) => sum + day.fat, 0));
-
-  return { dates, calories, totalProtein, totalCarbs, totalFat };
-};
-
-// 保存档案
 const saveProfile = async () => {
   try {
     loading.value = true;

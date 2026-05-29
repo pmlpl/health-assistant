@@ -1,152 +1,117 @@
-# 密钥配置指南
+# 后端环境变量配置指南
 
-由于特殊原因不能使用系统环境变量来传入 AI 的 API Key，本项目使用 `.env` 文件来管理敏感密钥。
+敏感配置通过 `backend/.env` 管理（不提交 Git）。模板见 [`.env.example`](./.env.example)。
 
-## 配置步骤
+## 快速开始
 
-### 1. 创建 .env 文件
-
-在 `backend/` 目录下创建 `.env` 文件：
-
-```bash
-cd backend
-cp .env.example .env
-```
-
-### 2. 填写您的 API Key
-
-编辑 `.env` 文件，填入您实际的 API Key：
-
-```env
-# 豆包 AI API Key - 用于食物识别和营养分析
-DOUBAO_API_KEY=your_actual_doubao_api_key_here
-
-# 通义千问 API Key - 用于 AI 营养咨询
-DASHSCOPE_API_KEY=your_actual_dashscope_api_key_here
-
-# MySQL 数据库配置
-DB_HOST=localhost
-DB_PORT=3306
-DB_NAME=health_assistant
-DB_USERNAME=root
-DB_PASSWORD=your_password_here
-```
-
-### 3. 获取 API Key
-
-#### 豆包 AI (Doubao) API Key
-- 访问火山引擎方舟大模型平台
-- 注册并创建应用
-- 获取 API Key
-
-#### 通义千问 (Qwen/Dashscope) API Key
-- 访问阿里云 DashScope 平台
-- 注册并开通服务
-- 获取 API Key
-
-## 安全注意事项
-
-⚠️ **重要提示**：
-
-1. **不要将 `.env` 文件提交到版本控制**
-   - `.env` 文件已经被添加到 `.gitignore` 中
-   - 只有 `.env.example` 模板文件可以被提交
-
-2. **保护您的 API Key**
-   - 不要与他人分享您的 `.env` 文件
-   - 定期更换 API Key
-   - 如果怀疑 API Key 泄露，立即在相应平台重新生成
-
-3. **生产环境部署**
-   - 在生产环境中，建议使用真正的系统环境变量
-   - 或者使用专门的密钥管理服务（如 AWS Secrets Manager、HashiCorp Vault 等）
-
-## 本地开发运行
-
-### 方式一：直接运行（推荐）
-
-Spring Boot 会自动读取 `.env` 文件中的配置：
-
-```bash
-cd backend
-mvn spring-boot:run
-```
-
-### 方式二：手动加载环境变量
-
-如果需要手动加载 `.env` 文件：
-
-#### Windows PowerShell:
 ```powershell
-Get-Content .env | ForEach-Object {
-    if ($_ -match '^\s*([^#=]+)\s*=\s*(.*)\s*$') {
-        $name = $matches[1].Trim()
-        $value = $matches[2].Trim()
-        [Environment]::SetEnvironmentVariable($name, $value, "Process")
-    }
-}
-mvn spring-boot:run
+cd backend
+Copy-Item .env.example .env
+# 编辑 .env 后启动
+.\mvnw.cmd spring-boot:run
 ```
 
-#### macOS/Linux:
+Spring Boot 通过 `EnvConfig` 自动加载 `.env`。
+
+## 变量说明
+
+### 数据库
+
+| 变量 | 说明 |
+|------|------|
+| `DB_HOST` | MySQL 主机，默认 `localhost` |
+| `DB_PORT` | 端口，默认 `3306` |
+| `DB_NAME` | 库名，默认 `health_assistant` |
+| `DB_USERNAME` / `DB_PASSWORD` | 数据库账号 |
+
+### 安全
+
+| 变量 | 说明 |
+|------|------|
+| `JWT_SECRET` | JWT 签名密钥，至少 32 字符 |
+| `JWT_EXPIRATION_MS` | Token 有效期（毫秒） |
+| `CORS_ALLOWED_ORIGINS` | 允许的前端源，逗号分隔 |
+| `AI_SETTINGS_SECRET` | 加密用户自备 API Key |
+| `APP_SEED_TEST_USER` | 开发 `true` 创建 testuser；生产 `false` |
+
+### AI — 平台默认 Key（开发 / 试用）
+
+| 变量 | 说明 |
+|------|------|
+| `DEEPSEEK_API_KEY` | DeepSeek，默认文本对话与食谱文案 |
+| `AI_DEEPSEEK_MODEL` | 模型 ID，如 `deepseek-v4-flash` |
+| `DOUBAO_API_KEY` | 豆包（火山方舟） |
+| `DOUBAO_VISION_MODEL` | 视觉接入点 `ep-xxxx` |
+| `DOUBAO_IMAGE_MODEL` | Seedream 生图模型 ID |
+| `DOUBAO_IMAGE_SIZE` | 生图尺寸，如 `2K` |
+| `DASHSCOPE_API_KEY` | 通义千问（可选） |
+
+### AI — 平台试用配额
+
+| 变量 | 说明 |
+|------|------|
+| `AI_PLATFORM_TRIAL_ENABLED` | 是否启用试用 |
+| `AI_PLATFORM_TRIAL_TEXT_QUOTA` | 文本试用次数，`0` = 不限 |
+| `AI_PLATFORM_TRIAL_IMAGE_QUOTA` | 识图试用次数 |
+| `AI_PLATFORM_TRIAL_RECIPE_IMAGE_QUOTA` | 食谱配图试用次数 |
+| `AI_IMAGE_RECOGNITION_ORDER` | 识图 fallback 顺序，如 `doubao,lmstudio,dashscope` |
+
+### 部署
+
+| 变量 | 说明 |
+|------|------|
+| `AI_DEPLOYMENT_MODE` | `dev` / `prod` |
+| `APP_UPLOAD_DIR` | 食谱配图等上传目录 |
+
+## 用户 AI 设置（BYOK）
+
+生产环境推荐**不在服务端配置云端 Key**，由用户登录后在 Header → **AI 设置** 填写：
+
+- **文本**：DeepSeek / 通义 / 本地 LM Studio / 自动
+- **视觉**：豆包 / LM Studio / 通义
+- **食谱配图**：Pexels Key + 豆包生图
+
+设置加密存入数据库，由 `UserAiSettingsService` 解析。  
+**连接测试**使用表单中的地址；**实际对话**使用已保存的设置——测试成功后务必点保存（测试 LM 成功会自动保存）。
+
+### 本地 LM Studio
+
+1. Local Server 默认 `http://127.0.0.1:1234/v1`
+2. 在 AI 设置中选择「本地 LM Studio」，填写 `baseUrl` 与 `model`
+3. 开发 profile（`dev`）下对话走非流式 `complete`，与连接测试一致
+
+## 生产 vs 开发
+
+| 场景 | Profile | Key 来源 |
+|------|---------|----------|
+| 本地开发 | `dev`（默认） | `.env` 平台 Key + 用户 AI 设置 |
+| 生产 | `prod` | 用户 BYOK；`.env` 云端 Key 建议留空 |
+
+启动生产：
+
 ```bash
-set -a
-source .env
-set +a
-mvn spring-boot:run
+java -jar HealthAssistant-0.0.1-SNAPSHOT.jar --spring.profiles.active=prod
 ```
 
-## 验证配置
+## 获取 API Key
 
-启动应用后，检查日志确认配置是否正确加载：
-
-```
-2024-01-01 12:00:00.000  INFO 12345 --- [           main] c.e.h.s.DoubaoFoodRecognitionService     : 豆包 API 密钥已配置
-2024-01-01 12:00:00.000  INFO 12345 --- [           main] c.e.h.service.QwenAIService             : Qwen API 密钥已配置
-```
+- **DeepSeek**：https://platform.deepseek.com/
+- **豆包 / 火山方舟**：https://www.volcengine.com/product/ark
+- **通义千问**：https://dashscope.console.aliyun.com/
+- **Pexels**（食谱搜图）：https://www.pexels.com/api/
 
 ## 故障排查
 
-### 问题：API 调用失败，提示密钥未配置
+| 现象 | 检查 |
+|------|------|
+| API 调用失败「未配置」 | `.env` 是否存在、Key 是否正确、是否重启 |
+| 数据库连接失败 | MySQL 运行中、库已创建、密码正确 |
+| 测试通但对话无响应 | AI 设置是否已**保存**；`textProvider` 是否为 lmstudio |
+| 识图失败 | 视觉 provider 与 `DOUBAO_VISION_MODEL` 是否为视觉 ep |
+| 生图 400 | `DOUBAO_IMAGE_MODEL` 是否为 Seedream 模型 ID，非对话 ep |
 
-**解决方案：**
-1. 检查 `.env` 文件是否存在于 `backend/` 目录
-2. 确认 `.env` 文件中的 API Key 是否正确填写
-3. 重启应用确保配置重新加载
-4. 检查是否有空格或特殊字符导致解析失败
+## 相关文件
 
-### 问题：数据库连接失败
-
-**解决方案：**
-1. 检查 `.env` 文件中的数据库配置是否正确
-2. 确认 MySQL 服务是否运行
-3. 验证数据库用户名和密码是否正确
-4. 检查数据库 `health_assistant` 是否存在
-
-## 文件说明
-
-- `.env` - 实际的环境配置文件（不包含在版本控制中）
-- `.env.example` - 配置模板文件（包含在版本控制中）
-- `application.properties` - Spring Boot 主配置文件，引用 `.env` 中的变量
-
-## 其他配置项
-
-如果需要添加更多配置项，可以在 `.env` 文件中添加：
-
-```env
-# 示例：服务器端口
-SERVER_PORT=8080
-
-# 示例：日志级别
-LOGGING_LEVEL_ROOT=INFO
-
-# 示例：其他服务的 API Key
-OTHER_SERVICE_KEY=your_key_here
-```
-
-然后在 `application.properties` 中引用：
-
-```properties
-server.port=${SERVER_PORT:8080}
-logging.level.root=${LOGGING_LEVEL_ROOT:INFO}
-```
+- [`.env.example`](./.env.example) — 变量模板
+- [`application.properties`](./src/main/resources/application.properties) — 主配置
+- [`docs/DEPLOY.md`](../docs/DEPLOY.md) — 生产部署

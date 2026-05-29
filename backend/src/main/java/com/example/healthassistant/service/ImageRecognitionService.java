@@ -1,168 +1,321 @@
-package com.example.healthassistant.service;
-
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.volcengine.ark.runtime.model.completion.chat.ChatCompletionContentPart;
-import com.volcengine.ark.runtime.model.completion.chat.ChatCompletionRequest;
-import com.volcengine.ark.runtime.model.completion.chat.ChatMessage;
-import com.volcengine.ark.runtime.model.completion.chat.ChatMessageRole;
-import com.volcengine.ark.runtime.service.ArkService;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Service;
-import org.springframework.web.multipart.MultipartFile;
-
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Base64;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import com.example.healthassistant.config.EnvConfig;
-
-@Service
-public class ImageRecognitionService {
-
-    @Value("${doubao.api.key:}")
-    private String apiKeyFromConfig;
-
-    @Value("${doubao.model.name:doubao-vision-pro-32k}")
-    private String modelName;
-
-    /**
-     * 获取 API Key，优先从 .env 文件加载
-     */
-    private String getApiKey() {
-        // 优先从 EnvConfig 获取（支持 .env 文件）
-        String key = EnvConfig.getDoubaoApiKey();
-        if (key != null && !key.isEmpty() && !key.contains("your_")) {
-            return key;
-        }
-        // 其次从 Spring 配置获取
-        if (apiKeyFromConfig != null && !apiKeyFromConfig.isEmpty()) {
-            return apiKeyFromConfig;
-        }
-        return null;
-    }
-
-    public Map<String, Object> recognizeFoodInImage(MultipartFile imageFile, String userId) throws IOException {
-        String effectiveApiKey = getApiKey();
-
-        if (effectiveApiKey == null || effectiveApiKey.isEmpty()) {
-            System.out.println("豆包 API 密钥未配置，使用模拟数据");
-            return generateMockRecognitionResult(imageFile);
-        }
-
-        try {
-            ArkService arkService = ArkService.builder()
-                    .apiKey(effectiveApiKey)
-                    .baseUrl("https://ark.cn-beijing.volces.com/api/v3")
-                    .build();
-
-            // 将图片文件转换为Base64编码
-            String base64Image = Base64.getEncoder().encodeToString(imageFile.getBytes());
-            String imageUrl = "data:image/jpeg;base64," + base64Image;
-
-            List<ChatMessage> messages = new ArrayList<>();
-
-            // 系统提示词
-            ChatMessage systemMessage = ChatMessage.builder()
-                    .role(ChatMessageRole.SYSTEM)
-                    .content(
-                            "你是一个专业的食物营养分析师。你的任务是识别图片中的食物，并估算它们的重量和营养成分。请严格遵循以下要求：\n1. 只返回图片中实际存在的食物，不要返回不存在的食物\n2. 每种食物只返回一次，不要重复\n3. 对于单个食物，只返回一个条目\n4. 请以JSON格式返回结果，格式为： {\"foods\": [{\"name\": \"食物名称\", \"weightGrams\": 重量（克）, \"calories\": 热量（千卡）, \"protein\": 蛋白质（克）, \"carbs\": 碳水化合物（克）, \"fat\": 脂肪（克）, \"fiber\": 纤维（克）}]}。\n5. 所有营养成分数值均为每100克的含量\n6. 请确保数值精确到小数点后一位\n7. 只返回JSON，不要任何多余的解释。")
-                    .build();
-            messages.add(systemMessage);
-
-            // 用户图片和文字
-            List<ChatCompletionContentPart> contentParts = new ArrayList<>();
-            contentParts.add(ChatCompletionContentPart.builder()
-                    .type("image_url")
-                    .imageUrl(new ChatCompletionContentPart.ChatCompletionContentPartImageURL(imageUrl))
-                    .build());
-            contentParts.add(ChatCompletionContentPart.builder()
-                    .type("text")
-                    .text("请识别这张图片里的食物及其重量，并以JSON格式返回。")
-                    .build());
-
-            ChatMessage userMessage = ChatMessage.builder()
-                    .role(ChatMessageRole.USER)
-                    .multiContent(contentParts)
-                    .build();
-            messages.add(userMessage);
-
-            ChatCompletionRequest request = ChatCompletionRequest.builder()
-                    .model(modelName)
-                    .messages(messages)
-                    .build();
-
-            String jsonResponse = arkService.createChatCompletion(request).getChoices().get(0).getMessage().getContent()
-                    .toString();
-
-            // 处理可能的Markdown代码块
-            if (jsonResponse.contains("```json")) {
-                jsonResponse = jsonResponse.substring(jsonResponse.indexOf("```json") + 7);
-                jsonResponse = jsonResponse.substring(0, jsonResponse.lastIndexOf("```"));
-            } else if (jsonResponse.contains("```")) {
-                jsonResponse = jsonResponse.substring(jsonResponse.indexOf("```") + 3);
-                jsonResponse = jsonResponse.substring(0, jsonResponse.lastIndexOf("```"));
-            }
-
-            // 清理JSON字符串，移除可能的多余字符
-            jsonResponse = jsonResponse.trim();
-            if (jsonResponse.startsWith("{") && jsonResponse.endsWith("}")) {
-                try {
-                    ObjectMapper objectMapper = new ObjectMapper();
-                    Map<String, Object> resultMap = objectMapper.readValue(jsonResponse, Map.class);
-
-                    // 对食物列表进行去重处理
-                    if (resultMap.containsKey("foods")) {
-                        List<Map<String, Object>> foods = (List<Map<String, Object>>) resultMap.get("foods");
-                        List<Map<String, Object>> uniqueFoods = new ArrayList<>();
-                        Set<String> seenFoods = new HashSet<>();
-
-                        for (Map<String, Object> food : foods) {
-                            if (food.containsKey("name")) {
-                                String foodName = food.get("name").toString().trim();
-                                if (!seenFoods.contains(foodName)) {
-                                    seenFoods.add(foodName);
-                                    uniqueFoods.add(food);
-                                }
-                            }
-                        }
-
-                        // 更新去重后的食物列表
-                        resultMap.put("foods", uniqueFoods);
-                    }
-
-                    return resultMap;
-                } catch (Exception e) {
-                    System.err.println("JSON解析失败: " + e.getMessage());
-                    // 解析失败时返回模拟数据
-                    return generateMockRecognitionResult(imageFile);
-                }
-            } else {
-                System.err.println("无效的JSON格式: " + jsonResponse);
-                // 无效格式时返回模拟数据
-                return generateMockRecognitionResult(imageFile);
-            }
-
-        } catch (Exception e) {
-            System.err.println("图片识别失败: " + e.getMessage());
-            e.printStackTrace();
-            return generateMockRecognitionResult(imageFile);
-        }
-    }
-
-    private Map<String, Object> generateMockRecognitionResult(MultipartFile imageFile) {
-        Map<String, Object> mockResult = new HashMap<>();
-        List<Map<String, Object>> foods = List.of(
-                Map.of("name", "模拟-米饭", "weightGrams", 200, "calories", 116.0, "protein", 2.6, "carbs", 25.9, "fat",
-                        0.3, "fiber", 0.3),
-                Map.of("name", "模拟-西兰花炒鸡胸肉", "weightGrams", 250, "calories", 150.0, "protein", 20.0, "carbs", 10.0,
-                        "fat", 5.0, "fiber", 3.0),
-                Map.of("name", "模拟-番茄鸡蛋汤", "weightGrams", 150, "calories", 30.0, "protein", 2.0, "carbs", 4.0, "fat",
-                        1.0, "fiber", 1.0));
-        mockResult.put("foods", foods);
-        return mockResult;
-    }
-}
+package com.example.healthassistant.service;
+
+import com.example.healthassistant.ai.DashScopeVisionClient;
+import com.example.healthassistant.ai.OpenAiCompatibleChatClient;
+import com.example.healthassistant.ai.ResolvedAiConfig;
+import com.example.healthassistant.ai.ResolvedApiKey;
+import com.example.healthassistant.config.ApiKeyResolver;
+import com.example.healthassistant.exception.AiNotConfiguredException;
+import com.example.healthassistant.service.PlatformAiQuotaService.UsageKind;
+import com.example.healthassistant.util.ImageResizeUtil;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.volcengine.ark.runtime.model.completion.chat.ChatCompletionContentPart;
+import com.volcengine.ark.runtime.model.completion.chat.ChatCompletionRequest;
+import com.volcengine.ark.runtime.model.completion.chat.ChatMessage;
+import com.volcengine.ark.runtime.model.completion.chat.ChatMessageRole;
+import com.volcengine.ark.runtime.service.ArkService;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Base64;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+/**
+ * 饮食日记拍照识食：优先用户自选的视觉服务商；未配置时按全局顺序 + 平台试用配额。
+ */
+@Service
+public class ImageRecognitionService {
+
+    private static final String ARK_BASE_URL = "https://ark.cn-beijing.volces.com/api/v3";
+
+    private static final String FOOD_JSON_USER_TEXT = "请识别图片中的食物及其重量，只返回 JSON。";
+    private static final String FOOD_JSON_SYSTEM = """
+            你是食物营养分析师。只返回图中真实食物，每种一条，仅输出 JSON：
+            {"foods":[{"name":"名称","weightGrams":克数,"calories":每100g千卡,"protein":蛋白质,"carbs":碳水,"fat":脂肪,"fiber":纤维}]}
+            """;
+
+    private final ApiKeyResolver apiKeyResolver;
+    private final UserAiSettingsService userAiSettingsService;
+    private final DashScopeVisionClient dashScopeVisionClient;
+    private final OpenAiCompatibleChatClient openAiCompatibleChatClient;
+    private final ObjectMapper objectMapper = new ObjectMapper();
+
+    @Value("${ai.image.recognition.order:doubao,lmstudio,dashscope}")
+    private String providerOrder;
+
+    @Value("${ai.image.recognition.max-side:768}")
+    private int maxImageSide;
+
+    @Value("${doubao.vision.model.name:doubao-seed-2-0-lite-260215}")
+    private String defaultDoubaoVisionModel;
+
+    @Value("${ai.lmstudio.vision-model:}")
+    private String lmstudioVisionModel;
+
+    public ImageRecognitionService(
+            ApiKeyResolver apiKeyResolver,
+            UserAiSettingsService userAiSettingsService,
+            DashScopeVisionClient dashScopeVisionClient,
+            OpenAiCompatibleChatClient openAiCompatibleChatClient) {
+        this.apiKeyResolver = apiKeyResolver;
+        this.userAiSettingsService = userAiSettingsService;
+        this.dashScopeVisionClient = dashScopeVisionClient;
+        this.openAiCompatibleChatClient = openAiCompatibleChatClient;
+    }
+
+    public Map<String, Object> recognizeFoodInImage(MultipartFile imageFile, String userId) throws IOException {
+        userAiSettingsService.assertVisionConfigured(userId);
+        ResolvedAiConfig config = userAiSettingsService.resolve(userId);
+
+        String mime = resolveMimeType(imageFile);
+        String format = mime.contains("png") ? "png" : mime.contains("webp") ? "webp" : "jpg";
+        byte[] bytes = ImageResizeUtil.resizeForVision(imageFile.getBytes(), format, maxImageSide);
+        String imageDataUri = "data:" + mime + ";base64," + Base64.getEncoder().encodeToString(bytes);
+
+        List<String> errors = new ArrayList<>();
+        List<String> providers = resolveProviderOrder(config);
+
+        for (String provider : providers) {
+            String p = provider.trim().toLowerCase();
+            if (p.isEmpty()) {
+                continue;
+            }
+            try {
+                Map<String, Object> result = tryProvider(p, userId, config, imageDataUri);
+                if (result != null) {
+                    return result;
+                }
+            } catch (Exception e) {
+                String msg = p + ": " + rootMessage(e);
+                errors.add(msg);
+                System.err.println("识图尝试失败 " + msg);
+            }
+        }
+
+        throw new AiNotConfiguredException(
+                "拍照识图不可用。请在「AI 设置」配置拍照识食服务商与 Key，或查看「使用手册」。"
+                        + " 失败详情：" + String.join("；", errors));
+    }
+
+    /** 用户指定 visionProvider 时只试该服务商；否则走全局顺序 */
+    private List<String> resolveProviderOrder(ResolvedAiConfig config) {
+        String vp = config.getVisionProvider();
+        if (vp != null && !vp.isBlank() && !"unset".equals(vp)) {
+            return List.of(vp.trim().toLowerCase());
+        }
+        return List.of(providerOrder.split(","));
+    }
+
+    private Map<String, Object> tryProvider(String provider, String userId, ResolvedAiConfig config,
+            String imageDataUri) throws Exception {
+        return switch (provider) {
+            case "doubao" -> tryDoubao(userId, config, imageDataUri);
+            case "lmstudio" -> tryLmStudio(userId, config, imageDataUri);
+            case "dashscope" -> tryDashscope(userId, config, imageDataUri);
+            default -> null;
+        };
+    }
+
+    private Map<String, Object> tryDoubao(String userId, ResolvedAiConfig config, String imageDataUri)
+            throws Exception {
+        ResolvedApiKey keyRef = apiKeyResolver.resolveDoubaoForVision(userId);
+        if (!keyRef.isPresent()) {
+            return null;
+        }
+        String model = resolveDoubaoVisionModel(config);
+        ArkService arkService = ArkService.builder()
+                .apiKey(keyRef.key())
+                .baseUrl(ARK_BASE_URL)
+                .build();
+
+        List<ChatMessage> messages = new ArrayList<>();
+        messages.add(ChatMessage.builder().role(ChatMessageRole.SYSTEM).content(FOOD_JSON_SYSTEM).build());
+        List<ChatCompletionContentPart> parts = new ArrayList<>();
+        parts.add(ChatCompletionContentPart.builder()
+                .type("image_url")
+                .imageUrl(new ChatCompletionContentPart.ChatCompletionContentPartImageURL(imageDataUri))
+                .build());
+        parts.add(ChatCompletionContentPart.builder().type("text").text(FOOD_JSON_USER_TEXT).build());
+        messages.add(ChatMessage.builder().role(ChatMessageRole.USER).multiContent(parts).build());
+
+        Object raw = arkService.createChatCompletion(ChatCompletionRequest.builder()
+                .model(model)
+                .messages(messages)
+                .build()).getChoices().get(0).getMessage().getContent();
+        apiKeyResolver.recordPlatformUsageIfNeeded(userId, keyRef, UsageKind.IMAGE);
+        return parseFoodJson(raw != null ? raw.toString() : "", "doubao-vision", model);
+    }
+
+    private Map<String, Object> tryLmStudio(String userId, ResolvedAiConfig config, String imageDataUri)
+            throws Exception {
+        String baseUrl = firstNonBlank(config.getVisionLmstudioBaseUrl(), config.getLmstudioBaseUrl());
+        if (baseUrl == null || baseUrl.isBlank()) {
+            return null;
+        }
+        String model = resolveLmVisionModel(config);
+        if (model == null || model.isBlank()) {
+            return null;
+        }
+        String json = openAiCompatibleChatClient.completeWithVisionImage(
+                baseUrl, "lm-studio", model, imageDataUri, FOOD_JSON_SYSTEM, FOOD_JSON_USER_TEXT, 1024);
+        return parseFoodJson(json, "lmstudio-vision", model);
+    }
+
+    private Map<String, Object> tryDashscope(String userId, ResolvedAiConfig config, String imageDataUri)
+            throws Exception {
+        ResolvedApiKey keyRef = apiKeyResolver.resolveDashscopeForVision(userId);
+        if (!keyRef.isPresent()) {
+            return null;
+        }
+        String model = resolveDashscopeVisionModel(config);
+        String json = dashScopeVisionClient.recognizeFoodInImage(keyRef.key(), model, imageDataUri);
+        apiKeyResolver.recordPlatformUsageIfNeeded(userId, keyRef, UsageKind.IMAGE);
+        return parseFoodJson(json, "dashscope-vision", model);
+    }
+
+    private Map<String, Object> parseFoodJson(String jsonResponse, String mode, String model) throws Exception {
+        jsonResponse = stripMarkdownJson(jsonResponse).trim();
+        if (!jsonResponse.startsWith("{")) {
+            int start = jsonResponse.indexOf('{');
+            int end = jsonResponse.lastIndexOf('}');
+            if (start >= 0 && end > start) {
+                jsonResponse = jsonResponse.substring(start, end + 1);
+            } else {
+                throw new IllegalStateException("模型返回内容无法解析为 JSON");
+            }
+        }
+        Map<String, Object> resultMap = objectMapper.readValue(jsonResponse, Map.class);
+        dedupeFoods(resultMap);
+        resultMap.put("mode", mode);
+        resultMap.put("model", model);
+        return resultMap;
+    }
+
+    private String resolveDoubaoVisionModel(ResolvedAiConfig config) {
+        if (config.getVisionModel() != null && !config.getVisionModel().isBlank()
+                && ("doubao".equals(config.getVisionProvider()) || config.getVisionProvider() == null)) {
+            return config.getVisionModel().trim();
+        }
+        if (config.getCloudModel() != null && !config.getCloudModel().isBlank()) {
+            String t = config.getCloudModel().trim();
+            if (t.toLowerCase().contains("seed") || t.toLowerCase().contains("vision") || t.startsWith("ep-")) {
+                return t;
+            }
+        }
+        return defaultDoubaoVisionModel;
+    }
+
+    private String resolveDashscopeVisionModel(ResolvedAiConfig config) {
+        if (config.getVisionModel() != null && !config.getVisionModel().isBlank()
+                && "dashscope".equals(config.getVisionProvider())) {
+            return config.getVisionModel().trim();
+        }
+        if (config.getCloudModel() != null && config.getCloudModel().toLowerCase().contains("vl")) {
+            return config.getCloudModel().trim();
+        }
+        return dashScopeVisionClient.getDefaultVisionModel();
+    }
+
+    private String resolveLmVisionModel(ResolvedAiConfig config) {
+        if (config.getVisionModel() != null && !config.getVisionModel().isBlank()) {
+            return config.getVisionModel().trim();
+        }
+        if (lmstudioVisionModel != null && !lmstudioVisionModel.isBlank()) {
+            return lmstudioVisionModel.trim();
+        }
+        String cloud = config.getCloudModel();
+        if (cloud != null && cloud.toLowerCase().contains("vl")) {
+            return cloud.trim();
+        }
+        String lm = config.getLmstudioModel();
+        if (lm != null && lm.toLowerCase().contains("vl")) {
+            return lm.trim();
+        }
+        return null;
+    }
+
+    private static String resolveMimeType(MultipartFile file) {
+        String ct = file.getContentType();
+        if (ct != null && !ct.isBlank()) {
+            return ct;
+        }
+        String name = file.getOriginalFilename();
+        if (name != null) {
+            String lower = name.toLowerCase();
+            if (lower.endsWith(".png")) {
+                return "image/png";
+            }
+            if (lower.endsWith(".webp")) {
+                return "image/webp";
+            }
+            if (lower.endsWith(".gif")) {
+                return "image/gif";
+            }
+        }
+        return "image/jpeg";
+    }
+
+    private static String stripMarkdownJson(String text) {
+        if (text == null) {
+            return "";
+        }
+        String s = text;
+        if (s.contains("```json")) {
+            s = s.substring(s.indexOf("```json") + 7);
+            int end = s.indexOf("```");
+            if (end > 0) {
+                s = s.substring(0, end);
+            }
+        } else if (s.contains("```")) {
+            s = s.substring(s.indexOf("```") + 3);
+            int end = s.indexOf("```");
+            if (end > 0) {
+                s = s.substring(0, end);
+            }
+        }
+        return s;
+    }
+
+    @SuppressWarnings("unchecked")
+    private void dedupeFoods(Map<String, Object> resultMap) {
+        if (!resultMap.containsKey("foods")) {
+            return;
+        }
+        List<Map<String, Object>> foods = (List<Map<String, Object>>) resultMap.get("foods");
+        List<Map<String, Object>> uniqueFoods = new ArrayList<>();
+        Set<String> seen = new HashSet<>();
+        for (Map<String, Object> food : foods) {
+            if (food.containsKey("name")) {
+                String name = food.get("name").toString().trim();
+                if (!name.isEmpty() && !seen.contains(name)) {
+                    seen.add(name);
+                    uniqueFoods.add(food);
+                }
+            }
+        }
+        resultMap.put("foods", uniqueFoods);
+    }
+
+    private static String rootMessage(Throwable e) {
+        Throwable cur = e;
+        while (cur.getCause() != null) {
+            cur = cur.getCause();
+        }
+        String msg = cur.getMessage();
+        return msg != null && !msg.isBlank() ? msg : e.getClass().getSimpleName();
+    }
+
+    private static String firstNonBlank(String a, String b) {
+        if (a != null && !a.isBlank()) {
+            return a;
+        }
+        return b;
+    }
+}
+

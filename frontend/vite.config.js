@@ -1,11 +1,21 @@
 // healthassistantfrontend/vite.config.js
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
+import AutoImport from 'unplugin-auto-import/vite'
+import Components from 'unplugin-vue-components/vite'
+import { ElementPlusResolver } from 'unplugin-vue-components/resolvers'
 import { resolve } from 'path'
 
-// https://vite.dev/config/
 export default defineConfig({
-    plugins: [vue()],
+    plugins: [
+        vue(),
+        AutoImport({
+            resolvers: [ElementPlusResolver()],
+        }),
+        Components({
+            resolvers: [ElementPlusResolver()],
+        }),
+    ],
     resolve: {
         alias: {
             '@': resolve(__dirname, './src')
@@ -17,29 +27,38 @@ export default defineConfig({
                 target: 'http://localhost:8080',
                 changeOrigin: true,
                 secure: false,
-                // 重写路径，保持/api 前缀
                 rewrite: (path) => path,
-                // CORS 配置
-                configure: (proxy, _options) => {
-                    proxy.on('error', (err, _req, _res) => {
-                        console.log('代理错误:', err);
+                // SSE 长连接：禁用代理超时并避免缓冲，否则 AI 流式会长时间无输出
+                timeout: 0,
+                proxyTimeout: 0,
+                configure: (proxy) => {
+                    proxy.on('proxyReq', (proxyReq, req) => {
+                        if (req.headers.accept?.includes('text/event-stream')) {
+                            proxyReq.setHeader('Connection', 'keep-alive');
+                            proxyReq.setHeader('Cache-Control', 'no-cache');
+                        }
                     });
-                    proxy.on('proxyReq', (proxyReq, req, _res) => {
-                        console.log('发送请求到:', req.method, req.url);
+                    proxy.on('proxyRes', (proxyRes, req, res) => {
+                        if (req.headers.accept?.includes('text/event-stream')) {
+                            res.setHeader('Cache-Control', 'no-cache');
+                            res.setHeader('Connection', 'keep-alive');
+                            proxyRes.headers['x-accel-buffering'] = 'no';
+                        }
                     });
-                    proxy.on('proxyRes', (proxyRes, req, _res) => {
-                        console.log('收到响应:', req.method, req.url, proxyRes.statusCode);
-                    });
-                }
-            }
+                },
+            },
+            // 食谱配图保存在后端 uploads，开发时需代理否则图片 404
+            '/uploads': {
+                target: 'http://localhost:8080',
+                changeOrigin: true,
+                secure: false,
+            },
         }
     },
     build: {
-        // 生产环境构建配置
         outDir: 'dist',
         assetsDir: 'assets',
         sourcemap: false,
-        // 使用默认压缩方式
-        minify: false
+        minify: true,
     }
 })

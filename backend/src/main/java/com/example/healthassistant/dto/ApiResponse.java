@@ -1,7 +1,10 @@
+// ============================================================
+// 这个文件负责：统一 API 响应格式（code / message / data / timestamp）
+// ============================================================
 package com.example.healthassistant.dto;
 
-import java.util.HashMap;
-import java.util.Map;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 
 public class ApiResponse<T> {
     private int code;
@@ -40,7 +43,27 @@ public class ApiResponse<T> {
         return new ApiResponse<>(400, message, null);
     }
 
-    // Getters and Setters
+    /** 将业务 code 映射为对应 HTTP 状态并返回 ResponseEntity */
+    public static <T> ResponseEntity<ApiResponse<T>> toEntity(ApiResponse<T> body) {
+        HttpStatus status = HttpStatus.resolve(body.getCode());
+        if (status == null) {
+            status = body.getCode() >= 400 ? HttpStatus.BAD_REQUEST : HttpStatus.OK;
+        }
+        return ResponseEntity.status(status).body(body);
+    }
+
+    public static <T> ResponseEntity<ApiResponse<T>> ok(T data) {
+        return ResponseEntity.ok(success(data));
+    }
+
+    public static <T> ResponseEntity<ApiResponse<T>> ok(String message, T data) {
+        return ResponseEntity.ok(success(message, data));
+    }
+
+    public static <T> ResponseEntity<ApiResponse<T>> fail(int code, String message) {
+        return toEntity(error(code, message));
+    }
+
     public int getCode() {
         return code;
     }
