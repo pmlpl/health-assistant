@@ -23,6 +23,8 @@ public final class OpenAiStreamClient {
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
     private static volatile HttpClient HTTP = buildHttpClient(30);
+    /** 两次 SSE 行之间的最大空闲秒数，防止 readLine 永久阻塞 */
+    private static volatile int idleReadTimeoutSeconds = 120;
 
     private OpenAiStreamClient() {
     }
@@ -30,6 +32,10 @@ public final class OpenAiStreamClient {
     public static void setConnectTimeoutSeconds(int seconds) {
         int safe = seconds > 0 ? seconds : 30;
         HTTP = buildHttpClient(safe);
+    }
+
+    public static void setIdleReadTimeoutSeconds(int seconds) {
+        idleReadTimeoutSeconds = seconds > 0 ? seconds : 120;
     }
 
     private static HttpClient buildHttpClient(int connectTimeoutSeconds) {
@@ -87,13 +93,36 @@ public final class OpenAiStreamClient {
 
         try (BufferedReader reader = new BufferedReader(
                 new InputStreamReader(response.body(), StandardCharsets.UTF_8))) {
-            String line;
-            while ((line = reader.readLine()) != null) {
+            readStreamLines(reader, consumer);
+        }
+    }
+
+    /**
+     * 带空闲超时的 SSE 行读取：LM Studio 若不支持 stream 或卡住，不会无限阻塞。
+     */
+    private static void readStreamLines(BufferedReader reader, AiStreamChunkConsumer consumer) throws Exception {
+        java.util.concurrent.ExecutorService lineReader = java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor();
+        try {
+            java.util.concurrent.Future<String> pending = lineReader.submit(reader::readLine);
+            while (true) {
+                String line;
+                try {
+                    line = pending.get(idleReadTimeoutSeconds, java.util.concurrent.TimeUnit.SECONDS);
+                } catch (java.util.concurrent.TimeoutException te) {
+                    pending.cancel(true);
+                    throw new IllegalStateException(
+                            "流式响应超时：超过 " + idleReadTimeoutSeconds + " 秒未收到模型输出，请确认 LM Studio 已加载模型并支持 stream");
+                }
+                if (line == null) {
+                    break;
+                }
                 if (!line.startsWith("data:")) {
+                    pending = lineReader.submit(reader::readLine);
                     continue;
                 }
                 String data = line.substring(5).trim();
                 if (data.isEmpty() || "[DONE]".equals(data)) {
+                    pending = lineReader.submit(reader::readLine);
                     continue;
                 }
                 JsonNode root = MAPPER.readTree(data);
@@ -104,7 +133,10 @@ public final class OpenAiStreamClient {
                         consumer.onChunk(chunk);
                     }
                 }
+                pending = lineReader.submit(reader::readLine);
             }
+        } finally {
+            lineReader.shutdownNow();
         }
     }
 

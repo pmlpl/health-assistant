@@ -442,7 +442,7 @@ watchEffect(() => {
 });
 
 // 使用 AI 咨询 composable
-const { currentMessage, chatMessages, isLoading, sendMessage, clearChatHistory, loadChatHistory } = useAIConsult();
+const { currentMessage, chatMessages, isLoading, sendMessage, clearChatHistory, loadChatHistory, refreshStreamPreference } = useAIConsult();
 
 // 过滤历史里残留的空白 AI 气泡
 const visibleChatMessages = computed(() =>
@@ -589,6 +589,7 @@ const selectMenuItem = (item) => {
       currentChatIcon.value = '🤖';
       showChat.value = true;
       showFeatureMenu.value = false;
+      refreshStreamPreference();
       nextTick(() => {
         scrollToBottom();
       });
@@ -629,6 +630,7 @@ const selectFeature = (feature) => {
     currentChatIcon.value = '🤖';
     currentMode.value = 'consultation';
     showFeatureMenu.value = false;
+    refreshStreamPreference();
     nextTick(() => {
       scrollToBottom();
     });

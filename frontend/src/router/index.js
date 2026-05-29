@@ -10,8 +10,9 @@ import RegisterView from '../views/RegisterView.vue';
 import FitnessView from '../views/FitnessView.vue';
 // 添加 CalendarView导入
 import CalendarView from '../views/CalendarView.vue';
-// 添加 AIRecipeResultView导入
+import HealthReportView from '../views/HealthReportView.vue';
 import AIRecipeResultView from '../views/AIRecipeResultView.vue';
+import UserGuideView from '../views/UserGuideView.vue';
 import { useUserStore } from '../stores/userStore';
 import { getAuthToken } from '../api/healthApi';
 
@@ -65,11 +66,23 @@ const routes = [
         component: CalendarView,
         meta: { requiresAuth: true }
     },
+    {
+        path: '/health-report',
+        name: 'HealthReport',
+        component: HealthReportView,
+        meta: { requiresAuth: true }
+    },
     // AI 食谱推荐结果页面（新标签页打开）
     {
         path: '/ai-recipe-result',
         name: 'AIRecipeResult',
         component: AIRecipeResultView,
+        meta: { requiresAuth: true }
+    },
+    {
+        path: '/guide',
+        name: 'UserGuide',
+        component: UserGuideView,
         meta: { requiresAuth: true }
     },
     {

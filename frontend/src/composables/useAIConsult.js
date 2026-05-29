@@ -76,6 +76,7 @@ export function useAIConsult() {
             saveChatHistory();
         } catch (err) {
             if (err.name === 'AbortError') {
+                consultStore.cancelStreaming();
                 return;
             }
             console.error('AI咨询失败:', err);
@@ -107,6 +108,21 @@ export function useAIConsult() {
         }
     };
 
+    /** 根据后端开关与用户已保存的 textProvider 决定是否走 SSE */
+    const refreshStreamPreference = async () => {
+        try {
+            const [cfg, settings] = await Promise.all([
+                healthApi.getConsultStreamEnabled(),
+                healthApi.getAiSettings().catch(() => null),
+            ]);
+            const provider = settings?.textProvider;
+            const localLm = provider === 'lmstudio' || provider === 'auto';
+            consultStore.setStreamEnabled(cfg?.streamEnabled === true && !localLm);
+        } catch {
+            consultStore.setStreamEnabled(false);
+        }
+    };
+
     const cleanupOldChatHistory = () => {
         try {
             const now = Date.now();
@@ -130,12 +146,7 @@ export function useAIConsult() {
         if (userStore.userData?.userId) {
             loadChatHistory();
         }
-        try {
-            const cfg = await healthApi.getConsultStreamEnabled();
-            consultStore.setStreamEnabled(cfg?.streamEnabled === true);
-        } catch {
-            consultStore.setStreamEnabled(false);
-        }
+        await refreshStreamPreference();
     });
 
     watch(
@@ -161,5 +172,6 @@ export function useAIConsult() {
         sendMessage,
         clearChatHistory,
         loadChatHistory,
+        refreshStreamPreference,
     };
 }

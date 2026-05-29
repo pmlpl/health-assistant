@@ -9,14 +9,15 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface RecipeRepository extends JpaRepository<Recipe, Long> {
     
     // 基础查询方法
     List<Recipe> findByTagsContaining(String tag);
-    List<Recipe> findByMealType(String mealType);
-
+    Optional<Recipe> findFirstByNameIgnoreCaseAndImageUrlIsNotNull(String name);
+    
     /** 按创建者分页，标签由 @BatchSize 批量加载 */
     Page<Recipe> findByCreatedByOrderByCreatedAtDesc(String createdBy, Pageable pageable);
     

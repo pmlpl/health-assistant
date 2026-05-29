@@ -89,6 +89,16 @@ export const useAiConsultStore = defineStore('aiConsult', () => {
         streamEnabled.value = enabled;
     }
 
+    /** 用户取消或异常中断时解除 loading，不插入错误气泡 */
+    function cancelStreaming() {
+        streaming.value = false;
+        currentAssistantDraft.value = '';
+        const last = chatMessages.value[chatMessages.value.length - 1];
+        if (last?.type === 'assistant' && last.streaming && !String(last.content || '').trim()) {
+            chatMessages.value.pop();
+        }
+    }
+
     return {
         chatMessages,
         streaming,
@@ -103,5 +113,6 @@ export const useAiConsultStore = defineStore('aiConsult', () => {
         setMessages,
         clearAll,
         setStreamEnabled,
+        cancelStreaming,
     };
 });

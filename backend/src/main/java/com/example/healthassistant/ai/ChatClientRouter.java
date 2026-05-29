@@ -1,6 +1,9 @@
 package com.example.healthassistant.ai;
 
+import com.example.healthassistant.ai.ResolvedApiKey;
+import com.example.healthassistant.config.ApiKeyResolver;
 import com.example.healthassistant.exception.AiNotConfiguredException;
+import com.example.healthassistant.service.PlatformAiQuotaService.UsageKind;
 import com.example.healthassistant.service.UserAiSettingsService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -19,11 +22,12 @@ public class ChatClientRouter {
     private final DashScopeChatClient dashScopeChatClient;
     private final OpenAiCompatibleChatClient openAiCompatibleChatClient;
     private final DoubaoChatClient doubaoChatClient;
+    private final ApiKeyResolver apiKeyResolver;
 
     @Value("${ai.dashscope.default-model:qwen-plus}")
     private String defaultDashscopeModel;
 
-    @Value("${ai.deepseek.default-model:deepseek-chat}")
+    @Value("${ai.deepseek.default-model:deepseek-v4-flash}")
     private String defaultDeepseekModel;
 
     @Value("${ai.doubao.default-model:doubao-seed-1-8-251228}")
@@ -40,12 +44,14 @@ public class ChatClientRouter {
             LmStudioChatClient lmStudioChatClient,
             DashScopeChatClient dashScopeChatClient,
             OpenAiCompatibleChatClient openAiCompatibleChatClient,
-            DoubaoChatClient doubaoChatClient) {
+            DoubaoChatClient doubaoChatClient,
+            ApiKeyResolver apiKeyResolver) {
         this.userAiSettingsService = userAiSettingsService;
         this.lmStudioChatClient = lmStudioChatClient;
         this.dashScopeChatClient = dashScopeChatClient;
         this.openAiCompatibleChatClient = openAiCompatibleChatClient;
         this.doubaoChatClient = doubaoChatClient;
+        this.apiKeyResolver = apiKeyResolver;
     }
 
     public String getLastUsedBackend() {
@@ -89,14 +95,14 @@ public class ChatClientRouter {
                                     + lmError.getMessage(), lmError);
                 }
                 System.out.println("[AI] 自动模式：LM Studio 失败，回退云端 - " + lmError.getMessage());
-                return callFirstAvailableCloud(config, messages, lmError, effective);
+                return callFirstAvailableCloud(userId, config, messages, lmError, effective);
             }
         }
 
         return switch (provider) {
-            case "dashscope" -> callDashscope(config, messages, effective);
-            case "deepseek" -> callDeepseek(config, messages, effective);
-            case "doubao" -> callDoubao(config, messages, effective);
+            case "dashscope" -> callDashscope(userId, config, messages, effective);
+            case "deepseek" -> callDeepseek(userId, config, messages, effective);
+            case "doubao" -> callDoubao(userId, config, messages, effective);
             case "other" -> callOther(config, messages, effective);
             case "lmstudio" -> callLmStudio(config, messages, effective);
             default -> callLmStudio(config, messages, effective);
@@ -117,7 +123,7 @@ public class ChatClientRouter {
                     throw new IllegalStateException(
                             "本地 LM Studio 流式不可用: " + lmError.getMessage(), lmError);
                 }
-                emitAsPseudoStream(callFirstAvailableCloud(config, messages, lmError, maxTokens), consumer);
+                emitAsPseudoStream(callFirstAvailableCloud(userId, config, messages, lmError, maxTokens), consumer);
                 return;
             }
         }
@@ -152,7 +158,9 @@ public class ChatClientRouter {
         }
         String model = resolveLmModel(config);
         trackCall("lmstudio", model, config.getLmstudioBaseUrl());
-        lmStudioChatClient.stream(config.getLmstudioBaseUrl(), model, messages, maxTokens, consumer);
+        // 与连接测试相同：始终走非流式 complete，再切片推送 SSE，避免 OpenAI stream 卡住导致 LM 无请求
+        String full = lmStudioChatClient.complete(config.getLmstudioBaseUrl(), model, messages, maxTokens);
+        emitAsPseudoStream(full, consumer);
     }
 
     private void streamDeepseek(ResolvedAiConfig config, List<ChatMessage> messages, AiStreamChunkConsumer consumer) {
@@ -179,30 +187,24 @@ public class ChatClientRouter {
         openAiCompatibleChatClient.stream(base, key, model, messages, maxTokens, consumer);
     }
 
-    private String callFirstAvailableCloud(ResolvedAiConfig config, List<ChatMessage> messages,
+    private String callFirstAvailableCloud(String userId, ResolvedAiConfig config, List<ChatMessage> messages,
             Exception lmError, int tokens) {
         List<Exception> errors = new ArrayList<>();
         errors.add(lmError);
-        if (hasKey(config.getDeepseekApiKey())) {
-            try {
-                return callDeepseek(config, messages, tokens);
-            } catch (Exception e) {
-                errors.add(e);
-            }
+        try {
+            return callDeepseek(userId, config, messages, tokens);
+        } catch (Exception e) {
+            errors.add(e);
         }
-        if (hasKey(config.getDashscopeApiKey())) {
-            try {
-                return callDashscope(config, messages, tokens);
-            } catch (Exception e) {
-                errors.add(e);
-            }
+        try {
+            return callDashscope(userId, config, messages, tokens);
+        } catch (Exception e) {
+            errors.add(e);
         }
-        if (hasKey(config.getDoubaoApiKey())) {
-            try {
-                return callDoubao(config, messages, tokens);
-            } catch (Exception e) {
-                errors.add(e);
-            }
+        try {
+            return callDoubao(userId, config, messages, tokens);
+        } catch (Exception e) {
+            errors.add(e);
         }
         if (hasKey(config.getCustomApiKey()) && config.getCustomApiBaseUrl() != null) {
             try {
@@ -214,30 +216,39 @@ public class ChatClientRouter {
         throw new IllegalStateException("自动模式：本地与云端均不可用 - " + errors.get(errors.size() - 1).getMessage());
     }
 
-    private String callDashscope(ResolvedAiConfig config, List<ChatMessage> messages, int tokens) {
-        String key = requireKey(config.getDashscopeApiKey(), "请配置通义千问 DashScope API Key");
+    private String callDashscope(String userId, ResolvedAiConfig config, List<ChatMessage> messages, int tokens) {
+        ResolvedApiKey keyRef = apiKeyResolver.resolveDashscopeForText(userId);
+        String key = requireResolvedKey(keyRef, "请配置通义千问 DashScope API Key");
         String model = resolveCloudModel(config, defaultDashscopeModel);
         trackCall("dashscope", model, "dashscope");
-        return dashScopeChatClient.complete(key, model, messages, tokens);
+        String result = dashScopeChatClient.complete(key, model, messages, tokens);
+        apiKeyResolver.recordPlatformUsageIfNeeded(userId, keyRef, UsageKind.TEXT);
+        return result;
     }
 
-    private String callDeepseek(ResolvedAiConfig config, List<ChatMessage> messages, int tokens) {
-        String key = requireKey(config.getDeepseekApiKey(), "请配置 DeepSeek API Key");
+    private String callDeepseek(String userId, ResolvedAiConfig config, List<ChatMessage> messages, int tokens) {
+        ResolvedApiKey keyRef = apiKeyResolver.resolveDeepseekForText(userId);
+        String key = requireResolvedKey(keyRef, "请配置 DeepSeek API Key");
         String model = resolveCloudModel(config, defaultDeepseekModel);
         trackCall("deepseek", model, OpenAiCompatibleChatClient.DEEPSEEK_DEFAULT_BASE);
-        return openAiCompatibleChatClient.complete(
+        String result = openAiCompatibleChatClient.complete(
                 OpenAiCompatibleChatClient.DEEPSEEK_DEFAULT_BASE,
                 key,
                 model,
                 messages,
                 tokens);
+        apiKeyResolver.recordPlatformUsageIfNeeded(userId, keyRef, UsageKind.TEXT);
+        return result;
     }
 
-    private String callDoubao(ResolvedAiConfig config, List<ChatMessage> messages, int tokens) {
-        String key = requireKey(config.getDoubaoApiKey(), "请配置豆包 API Key");
+    private String callDoubao(String userId, ResolvedAiConfig config, List<ChatMessage> messages, int tokens) {
+        ResolvedApiKey keyRef = apiKeyResolver.resolveDoubaoForText(userId);
+        String key = requireResolvedKey(keyRef, "请配置豆包 API Key");
         String model = resolveCloudModel(config, defaultDoubaoModel);
         trackCall("doubao", model, "doubao");
-        return doubaoChatClient.complete(key, model, messages, tokens);
+        String result = doubaoChatClient.complete(key, model, messages, tokens);
+        apiKeyResolver.recordPlatformUsageIfNeeded(userId, keyRef, UsageKind.TEXT);
+        return result;
     }
 
     private String callOther(ResolvedAiConfig config, List<ChatMessage> messages, int tokens) {
@@ -272,6 +283,13 @@ public class ChatClientRouter {
             return config.getCloudModel().trim();
         }
         return fallback;
+    }
+
+    private static String requireResolvedKey(ResolvedApiKey keyRef, String message) {
+        if (keyRef == null || !keyRef.isPresent()) {
+            throw new AiNotConfiguredException(message);
+        }
+        return keyRef.key();
     }
 
     private static String requireKey(String key, String message) {

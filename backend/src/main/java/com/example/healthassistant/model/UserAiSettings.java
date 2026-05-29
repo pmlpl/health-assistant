@@ -52,6 +52,22 @@ public class UserAiSettings {
     @Column(name = "pexels_api_key_enc", columnDefinition = "TEXT")
     private String pexelsApiKeyEnc;
 
+    /** 拍照识食：doubao / dashscope / lmstudio / unset */
+    @Column(name = "vision_provider", length = 32)
+    private String visionProvider;
+
+    /** 拍照识食视觉模型 ID（如 doubao-seed-2-0-lite-260215、qwen-vl-flash） */
+    @Column(name = "vision_model", length = 120)
+    private String visionModel;
+
+    /** 拍照识食专用 Key（豆包/通义；LM Studio 不需要） */
+    @Column(name = "vision_api_key_enc", columnDefinition = "TEXT")
+    private String visionApiKeyEnc;
+
+    /** 拍照走 LM Studio 时的服务地址（可独立于文本 LM） */
+    @Column(name = "vision_lmstudio_base_url", length = 200)
+    private String visionLmstudioBaseUrl;
+
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 

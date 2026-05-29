@@ -168,6 +168,7 @@ import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import ProfessionalCalendar from '../components/ProfessionalCalendar.vue';
 import { useUserStore } from '../stores/userStore';
+import { healthApi } from '../api/healthApi';
 
 const router = useRouter();
 const userStore = useUserStore();
@@ -268,13 +269,11 @@ const getDonutChartStyle = () => {
 // 加载指定日期的详细数据
 const loadDailyDetail = async (date) => {
   try {
-    const [dietResponse, fitnessResponse] = await Promise.all([
-      fetch(`/api/diet/daily/${userStore.userData.userId}/${date}`),
-      fetch(`/api/diet/fitness/daily/${userStore.userData.userId}/${date}`)
+    const userId = userStore.userData.userId;
+    const [dietRecords, fitnessRecords] = await Promise.all([
+      healthApi.getDailyDiet(userId, date),
+      healthApi.getDailyFitnessRecords(userId, date),
     ]);
-    
-    const dietRecords = dietResponse.ok ? await dietResponse.json() : [];
-    const fitnessRecords = fitnessResponse.ok ? await fitnessResponse.json() : [];
     
     const dietTotals = { calories: 0, protein: 0, carbs: 0, fat: 0 };
     const fitnessTotals = { caloriesBurned: 0 };
@@ -336,13 +335,11 @@ const initializeTodayData = () => {
 // 加载详细数据（不滚动，用于初始化）
 const loadDailyDetailWithoutScroll = async (date) => {
   try {
-    const [dietResponse, fitnessResponse] = await Promise.all([
-      fetch(`/api/diet/daily/${userStore.userData.userId}/${date}`),
-      fetch(`/api/diet/fitness/daily/${userStore.userData.userId}/${date}`)
+    const userId = userStore.userData.userId;
+    const [dietRecords, fitnessRecords] = await Promise.all([
+      healthApi.getDailyDiet(userId, date),
+      healthApi.getDailyFitnessRecords(userId, date),
     ]);
-    
-    const dietRecords = dietResponse.ok ? await dietResponse.json() : [];
-    const fitnessRecords = fitnessResponse.ok ? await fitnessResponse.json() : [];
     
     const dietTotals = { calories: 0, protein: 0, carbs: 0, fat: 0 };
     const fitnessTotals = { caloriesBurned: 0 };

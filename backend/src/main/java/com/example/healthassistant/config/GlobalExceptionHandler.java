@@ -39,6 +39,12 @@ public class GlobalExceptionHandler {
         return ApiResponse.fail(428, ex.getMessage());
     }
 
+    @ExceptionHandler(com.example.healthassistant.exception.AiQuotaExceededException.class)
+    public ResponseEntity<ApiResponse<Void>> handleAiQuotaExceeded(
+            com.example.healthassistant.exception.AiQuotaExceededException ex) {
+        return ApiResponse.fail(429, ex.getMessage());
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<Void>> handleGenericException(Exception ex) {
         log.error("未处理的服务器异常", ex);

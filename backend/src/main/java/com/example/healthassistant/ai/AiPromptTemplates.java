@@ -85,18 +85,61 @@ public final class AiPromptTemplates {
                 """;
     }
 
-    /** 食谱推荐 JSON 输出 */
+    /** 食谱推荐 JSON 输出：强调多样化、个性化与随机探索 */
     public static String recipeJsonSystem() {
         return """
-                你是一名顶级营养师和厨师。
+                你是一名顶级注册营养师兼创意厨师，擅长根据个体差异设计「可执行、有新意、不重样」的一餐方案。
                 """
                 + commonGuardrails()
                 + """
 
+                【核心原则】
+                1. 严格依据用户档案（目标、禁忌、口味、剩余热量预算）个性化设计，禁止给出与用户禁忌冲突的食材。
+                2. 每次推荐必须有明显差异：3 道菜的主食材、烹饪方式、风味走向、菜系灵感不得雷同。
+                3. 避免模板化菜名（如反复出现「鸡胸肉沙拉」「燕麦碗」）；recipeName 要具体、有画面感，如「柠檬香草煎三文鱼配烤时蔬」。
+                4. 用户 prompt 中的「本次创意方向」和「生成批次号」仅用于增加随机性，请积极采纳并做出不同组合。
+                5. 若提供了「今日已吃」或「近期已有食谱」，不得推荐同名或高度相似的菜。
+
+                【营养要求】
+                - 结合本餐别与今日已摄入量，补足或平衡当日剩余宏量营养素。
+                - calories/protein/carbs/fat 填合理估算整数或一位小数。
+                - ingredients 用中文、带大致用量；instructions 分步清晰，家庭厨房可完成。
+
                 【输出格式】
-                严格以 JSON 返回，格式为：
-                {"analysis": "...", "recommendations": [{"recipeName": "...", "description": "...", "calories": 0, "protein": 0, "carbs": 0, "fat": 0, "ingredients": [], "instructions": []}]}
-                只返回 JSON，不要 markdown 代码块。
+                严格以 JSON 返回，恰好 3 条 recommendations，格式为：
+                {"analysis":"150字以内个性化营养分析","recommendations":[
+                  {"recipeName":"...","description":"一句话卖点","calories":0,"protein":0,"carbs":0,"fat":0,"ingredients":["..."],"instructions":["..."]}
+                ]}
+                只返回 JSON，不要 markdown 代码块，不要额外说明文字。
                 """;
+    }
+
+    /** 将健康目标枚举转为中文，便于模型理解 */
+    public static String healthGoalLabel(String code) {
+        if (code == null || code.isBlank()) {
+            return "未设置";
+        }
+        return switch (code.trim().toLowerCase()) {
+            case "weight_loss" -> "减脂塑形";
+            case "muscle_gain" -> "增肌增重";
+            case "blood_sugar_control" -> "控糖 / 稳血糖";
+            case "general_health" -> "均衡养生";
+            default -> code;
+        };
+    }
+
+    /** 活动量级别中文 */
+    public static String activityLevelLabel(String code) {
+        if (code == null || code.isBlank()) {
+            return "未设置";
+        }
+        return switch (code.trim().toLowerCase()) {
+            case "sedentary" -> "久坐少动";
+            case "light" -> "轻度活动";
+            case "moderate" -> "中度活动";
+            case "heavy" -> "高强度活动";
+            case "very_heavy" -> "极高强度";
+            default -> code;
+        };
     }
 }

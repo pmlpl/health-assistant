@@ -3,7 +3,19 @@ import axios from 'axios';
 import { notifyError, messageFromError } from '../utils/notify';
 
 // 使用环境变量配置 API 基础 URL
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
+/** 与 aiStreamRunner 一致，避免生产环境漏写 /api 后缀 */
+function normalizeApiBaseUrl(base) {
+    const raw = (base || '/api').trim().replace(/\/+$/, '');
+    if (raw.endsWith('/api')) {
+        return raw;
+    }
+    if (/^https?:\/\//i.test(raw)) {
+        return `${raw}/api`;
+    }
+    return raw.startsWith('/') ? raw : `/${raw}`;
+}
+
+const API_BASE_URL = normalizeApiBaseUrl(import.meta.env.VITE_API_BASE_URL || '/api');
 const TOKEN_KEY = 'authToken';
 
 // 读取/保存 JWT，供拦截器与登录流程使用
@@ -440,5 +452,45 @@ export const healthApi = {
             showErrorToast: false,
         });
         return response.data?.data ?? response.data;
-    }
+    },
+
+    /** 保存 AI 推荐食谱到「我的食谱」 */
+    saveAiRecipe: async (payload) => {
+        const response = await api.post('/recipes/save-ai-generated', payload);
+        return response.data;
+    },
+
+    /** 手动创建食谱 */
+    createRecipe: async (payload) => {
+        const response = await api.post('/recipes/create', payload);
+        return response.data;
+    },
+
+    /** 上传食谱封面图 */
+    uploadRecipeImage: async (file) => {
+        const formData = new FormData();
+        formData.append('file', file);
+        const response = await api.post('/recipes/upload-image', formData, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+        });
+        return response.data;
+    },
+
+    /** 获取当前用户的食谱列表 */
+    getMyRecipes: async (page = 0, size = 100) => {
+        const response = await api.get('/recipes/my-ai-recipes', {
+            params: { page, size },
+        });
+        return response.data;
+    },
+
+    deleteRecipe: async (id) => {
+        const response = await api.delete(`/recipes/${id}`);
+        return response.data;
+    },
+
+    updateRecipeImage: async (id, imageUrl) => {
+        const response = await api.put(`/recipes/update-recipe-image/${id}`, { imageUrl });
+        return response.data;
+    },
 };

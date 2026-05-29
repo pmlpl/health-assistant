@@ -3,15 +3,20 @@ package com.example.healthassistant.controller;
 import com.example.healthassistant.model.Recipe;
 import com.example.healthassistant.repository.RecipeRepository;
 import com.example.healthassistant.security.AuthSupport;
+import com.example.healthassistant.service.RecipeImageStorageService;
 import com.example.healthassistant.util.ImageUrlUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -24,61 +29,77 @@ public class RecipeController {
     @Autowired
     private RecipeRepository recipeRepository;
 
+    @Autowired
+    private RecipeImageStorageService recipeImageStorageService;
+
     /**
      * 保存 AI 生成的食谱到数据库
      */
     @PostMapping("/save-ai-generated")
     public ResponseEntity<?> saveAiGeneratedRecipe(@RequestBody Map<String, Object> request) {
+        return saveUserRecipe(request, "ai");
+    }
+
+    /** 用户手动创建食谱 */
+    @PostMapping("/create")
+    public ResponseEntity<?> createManualRecipe(@RequestBody Map<String, Object> request) {
+        Object name = request.get("name");
+        if (name == null || String.valueOf(name).isBlank()) {
+            Map<String, Object> err = new HashMap<>();
+            err.put("success", false);
+            err.put("error", "食谱名称不能为空");
+            return ResponseEntity.badRequest().body(err);
+        }
+        return saveUserRecipe(request, "manual");
+    }
+
+    /** 手动创建时上传封面图 */
+    @PostMapping(value = "/upload-image", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<?> uploadRecipeImage(@RequestParam("file") MultipartFile file) {
         try {
-            Recipe recipe = new Recipe();
-            
-            recipe.setName((String) request.get("name"));
-            recipe.setDescription((String) request.get("description"));
-            recipe.setMealType((String) request.get("mealType"));
-            recipe.setCreatedBy(AuthSupport.currentUserId());
-            
-            if (request.get("calories") != null) {
-                recipe.setCalories(Double.parseDouble(request.get("calories").toString()));
+            if (file == null || file.isEmpty()) {
+                Map<String, Object> err = new HashMap<>();
+                err.put("success", false);
+                err.put("error", "请选择图片文件");
+                return ResponseEntity.badRequest().body(err);
             }
-            if (request.get("protein") != null) {
-                recipe.setProtein(Double.parseDouble(request.get("protein").toString()));
+            String contentType = file.getContentType() != null ? file.getContentType() : "image/jpeg";
+            if (!contentType.startsWith("image/")) {
+                Map<String, Object> err = new HashMap<>();
+                err.put("success", false);
+                err.put("error", "仅支持图片文件");
+                return ResponseEntity.badRequest().body(err);
             }
-            if (request.get("carbs") != null) {
-                recipe.setCarbs(Double.parseDouble(request.get("carbs").toString()));
-            }
-            if (request.get("fat") != null) {
-                recipe.setFat(Double.parseDouble(request.get("fat").toString()));
-            }
-            
-            String imageUrl = ImageUrlUtils.resolveImageUrl(request.get("imageUrl"), request.get("image"));
-            if (imageUrl != null) {
-                recipe.setImageUrl(imageUrl);
-            }
-            
-            if (request.get("ingredients") != null) {
-                @SuppressWarnings("unchecked")
-                List<String> ingredients = (List<String>) request.get("ingredients");
-                recipe.setIngredientsList(String.join("|", ingredients));
-            }
-            
-            if (request.get("instructions") != null) {
-                @SuppressWarnings("unchecked")
-                List<String> instructions = (List<String>) request.get("instructions");
-                recipe.setInstructions(String.join("|", instructions));
-            }
-            
-            recipe.setCreatedAt(LocalDateTime.now());
-            recipe.setUpdatedAt(LocalDateTime.now());
-            recipe.setIsPublic(true);
-            recipe.setSuitableForDiet(true);
-            
+            String url = recipeImageStorageService.storeManualUpload(
+                    file.getBytes(), contentType);
+            Map<String, Object> body = new HashMap<>();
+            body.put("success", true);
+            body.put("imageUrl", url);
+            return ResponseEntity.ok(body);
+        } catch (Exception e) {
+            Map<String, Object> err = new HashMap<>();
+            err.put("success", false);
+            err.put("error", "上传失败：" + e.getMessage());
+            return ResponseEntity.internalServerError().body(err);
+        }
+    }
+
+    /** 通用保存逻辑：AI / 手动创建共用 */
+    private ResponseEntity<?> saveUserRecipe(Map<String, Object> request, String sourceTag) {
+        try {
+            Recipe recipe = buildRecipeFromRequest(request);
+            applySourceTag(recipe, sourceTag);
             Recipe savedRecipe = recipeRepository.save(recipe);
-            
+            if (savedRecipe.getImageUrl() != null && savedRecipe.getName() != null) {
+                recipeImageStorageService.registerImageUrl(
+                        savedRecipe.getName(), savedRecipe.getImageUrl());
+            }
+
             Map<String, Object> response = new HashMap<>();
             response.put("id", savedRecipe.getId());
+            response.put("imageUrl", savedRecipe.getImageUrl());
             response.put("message", "食谱保存成功");
             response.put("success", true);
-            
             return ResponseEntity.ok(response);
         } catch (Exception e) {
             e.printStackTrace();
@@ -89,8 +110,66 @@ public class RecipeController {
         }
     }
 
+    private Recipe buildRecipeFromRequest(Map<String, Object> request) throws IOException {
+        Recipe recipe = new Recipe();
+        recipe.setName(String.valueOf(request.get("name")).trim());
+        recipe.setDescription(request.get("description") != null
+                ? String.valueOf(request.get("description")) : null);
+        recipe.setMealType(request.get("mealType") != null
+                ? String.valueOf(request.get("mealType")) : null);
+        recipe.setCreatedBy(AuthSupport.currentUserId());
+
+        if (request.get("calories") != null && !String.valueOf(request.get("calories")).isBlank()) {
+            recipe.setCalories(Double.parseDouble(request.get("calories").toString()));
+        }
+        if (request.get("protein") != null && !String.valueOf(request.get("protein")).isBlank()) {
+            recipe.setProtein(Double.parseDouble(request.get("protein").toString()));
+        }
+        if (request.get("carbs") != null && !String.valueOf(request.get("carbs")).isBlank()) {
+            recipe.setCarbs(Double.parseDouble(request.get("carbs").toString()));
+        }
+        if (request.get("fat") != null && !String.valueOf(request.get("fat")).isBlank()) {
+            recipe.setFat(Double.parseDouble(request.get("fat").toString()));
+        }
+
+        String imageUrl = ImageUrlUtils.resolveImageUrl(request.get("imageUrl"), request.get("image"));
+        if (imageUrl != null) {
+            try {
+                String persisted = recipeImageStorageService.persistSavedRecipeImage(imageUrl);
+                recipe.setImageUrl(persisted != null ? persisted : imageUrl);
+            } catch (IOException e) {
+                System.err.println("食谱图片落盘失败，使用原 URL: " + e.getMessage());
+                recipe.setImageUrl(imageUrl);
+            }
+        }
+
+        if (request.get("ingredients") != null) {
+            @SuppressWarnings("unchecked")
+            List<String> ingredients = (List<String>) request.get("ingredients");
+            recipe.setIngredientsList(String.join("|", ingredients));
+        }
+
+        if (request.get("instructions") != null) {
+            @SuppressWarnings("unchecked")
+            List<String> instructions = (List<String>) request.get("instructions");
+            recipe.setInstructions(String.join("|", instructions));
+        }
+
+        recipe.setCreatedAt(LocalDateTime.now());
+        recipe.setUpdatedAt(LocalDateTime.now());
+        recipe.setIsPublic(true);
+        recipe.setSuitableForDiet(true);
+        return recipe;
+    }
+
+    private static void applySourceTag(Recipe recipe, String sourceTag) {
+        List<String> tags = new ArrayList<>();
+        tags.add(sourceTag);
+        recipe.setTags(tags);
+    }
+
     /**
-     * 获取当前用户的 AI 食谱（分页，默认每页 20 条）
+     * 获取当前用户的食谱（分页，默认每页 20 条）
      */
     @GetMapping("/my-ai-recipes")
     public ResponseEntity<Map<String, Object>> getMyRecipes(

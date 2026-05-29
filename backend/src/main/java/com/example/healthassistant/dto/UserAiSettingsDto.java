@@ -2,6 +2,8 @@ package com.example.healthassistant.dto;
 
 import lombok.Data;
 
+import java.util.Map;
+
 @Data
 public class UserAiSettingsDto {
     private String deploymentMode;
@@ -22,4 +24,13 @@ public class UserAiSettingsDto {
     private boolean hasCustomKey;
     private boolean hasDoubaoKey;
     private boolean hasPexelsKey;
+    /** 拍照识食 */
+    private String visionProvider;
+    private String visionModel;
+    private String visionLmstudioBaseUrl;
+    private boolean visionConfigured;
+    private String visionApiKeyMasked;
+    private boolean hasVisionApiKey;
+    /** 平台试用剩余额度 */
+    private Map<String, Object> platformQuota;
 }

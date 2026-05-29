@@ -14,4 +14,8 @@ public class UserAiSettingsUpdateDto {
     private String customApiKey;
     private String doubaoApiKey;
     private String pexelsApiKey;
+    private String visionProvider;
+    private String visionModel;
+    private String visionApiKey;
+    private String visionLmstudioBaseUrl;
 }

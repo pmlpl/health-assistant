@@ -91,7 +91,12 @@ public class EnvConfig {
         return get("DOUBAO_API_KEY");
     }
 
-    /** Pexels 食谱配图 API Key */
+    public static String getDeepseekApiKey() {
+        return get("DEEPSEEK_API_KEY");
+    }
+
+    /** @deprecated 已改用豆包 Seedream 生图 */
+    @Deprecated
     public static String getPexelsApiKey() {
         return get("PEXELS_API_KEY");
     }

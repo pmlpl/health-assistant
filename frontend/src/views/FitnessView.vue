@@ -284,13 +284,16 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import { useUserStore } from '../stores/userStore';
 import { healthApi } from '../api/healthApi';
 import { useAiPageJobsStore } from '../stores/aiPageJobsStore';
 import { aiPageJobRunner } from '../services/aiPageJobRunner';
 import { AI_PAGE_JOB_IDS } from '../constants/aiPageJobIds';
 import { ElNotification, ElMessageBox } from 'element-plus';
+import { savePageDraft, loadPageDraft, clearPageDraft } from '../utils/pageDraftStorage';
+
+const FITNESS_DRAFT_KEY = 'fitness_form_draft';
 
 const userStore = useUserStore();
 const aiPageJobs = useAiPageJobsStore();
@@ -335,6 +338,36 @@ const saving = ref(false);
 const loading = ref(false);
 // AI分析结果
 const aiAnalysis = ref('');
+
+/** 保存健身页未提交草稿 */
+const saveFitnessDraft = () => {
+  if (fitnessItems.value.length === 0 && !aiAnalysis.value) {
+    clearPageDraft(FITNESS_DRAFT_KEY);
+    return;
+  }
+  savePageDraft(FITNESS_DRAFT_KEY, {
+    fitnessItems: fitnessItems.value,
+    newFitnessEntry: newFitnessEntry.value,
+    aiAnalysis: aiAnalysis.value,
+  });
+};
+
+/** 恢复健身页草稿 */
+const restoreFitnessDraft = () => {
+  const draft = loadPageDraft(FITNESS_DRAFT_KEY);
+  if (!draft) return;
+  if (Array.isArray(draft.fitnessItems) && draft.fitnessItems.length > 0) {
+    fitnessItems.value = draft.fitnessItems;
+  }
+  if (draft.newFitnessEntry) {
+    newFitnessEntry.value = { ...newFitnessEntry.value, ...draft.newFitnessEntry };
+  }
+  if (draft.aiAnalysis) {
+    aiAnalysis.value = draft.aiAnalysis;
+  }
+};
+
+watch([fitnessItems, newFitnessEntry, aiAnalysis], () => saveFitnessDraft(), { deep: true });
 
 // 批量删除相关
 const selectedRecords = ref([]);
@@ -622,6 +655,7 @@ const saveFitnessRecord = async () => {
       
       // 清空健身项目列表，准备重新加载
       fitnessItems.value = [];
+      clearPageDraft(FITNESS_DRAFT_KEY);
       
       // 重新加载数据，确保从后端获取最新记录
       await loadTodayData();
@@ -874,6 +908,7 @@ const deleteRecord = async (recordId, index) => {
 // 组件挂载时加载数据
 onMounted(() => {
   loadTodayData();
+  restoreFitnessDraft();
   restoreAiPageJobs();
 });
 </script>

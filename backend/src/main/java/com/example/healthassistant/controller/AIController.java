@@ -6,15 +6,15 @@ import com.example.healthassistant.security.AuthSupport;
 import com.example.healthassistant.service.HealthAiService;
 import com.example.healthassistant.service.RecommendationService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.task.AsyncTaskExecutor;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
-
-import java.util.concurrent.CompletableFuture;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -32,8 +32,15 @@ public class AIController {
     @Autowired
     private ChatClientRouter chatClientRouter;
 
+    @Autowired
+    @Qualifier("aiConsultStreamExecutor")
+    private AsyncTaskExecutor aiConsultStreamExecutor;
+
     @Value("${ai.consult.stream-enabled:true}")
     private boolean streamEnabled;
+
+    @Value("${ai.consult.sse-timeout-ms:600000}")
+    private long consultSseTimeoutMs;
 
     @PostMapping("/nutrition-advice")
     public ResponseEntity<Map<String, Object>> getNutritionAdvice(@RequestBody Map<String, Object> request) {
@@ -90,13 +97,32 @@ public class AIController {
             err.completeWithError(new IllegalArgumentException("查询内容不能为空"));
             return err;
         }
-        SseEmitter emitter = new SseEmitter(600_000L);
+        SseEmitter emitter = new SseEmitter(consultSseTimeoutMs);
         SecurityContext securityContext = SecurityContextHolder.getContext();
         String trimmedQuery = query.trim();
-        CompletableFuture.runAsync(() -> {
+
+        // 超时/异常时主动结束 SSE，避免前端 fetch 永久挂起
+        emitter.onTimeout(() -> completeSseWithError(emitter, "AI 咨询流式响应超时，请重试或关闭流式模式"));
+        emitter.onError(ex -> completeSseWithError(emitter,
+                ex.getMessage() != null ? ex.getMessage() : "流式连接异常"));
+
+        // 在返回 SseEmitter 前立即发送 ready，让代理/浏览器尽快收到首字节
+        try {
+            emitter.send(SseEmitter.event().name("ready").data("ok"));
+        } catch (Exception readyEx) {
+            emitter.completeWithError(readyEx);
+            return emitter;
+        }
+
+        aiConsultStreamExecutor.execute(() -> {
             SecurityContextHolder.setContext(securityContext);
             try {
+                System.out.println("[AI] SSE 异步任务开始 userId=" + userId);
                 healthAiService.streamNutritionAdvice(userId, trimmedQuery, emitter);
+            } catch (Exception asyncEx) {
+                System.err.println("[AI] SSE 异步任务异常: " + asyncEx.getMessage());
+                completeSseWithError(emitter,
+                        asyncEx.getMessage() != null ? asyncEx.getMessage() : "AI 咨询失败");
             } finally {
                 SecurityContextHolder.clearContext();
             }
@@ -185,6 +211,19 @@ public class AIController {
             errorResponse.put("success", false);
             errorResponse.put("error", "健身分析失败: " + e.getMessage());
             return ResponseEntity.internalServerError().body(errorResponse);
+        }
+    }
+
+    /** SSE 超时或错误时向前端推送 error 事件并关闭连接 */
+    private static void completeSseWithError(SseEmitter emitter, String message) {
+        try {
+            emitter.send(SseEmitter.event().name("error").data(message));
+            emitter.complete();
+        } catch (Exception ignored) {
+            try {
+                emitter.complete();
+            } catch (Exception ignoredAgain) {
+            }
         }
     }
 

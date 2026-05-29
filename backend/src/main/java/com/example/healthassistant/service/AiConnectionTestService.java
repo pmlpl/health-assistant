@@ -17,6 +17,7 @@ public class AiConnectionTestService {
     private final UserAiSettingsService userAiSettingsService;
     private final LmStudioChatClient lmStudioChatClient;
     private final DashScopeChatClient dashScopeChatClient;
+    private final DashScopeVisionClient dashScopeVisionClient;
     private final OpenAiCompatibleChatClient openAiCompatibleChatClient;
     private final DoubaoChatClient doubaoChatClient;
     private final RestTemplate restTemplate;
@@ -24,22 +25,29 @@ public class AiConnectionTestService {
     @Value("${ai.dashscope.default-model:qwen-plus}")
     private String defaultDashscopeModel;
 
-    @Value("${ai.deepseek.default-model:deepseek-chat}")
+    @Value("${ai.deepseek.default-model:deepseek-v4-flash}")
     private String defaultDeepseekModel;
 
     @Value("${ai.doubao.default-model:doubao-seed-1-8-251228}")
     private String defaultDoubaoModel;
 
+    @Value("${doubao.vision.model.name:doubao-seed-2-0-lite-260215}")
+    private String defaultDoubaoVisionModel;
+
+    private static final String ARK_BASE_URL = "https://ark.cn-beijing.volces.com/api/v3";
+
     public AiConnectionTestService(
             UserAiSettingsService userAiSettingsService,
             LmStudioChatClient lmStudioChatClient,
             DashScopeChatClient dashScopeChatClient,
+            DashScopeVisionClient dashScopeVisionClient,
             OpenAiCompatibleChatClient openAiCompatibleChatClient,
             DoubaoChatClient doubaoChatClient,
             RestTemplate restTemplate) {
         this.userAiSettingsService = userAiSettingsService;
         this.lmStudioChatClient = lmStudioChatClient;
         this.dashScopeChatClient = dashScopeChatClient;
+        this.dashScopeVisionClient = dashScopeVisionClient;
         this.openAiCompatibleChatClient = openAiCompatibleChatClient;
         this.doubaoChatClient = doubaoChatClient;
         this.restTemplate = restTemplate;
@@ -52,8 +60,10 @@ public class AiConnectionTestService {
         ConnectionTestResult testResult = switch (type) {
             case "lmstudio" -> testLmStudio(request, config);
             case "dashscope" -> testDashscope(request, config);
-            case "deepseek" -> testDeepseek(request, config);
+            case "dashscope-vision" -> testDashscopeVision(request, config);
             case "doubao" -> testDoubao(request, config);
+            case "doubao-vision" -> testDoubaoVision(request, config);
+            case "deepseek" -> testDeepseek(request, config);
             case "other" -> testOther(request, config);
             case "pexels" -> testPexelsDetailed(request, config);
             default -> new ConnectionTestResult(false, "未知测试类型: " + type);
@@ -82,6 +92,61 @@ public class AiConnectionTestService {
             model = defaultDashscopeModel;
         }
         return dashScopeChatClient.testConnectionDetailed(key, model);
+    }
+
+    private ConnectionTestResult testDashscopeVision(AiConnectionTestRequestDto request, ResolvedAiConfig config) {
+        String key = pickVisionKey(request, config);
+        String model = pick(request != null ? request.getVisionModel() : null, config.getVisionModel());
+        if (model == null || model.isBlank() || !model.toLowerCase().contains("vl")) {
+            model = dashScopeVisionClient.getDefaultVisionModel();
+        }
+        return dashScopeVisionClient.testVisionDetailed(key, model);
+    }
+
+    private ConnectionTestResult testDoubaoVision(AiConnectionTestRequestDto request, ResolvedAiConfig config) {
+        String key = pickVisionKeyDoubao(request, config);
+        if (key == null || key.isBlank()) {
+            return new ConnectionTestResult(false, "请先填写豆包 API Key（拍照识食专用或对话共用）");
+        }
+        String model = pick(request != null ? request.getVisionModel() : null, config.getVisionModel());
+        if (model == null || model.isBlank()) {
+            model = defaultDoubaoVisionModel;
+        }
+        try {
+            openAiCompatibleChatClient.completeWithVisionImage(
+                    ARK_BASE_URL,
+                    key,
+                    model,
+                    "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+                    "你是助手",
+                    "回复 OK",
+                    16);
+            return new ConnectionTestResult(true, "豆包视觉连接成功，模型：" + model);
+        } catch (Exception e) {
+            return new ConnectionTestResult(false, "豆包视觉连接失败：" + rootMessage(e));
+        }
+    }
+
+    private String pickVisionKey(AiConnectionTestRequestDto request, ResolvedAiConfig config) {
+        String preview = request != null ? request.getVisionApiKey() : null;
+        if (preview != null && !preview.isBlank()) {
+            return preview.trim();
+        }
+        if (config.getVisionApiKey() != null && !config.getVisionApiKey().isBlank()) {
+            return config.getVisionApiKey();
+        }
+        return pick(request != null ? request.getDashscopeApiKey() : null, config.getDashscopeApiKey());
+    }
+
+    private String pickVisionKeyDoubao(AiConnectionTestRequestDto request, ResolvedAiConfig config) {
+        String preview = request != null ? request.getVisionApiKey() : null;
+        if (preview != null && !preview.isBlank()) {
+            return preview.trim();
+        }
+        if (config.getVisionApiKey() != null && !config.getVisionApiKey().isBlank()) {
+            return config.getVisionApiKey();
+        }
+        return pick(request != null ? request.getDoubaoApiKey() : null, config.getDoubaoApiKey());
     }
 
     private ConnectionTestResult testDeepseek(AiConnectionTestRequestDto request, ResolvedAiConfig config) {

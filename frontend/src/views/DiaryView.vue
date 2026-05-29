@@ -329,7 +329,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { healthApi } from '../api/healthApi'
 import { useUserStore } from '../stores/userStore'
 import { useAiPageJobsStore } from '../stores/aiPageJobsStore'
@@ -337,6 +337,10 @@ import { aiPageJobRunner } from '../services/aiPageJobRunner'
 import { AI_PAGE_JOB_IDS } from '../constants/aiPageJobIds'
 import ManualNutritionInput from '../components/ManualNutritionInput.vue'
 import { ElNotification, ElMessageBox } from 'element-plus'
+import { savePageDraft, loadPageDraft, clearPageDraft } from '../utils/pageDraftStorage'
+
+// 饮食日记未保存表单草稿键（切路由后恢复）
+const DIARY_DRAFT_KEY = 'diary_form_draft'
 
 // 使用环境变量配置 API 基础 URL
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api'
@@ -460,6 +464,68 @@ const addFoodItem = () => {
 const removeFoodItem = (index) => {
   foodItems.value.splice(index, 1)
 }
+
+// 将拍照识图结果写入食物列表（供上传回调与切路由恢复共用）
+const applyImageRecognizeResult = (result) => {
+  if (!result?.foods?.length) return
+  foodItems.value = result.foods.map((food) => ({
+    name: food.name,
+    quantity: food.weightGrams,
+    unit: '克',
+  }))
+  saveDiaryDraft()
+}
+
+/** 持久化当前表单草稿到 sessionStorage */
+const saveDiaryDraft = () => {
+  if (foodItems.value.length === 0 && !hasAnalyzed.value && !nutritionAnalysis.value) {
+    clearPageDraft(DIARY_DRAFT_KEY)
+    return
+  }
+  savePageDraft(DIARY_DRAFT_KEY, {
+    foodItems: foodItems.value,
+    newDiaryEntry: newDiaryEntry.value,
+    recognizedFoods: recognizedFoods.value,
+    nutritionEstimate: nutritionEstimate.value,
+    hasAnalyzed: hasAnalyzed.value,
+    currentFoodItem: currentFoodItem.value,
+    nutritionAnalysis: nutritionAnalysis.value,
+  })
+}
+
+/** 从 sessionStorage 恢复未保存的表单 */
+const restoreDiaryDraft = () => {
+  const draft = loadPageDraft(DIARY_DRAFT_KEY)
+  if (!draft) return
+  if (Array.isArray(draft.foodItems) && draft.foodItems.length > 0) {
+    foodItems.value = draft.foodItems
+  }
+  if (draft.newDiaryEntry) {
+    newDiaryEntry.value = { ...newDiaryEntry.value, ...draft.newDiaryEntry }
+  }
+  if (Array.isArray(draft.recognizedFoods)) {
+    recognizedFoods.value = draft.recognizedFoods
+  }
+  if (draft.nutritionEstimate) {
+    nutritionEstimate.value = draft.nutritionEstimate
+  }
+  if (typeof draft.hasAnalyzed === 'boolean') {
+    hasAnalyzed.value = draft.hasAnalyzed
+  }
+  if (draft.currentFoodItem) {
+    currentFoodItem.value = { ...currentFoodItem.value, ...draft.currentFoodItem }
+  }
+  if (draft.nutritionAnalysis) {
+    nutritionAnalysis.value = draft.nutritionAnalysis
+  }
+}
+
+// 表单变更时自动保存草稿
+watch(
+  [foodItems, newDiaryEntry, recognizedFoods, nutritionEstimate, hasAnalyzed, nutritionAnalysis],
+  () => saveDiaryDraft(),
+  { deep: true }
+)
 
 // 将智能分析结果应用到表单
 const applySmartAnalyzeResult = (result) => {
@@ -684,6 +750,7 @@ const resetForm = () => {
   showManualInput.value = false
   currentManualFood.value = null
   hasAnalyzed.value = false
+  clearPageDraft(DIARY_DRAFT_KEY)
 }
 
 // AI 营养分析
@@ -790,16 +857,18 @@ const handleImageUpload = async (event) => {
     const result = await aiPageJobRunner.runDiaryImageRecognize(formData)
     if (!result) return
     if (result.foods && result.foods.length > 0) {
-      // 清空现有食物项
-      foodItems.value = [];
-      // 将识别结果填充到食物列表
-      result.foods.forEach(food => {
-        foodItems.value.push({
-          name: food.name,
-          quantity: food.weightGrams,
-          unit: '克',
+      const mockItems = result.foods.filter((f) => String(f.name || '').startsWith('模拟-'));
+      if (mockItems.length > 0) {
+        ElNotification({
+          title: '⚠️ 未使用真实识别',
+          message: '返回了演示数据，请配置豆包 API Key 与视觉模型后重试。',
+          type: 'warning',
+          duration: 6000,
+          offset: 80,
         });
-      });
+        return;
+      }
+      applyImageRecognizeResult(result);
       ElNotification({
         title: '📸 识别成功',
         message: `共识别到 ${result.foods.length} 种食物`,
@@ -819,13 +888,37 @@ const handleImageUpload = async (event) => {
 
   } catch (err) {
     console.error('图片识别失败:', err);
-    
-    // 检查是否是 API 配额限制错误
-    const isQuotaError = err.message && (
-      err.message.includes('配额限制') || 
-      err.message.includes('429') ||
-      err.message.includes('TooManyRequests') ||
-      err.message.includes('inference limit')
+
+    const status = err.response?.status;
+    const errMsg = err.response?.data?.error || err.response?.data?.message || err.message;
+
+    if (status === 429 || errMsg?.includes('试用额度') || errMsg?.includes('平台试用')) {
+      ElNotification({
+        title: '平台试用已用尽',
+        message: errMsg || '请在右上角「AI 设置」填写您自己的拍照 API Key，或查看「使用手册」。',
+        type: 'warning',
+        duration: 10000,
+        offset: 80,
+      });
+      return;
+    }
+
+    if (status === 428 || errMsg?.includes('AI 设置') || errMsg?.includes('拍照识食')) {
+      ElNotification({
+        title: '需要配置拍照识食',
+        message: errMsg || '请在右上角「AI 设置」选择视觉服务商并填写 Key，详见「使用手册」。',
+        type: 'warning',
+        duration: 8000,
+        offset: 80,
+      });
+      return;
+    }
+
+    const isQuotaError = errMsg && (
+      errMsg.includes('配额限制') ||
+      errMsg.includes('429') ||
+      errMsg.includes('TooManyRequests') ||
+      errMsg.includes('inference limit')
     );
     
     if (isQuotaError) {
@@ -835,7 +928,7 @@ const handleImageUpload = async (event) => {
                  '原因：您的 AI 账户已达到推理次数限制\n' +
                  '解决方案：请登录豆包 AI 控制台调整模型配额\n' +
                  '或暂时使用手动输入功能记录食物。\n\n' +
-                 '错误详情：' + err.message,
+                 '错误详情：' + errMsg,
         type: 'warning',
         duration: 8000,
         offset: 80,
@@ -844,7 +937,7 @@ const handleImageUpload = async (event) => {
     } else {
       ElNotification({
         title: '❌ 识别失败',
-        message: '图片识别失败：' + err.message,
+        message: '图片识别失败：' + errMsg,
         type: 'error',
         duration: 5000,
         offset: 80
@@ -857,6 +950,10 @@ const handleImageUpload = async (event) => {
 
 // 从全局任务 store 恢复切路由前的分析结果
 const restoreAiPageJobs = () => {
+  const img = aiPageJobs.jobs[AI_PAGE_JOB_IDS.DIARY_IMAGE_RECOGNIZE]
+  if (img.status === 'success' && img.result?.foods?.length && foodItems.value.length === 0) {
+    applyImageRecognizeResult(img.result)
+  }
   const smart = aiPageJobs.jobs[AI_PAGE_JOB_IDS.DIARY_SMART_ANALYZE]
   if (smart.status === 'success' && smart.result) {
     applySmartAnalyzeResult(smart.result)
@@ -1090,6 +1187,7 @@ onMounted(async () => {
   // 如果已认证，加载记录
   if (userStore.isAuthenticated) {
     await loadTodayRecords()
+    restoreDiaryDraft()
     restoreAiPageJobs()
   } else {
     // 尝试从 localStorage 恢复用户状态
