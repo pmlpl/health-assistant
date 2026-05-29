@@ -1,10 +1,10 @@
-<!-- src/App.vue -->
+<!-- src/App.vue — Bauhaus 应用壳层 -->
 <template>
-  <div id="app" @click="handleClick">
-    <!-- 只有在需要显示导航栏的页面才渲染 -->
+  <div id="app">
     <template v-if="showNavigation">
       <Header />
-      <Navigation />
+      <TopNav :active-route="route.name" />
+      <BottomNav :active-route="route.name" />
     </template>
 
     <div
@@ -12,56 +12,38 @@
       class="ai-global-task-bar"
       role="status"
     >
-      <span v-if="aiPageJobs.anyRunning">⏳ 饮食/健身 AI 分析进行中…</span>
-      <span v-else-if="aiConsult.streaming">💬 AI 精灵正在回复…</span>
+      <span v-if="aiPageJobs.anyRunning">智能分析中...</span>
+      <span v-else-if="aiConsult.streaming">AI 精灵正在回复…</span>
     </div>
 
-    <main class="main-content" :class="{ 'no-navigation': !showNavigation }">
+    <main class="main-content" :class="{ 'main-content--guest': !showNavigation }">
       <LoadingSpinner :loading="userStore.loading" />
-
-      <router-view />
+      <AnimatedRouterView />
     </main>
 
-    <!-- 只有在需要显示导航栏的页面才渲染 -->
-    <template v-if="showNavigation">
-      <Footer />
-    </template>
-
-    <!-- 彩虹星星点击特效容器 -->
-    <div class="click-effects-container">
-      <div
-        v-for="effect in clickEffects"
-        :key="effect.id"
-        ref="starElements"
-        class="star-effect"
-        :style="effect.style"
-      >
-        ⭐
-      </div>
-    </div>
-
-    <!-- 返回顶部按钮 -->
     <button
       v-if="showNavigation && showBackToTop"
       class="back-to-top"
+      type="button"
+      title="回到顶部"
+      aria-label="回到顶部"
       @click="scrollToTop"
-      title="返回顶部"
     >
-      <span class="back-to-top-icon">↑</span>
+      <span class="back-to-top__icon" aria-hidden="true">↑</span>
     </button>
 
-    <!-- AI 精灵悬浮球 -->
     <AISpirit v-if="showNavigation" />
   </div>
 </template>
 
 <script setup>
-import { onMounted, computed, ref, onUnmounted, onUpdated } from 'vue';
+import { onMounted, computed, ref, onUnmounted } from 'vue';
 import { useRoute } from 'vue-router';
 import Header from './components/layout/Header.vue';
-import Navigation from './components/layout/Navigation.vue';
-import Footer from './components/layout/Footer.vue';
+import TopNav from './components/layout/TopNav.vue';
+import BottomNav from './components/layout/BottomNav.vue';
 import LoadingSpinner from './components/common/LoadingSpinner.vue';
+import AnimatedRouterView from './components/layout/AnimatedRouterView.vue';
 import AISpirit from './components/AISpirit.vue';
 import { useUserStore } from './stores/userStore';
 import { useAiPageJobsStore } from './stores/aiPageJobsStore';
@@ -72,166 +54,38 @@ const aiPageJobs = useAiPageJobsStore();
 const aiConsult = useAiConsultStore();
 const route = useRoute();
 
-// 计算属性：判断是否显示导航栏
 const showNavigation = computed(() => {
-  // 登录和注册页面不显示导航栏
   const guestRoutes = ['/login', '/register'];
   return !guestRoutes.includes(route.path);
 });
 
-// 点击特效状态
-const clickEffects = ref([]);
-const starElements = ref([]);
-let effectId = 0;
-
-// 返回顶部按钮显示状态
 const showBackToTop = ref(false);
 
-// 监听滚动事件
+/** 滚动超过阈值时显示回到顶部 */
 const handleScroll = () => {
   showBackToTop.value = window.scrollY > 300;
 };
 
-// 返回顶部
+/** 平滑回顶（原生 API，无 GSAP） */
 const scrollToTop = () => {
-  window.scrollTo({
-    top: 0,
-    behavior: 'smooth'
-  });
+  window.scrollTo({ top: 0, behavior: 'smooth' });
 };
-
-// 彩虹颜色数组
-const rainbowColors = [
-  '#ff0000', // 红
-  '#ff7f00', // 橙
-  '#ffff00', // 黄
-  '#00ff00', // 绿
-  '#0000ff', // 蓝
-  '#4b0082', // 靛
-  '#9400d3', // 紫
-  '#ff1493', // 深粉
-  '#00ffff', // 青
-  '#ff69b4', // 热粉
-];
-
-// 处理点击事件
-const handleClick = (event) => {
-  // 获取点击位置
-  const x = event.clientX;
-  const y = event.clientY;
-
-  // 创建多个星星
-  for (let i = 0; i < 8; i++) {
-    createStar(x, y, i);
-  }
-};
-
-// 创建单个星星
-const createStar = (x, y, index) => {
-  const id = effectId++;
-  const angle = (index / 8) * 360;
-  const color = rainbowColors[Math.floor(Math.random() * rainbowColors.length)];
-  const size = 16 + Math.random() * 16;
-  const duration = 600 + Math.random() * 400;
-  
-  // 计算飞散方向的偏移量
-  const angleRad = (index / 8) * 2 * Math.PI;
-  const scatterX = Math.cos(angleRad) * 80;
-  const scatterY = Math.sin(angleRad) * 80;
-  
-  // 创建关键帧动画
-  const keyframes = [
-    { 
-      transform: 'translate(-50%, -50%) scale(0) rotate(0deg)', 
-      opacity: '1' 
-    },
-    { 
-      transform: 'translate(-50%, -50%) scale(1.5) rotate(180deg)', 
-      opacity: '1',
-      offset: 0.2
-    },
-    { 
-      transform: `translate(-50%, -50%) translate(${scatterX}px, ${scatterY}px) scale(0.3) rotate(360deg)`, 
-      opacity: '0' 
-    }
-  ];
-
-  const effect = {
-    id,
-    element: null,
-    animated: false,
-    style: {
-      left: `${x}px`,
-      top: `${y}px`,
-      fontSize: `${size}px`,
-      color: color,
-    },
-    animation: {
-      keyframes,
-      duration,
-      easing: 'ease-out',
-      fill: 'forwards'
-    }
-  };
-
-  clickEffects.value.push(effect);
-  
-  // 下一帧获取元素并应用动画
-  setTimeout(() => {
-    const index = clickEffects.value.findIndex(e => e.id === id);
-    if (index > -1 && starElements.value[index]) {
-      effect.element = starElements.value[index];
-    }
-  }, 0);
-
-  // 动画结束后移除
-  setTimeout(() => {
-    const idx = clickEffects.value.findIndex((e) => e.id === id);
-    if (idx > -1) {
-      clickEffects.value.splice(idx, 1);
-    }
-  }, duration);
-};
-
-onUpdated(() => {
-  // 为每个星星元素应用 Web Animations API 动画
-  clickEffects.value.forEach((effect) => {
-    if (effect.element && !effect.animated) {
-      effect.element.animate(
-        effect.animation.keyframes,
-        {
-          duration: effect.animation.duration,
-          easing: effect.animation.easing,
-          fill: effect.animation.fill
-        }
-      );
-      effect.animated = true;
-    }
-  });
-});
 
 onMounted(() => {
-  // 应用初始化逻辑
   userStore.initializeStore();
-
-  // 添加滚动监听
   window.addEventListener('scroll', handleScroll);
 });
 
 onUnmounted(() => {
-  // 移除滚动监听
   window.removeEventListener('scroll', handleScroll);
 });
 </script>
 
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
-
 * {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
-  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Inter', 'Segoe UI', Roboto, sans-serif;
 }
 
 html {
@@ -239,13 +93,11 @@ html {
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Inter', 'Segoe UI', Roboto, sans-serif;
-  color: #1d1d1f;
-  background: #ffffff;
+  font-family: var(--font-body);
+  color: var(--color-text);
+  background: var(--color-bg);
   overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  text-rendering: optimizeLegibility;
 }
 
 #app {
@@ -253,175 +105,124 @@ body {
   display: flex;
   flex-direction: column;
   width: 100%;
-  background: #ffffff;
 }
 
 .main-content {
   flex: 1;
+  width: 100%;
+  padding-top: var(--header-height);
+  padding-bottom: var(--bottom-nav-height);
+}
+
+.main-content--guest {
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+@media (min-width: 1024px) {
+  .main-content:not(.main-content--guest) {
+    width: 100%;
+    margin-left: 0;
+    padding-top: var(--shell-top-offset);
+    padding-inline: var(--space-6);
+    padding-bottom: var(--space-8);
+    box-sizing: border-box;
+  }
+}
+
+.main-content--guest {
   display: flex;
   flex-direction: column;
-  width: 100%;
-  padding-top: 104px;
+  min-height: 100vh;
+  min-height: 100dvh;
 }
 
-.main-content.no-navigation {
+.main-content--guest > * {
   flex: 1;
-  display: flex;
-  flex-direction: row;
   width: 100%;
-  padding-top: 0;
-}
-
-.main-content.no-navigation > div {
-  flex: 1;
-  display: flex;
-  width: 100%;
+  min-height: 0;
 }
 
 ::selection {
-  background: rgba(0, 122, 255, 0.2);
-  color: #1d1d1f;
-}
-
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-::-webkit-scrollbar-thumb {
-  background: #d1d1d6;
-  border-radius: 4px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: #a1a1a6;
+  background: var(--color-muted);
+  color: var(--color-foreground);
 }
 
 a {
-  color: #007aff;
+  color: var(--color-foreground);
   text-decoration: none;
-  transition: color 0.3s ease;
+  transition: color var(--transition-fast);
 }
 
 a:hover {
-  color: #0066d6;
+  color: var(--color-muted-foreground);
 }
 
-button {
-  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Inter', 'Segoe UI', Roboto, sans-serif;
-}
-
-input, textarea, select {
-  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Inter', 'Segoe UI', Roboto, sans-serif;
-}
-
-/* 点击特效容器 */
-.click-effects-container {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
-  z-index: 99999999999999;
-  overflow: hidden;
-}
-
-/* 星星特效 */
-.star-effect {
-  position: absolute;
-  transform: translate(-50%, -50%);
-  pointer-events: none;
-  filter: drop-shadow(0 0 8px var(--color)) drop-shadow(0 0 16px var(--color));
-  will-change: transform, opacity;
-}
-
-/* 返回顶部按钮 */
+/* 回到顶部：Bauhaus 红块 + 硬阴影 */
 .back-to-top {
   position: fixed;
-  bottom: 32px;
-  right: 32px;
-  width: 56px;
-  height: 56px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #007aff 0%, #5856d6 100%);
-  border: none;
+  bottom: calc(var(--bottom-nav-height) + var(--space-4));
+  right: var(--space-4);
+  width: 48px;
+  height: 48px;
+  padding: 0;
+  border-radius: 0;
+  background: var(--color-primary-red);
+  color: #fff;
+  border: var(--border-width) solid var(--color-border);
   cursor: pointer;
+  font-size: 1.1rem;
+  font-weight: var(--font-weight-bold);
+  box-shadow: var(--shadow-md);
+  z-index: 999;
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 8px 32px rgba(0, 122, 255, 0.4);
-  transition: all 0.3s cubic-bezier(0.25, 0.1, 0.25, 1);
-  z-index: 9999;
-  animation: fadeInUp 0.3s ease;
 }
 
 .back-to-top:hover {
-  transform: translateY(-4px) scale(1.05);
-  box-shadow: 0 12px 40px rgba(0, 122, 255, 0.5);
+  transform: translateY(-2px);
 }
 
 .back-to-top:active {
-  transform: translateY(-2px) scale(0.98);
+  transform: translate(2px, 2px);
+  box-shadow: none;
 }
 
-.back-to-top-icon {
-  font-size: 24px;
-  color: white;
-  font-weight: 700;
+.back-to-top__icon {
   line-height: 1;
+}
+
+@media (min-width: 1024px) {
+  .back-to-top {
+    bottom: var(--space-8);
+  }
 }
 
 .ai-global-task-bar {
   position: fixed;
-  top: 72px;
+  top: calc(var(--header-height) + var(--space-2));
   left: 50%;
   transform: translateX(-50%);
   z-index: 9998;
-  padding: 8px 20px;
-  background: rgba(0, 122, 255, 0.92);
-  color: #fff;
-  font-size: 14px;
-  font-weight: 500;
-  border-radius: 999px;
-  box-shadow: 0 4px 16px rgba(0, 122, 255, 0.35);
+  padding: var(--space-2) var(--space-5);
+  background: var(--color-primary-yellow);
+  color: var(--color-foreground);
+  font-family: var(--font-body);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  border-radius: 0;
+  border: var(--border-width) solid var(--color-border);
+  box-shadow: var(--shadow-md);
   pointer-events: none;
 }
 
-@keyframes fadeInUp {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-/* 移动端适配 */
-@media (max-width: 768px) {
-  .star-effect {
-    font-size: 14px !important;
-  }
-
-  .back-to-top {
-    width: 48px;
-    height: 48px;
-    bottom: 20px;
-    right: 20px;
-  }
-
-  .back-to-top-icon {
-    font-size: 20px;
-  }
-
-  .main-content {
-    padding-top: 96px;
+@media (min-width: 1024px) {
+  .ai-global-task-bar {
+    top: calc(var(--shell-top-offset) + var(--space-2));
   }
 }
 </style>

@@ -1,58 +1,42 @@
-/* 全局样式变量 */
+/* 兼容旧组件：映射到 Minimalist Monochrome tokens */
+@import './tokens.css';
+
 :root {
-  /* 主色调 - 统一使用QQ蓝 */
-  --primary-color: #667eea;
-  --primary-dark: #5a6fd8;
-  --primary-light: #768bff;
-  
-  /* 辅助色 */
-  --secondary-color: #764ba2;
-  --accent-color: #4a6fa5;
-  
-  /* 中性色 */
-  --white: #ffffff;
-  --light-gray: #f8f9fa;
-  --gray: #e9ecef;
-  --dark-gray: #6c757d;
-  --black: #212529;
-  
-  /* 状态色 */
-  --success: #28a745;
-  --warning: #ffc107;
-  --danger: #dc3545;
-  --info: #17a2b8;
-  
-  /* 字体 */
-  --font-family: 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, 'Roboto', sans-serif;
-  --font-size-small: 0.875rem;
-  --font-size-base: 1rem;
-  --font-size-large: 1.125rem;
-  --font-size-xl: 1.25rem;
-  --font-size-xxl: 1.5rem;
-  
-  /* 间距 */
-  --spacing-xs: 0.25rem;
-  --spacing-sm: 0.5rem;
-  --spacing-md: 1rem;
-  --spacing-lg: 1.5rem;
-  --spacing-xl: 2rem;
-  --spacing-xxl: 3rem;
-  
-  /* 圆角 */
-  --border-radius-sm: 4px;
-  --border-radius-md: 8px;
-  --border-radius-lg: 12px;
-  --border-radius-xl: 16px;
-  --border-radius-full: 50%;
-  
-  /* 阴影 */
-  --shadow-sm: 0 1px 3px rgba(0,0,0,0.12);
-  --shadow-md: 0 4px 6px rgba(0,0,0,0.1);
-  --shadow-lg: 0 10px 25px rgba(0,0,0,0.15);
-  --shadow-xl: 0 20px 40px rgba(0,0,0,0.2);
-  
-  /* 过渡 */
-  --transition-fast: 0.2s ease;
-  --transition-normal: 0.3s ease;
-  --transition-slow: 0.5s ease;
+  --primary-color: var(--color-primary);
+  --primary-dark: var(--color-primary-hover);
+  --primary-light: var(--color-primary-light);
+
+  --secondary-color: var(--color-muted-foreground);
+  --accent-color: var(--color-foreground);
+
+  --white: var(--color-background);
+  --light-gray: var(--color-muted);
+  --gray: var(--color-border-light);
+  --dark-gray: var(--color-muted-foreground);
+  --black: var(--color-foreground);
+
+  --success: var(--color-foreground);
+  --warning: var(--color-muted-foreground);
+  --danger: var(--color-foreground);
+  --info: var(--color-muted-foreground);
+
+  --font-family: var(--font-body);
+  --font-size-small: var(--font-size-sm);
+  --font-size-large: var(--font-size-lg);
+  --font-size-xxl: var(--font-size-2xl);
+
+  --spacing-xs: var(--space-1);
+  --spacing-sm: var(--space-2);
+  --spacing-md: var(--space-4);
+  --spacing-lg: var(--space-6);
+  --spacing-xl: var(--space-8);
+  --spacing-xxl: var(--space-12);
+
+  --border-radius-sm: 0px;
+  --border-radius-md: 0px;
+  --border-radius-lg: 0px;
+  --border-radius-xl: 0px;
+  --border-radius-full: 0px;
+
+  --shadow-xl: none;
 }

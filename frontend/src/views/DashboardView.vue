@@ -1,50 +1,50 @@
 <template>
-  <div class="dashboard-layout">
-    <!-- 页面头部 -->
-    <div class="page-header">
-      <h1>🏠 主页</h1>
-      <div class="stats-bar">
+  <div ref="dashboardLayoutRef" class="dashboard-layout">
+    <!-- 页面头部：设计系统 PageHeader -->
+    <PageHeader title="主页" section-label="今日概览" icon="🏠">
+      <template #stats>
         <span class="stat-item">{{ greeting }}, {{ userStore.userData.userId }}！</span>
         <span v-if="userStore.userData.goal" class="stat-item">
           🎯 目标: {{ userStore.userData.goal }}
         </span>
         <span v-else class="stat-item">🌟 开始您的健康之旅吧！</span>
-      </div>
-    </div>
+      </template>
+    </PageHeader>
 
-    <!-- 主要内容区域 -->
-    <div class="main-container">
-      <!-- 合并卡片：数据概览 + 快捷操作 -->
-      <div class="card overview-actions-card">
+    <!-- 不对称 Bento 海报式布局 -->
+    <div class="dashboard-bento">
+      <!-- 今日概览 + 快捷操作：黄色大色块 -->
+      <div class="card overview-actions-card bh-card bento-cell bento-cell--overview bauhaus-block bauhaus-block--yellow">
         <div class="card-header-section">
+          <SectionLabel label="今日数据" />
           <h2>📊 今日概览</h2>
         </div>
         <div class="stats-grid">
           <div class="stat-card" title="今日已记录的饮食次数">
             <div class="stat-icon">🍽️</div>
             <div class="stat-content">
-              <div class="stat-number">{{ todayRecordsCount }}</div>
+              <div class="stat-number" :data-count-immediate="todayRecordsCount">{{ todayRecordsCount }}</div>
               <div class="stat-label">饮食记录</div>
             </div>
           </div>
           <div class="stat-card" title="今日总热量摄入">
             <div class="stat-icon">🔥</div>
             <div class="stat-content">
-              <div class="stat-number">{{ todayCalories }}</div>
+              <div class="stat-number" :data-count-immediate="todayCalories">{{ todayCalories }}</div>
               <div class="stat-label">摄入热量 (kcal)</div>
             </div>
           </div>
           <div class="stat-card" title="今日饮水量">
             <div class="stat-icon">💧</div>
             <div class="stat-content">
-              <div class="stat-number">{{ dailyWaterIntake }}</div>
+              <div class="stat-number" :data-count-immediate="dailyWaterIntake">{{ dailyWaterIntake }}</div>
               <div class="stat-label">饮水杯数</div>
             </div>
           </div>
           <div class="stat-card" title="今日运动时长">
             <div class="stat-icon">🏃</div>
             <div class="stat-content">
-              <div class="stat-number">{{ todayExerciseMinutes }}</div>
+              <div class="stat-number" :data-count-immediate="todayExerciseMinutes">{{ todayExerciseMinutes }}</div>
               <div class="stat-label">运动分钟</div>
             </div>
           </div>
@@ -70,41 +70,64 @@
         </div>
       </div>
 
-      <!-- 合并卡片：喝水打卡 + 健康转盘 -->
-      <div class="card water-wheel-card">
+      <!-- 喝水 + 转盘：蓝色竖向大色块 -->
+      <div class="card water-wheel-card bh-card bh-card--blue bento-cell bento-cell--water bauhaus-block bauhaus-block--blue">
         <div class="card-header-section">
+          <SectionLabel label="饮水打卡" />
           <h2>💧 喝水打卡</h2>
         </div>
         <div class="water-intake-container">
           <div class="water-progress">
-            <div class="progress-info">
-              <span class="progress-label">今日进度</span>
-              <span class="progress-percent">{{ waterProgress }}%</span>
-            </div>
-            <div class="progress-bar">
-              <div class="progress-fill" :style="`width: ${waterProgress}%`"></div>
-            </div>
-            <div class="progress-status">
-              <span :class="{ 'status-success': isWaterTargetAchieved, 'status-pending': !isWaterTargetAchieved }">
-                {{ isWaterTargetAchieved ? '✅ 已达成今日饮水目标！' : `还需 ${targetWaterIntake - dailyWaterIntake} 次打卡` }}
-              </span>
+            <div class="water-progress__row">
+              <div class="water-ring-wrap" aria-hidden="true">
+                <svg class="water-ring" viewBox="0 0 100 100">
+                  <circle class="water-ring__track" cx="50" cy="50" r="42" />
+                  <circle class="water-ring__fill" cx="50" cy="50" r="42" :style="waterRingStyle" />
+                </svg>
+                <span class="water-ring__pct">{{ waterProgress }}%</span>
+              </div>
+              <div class="water-progress__meta">
+                <div class="progress-info">
+                  <span class="progress-label">今日进度</span>
+                  <span class="progress-percent">{{ waterProgress }}%</span>
+                </div>
+                <div class="progress-bar">
+                  <div class="progress-fill" :style="`width: ${waterProgress}%`"></div>
+                </div>
+                <div class="progress-status">
+                  <span :class="{ 'status-success': isWaterTargetAchieved, 'status-pending': !isWaterTargetAchieved }">
+                    {{ isWaterTargetAchieved ? '✅ 已达成今日饮水目标！' : `还需 ${targetWaterIntake - dailyWaterIntake} 次打卡` }}
+                  </span>
+                </div>
+              </div>
             </div>
           </div>
           
-          <button class="btn water-btn" @click="addWaterIntake" :disabled="isWaterTargetAchieved">
+          <button ref="waterBtnRef" class="btn water-btn" @click="addWaterIntake" :disabled="isWaterTargetAchieved">
             <span class="btn-icon">💧</span>
             <span class="btn-text">{{ isWaterTargetAchieved ? '已达标，明日再接再厉！' : '点击打卡喝水' }}</span>
           </button>
         </div>
         <div class="action-section-divider"></div>
         <div class="wheel-section">
-          <h2 class="wheel-subtitle-title">🎡 每日健康转盘</h2>
-          <p class="wheel-subtitle">不知道今天该做什么？转转看！</p>
+          <div class="bh-strip">
+            <h2 class="wheel-subtitle-title">🎡 每日健康转盘</h2>
+            <p class="wheel-subtitle">不知道今天该做什么？转转看！</p>
+          </div>
           <div class="wheel-container">
             <div class="wheel-wrapper">
-              <div class="wheel" :style="wheelStyle" :class="{ 'spinning': isSpinning }">
+              <div
+                ref="wheelRef"
+                class="wheel"
+                :class="{ spinning: isSpinning }"
+                :style="{ transform: `rotate(${wheelRotation}deg)` }"
+              >
                 <div class="wheel-bg"></div>
-                <div class="wheel-icons">
+                <div
+                  ref="wheelIconsRef"
+                  class="wheel-icons"
+                  :style="{ transform: `rotate(${-wheelRotation}deg)` }"
+                >
                   <div 
                     v-for="(item, index) in wheelItems" 
                     :key="index" 
@@ -115,7 +138,7 @@
                   </div>
                 </div>
               </div>
-              <div class="wheel-pointer">▼</div>
+              <div ref="pointerRef" class="wheel-pointer">▼</div>
               <div class="wheel-center" @click="spinWheel" :class="{ 'disabled': isSpinning }">
                 <span class="center-text">{{ isSpinning ? '...' : '开始' }}</span>
               </div>
@@ -127,70 +150,42 @@
             <div class="result-desc">{{ selectedSuggestion.description }}</div>
           </div>
         </div>
-      </div>
 
-      <!-- 喝水记录详情弹窗 -->
-      <div v-if="showWaterLogDetail" class="modal-overlay" @click="closeWaterLogDetail">
-        <div class="modal-content" @click.stop>
-          <div class="modal-header">
-            <h3>📋 今日喝水记录详情</h3>
-            <button @click="closeWaterLogDetail" class="close-button">×</button>
+        <!-- 饮水格 + 打卡记录：填满列底空白 -->
+        <div class="water-log-panel">
+          <div class="water-log-panel__header">
+            <h3 class="water-log-panel__title">今日饮水格</h3>
+            <button type="button" class="water-log-panel__link" @click="showWaterLogDetail = true">
+              详情 →
+            </button>
           </div>
-          
-          <div class="modal-body">
-            <div v-if="waterLog.length > 0" class="water-log-detail">
-              <div class="log-timeline">
-                <div 
-                  v-for="(record, index) in waterLog" 
-                  :key="index" 
-                  class="timeline-item"
-                >
-                  <div class="timeline-marker">
-                    <span class="marker-icon">💧</span>
-                  </div>
-                  <div class="timeline-content">
-                    <div class="timeline-time">{{ record.time }}</div>
-                    <div class="timeline-label">第 {{ index + 1 }} 次打卡</div>
-                  </div>
-                </div>
-              </div>
-              
-              <div class="daily-water-summary">
-                <h4>今日总结</h4>
-                <div class="summary-stats">
-                  <div class="stat-item">
-                    <span class="stat-icon">💧</span>
-                    <span class="stat-label">总次数</span>
-                    <span class="stat-value">{{ waterLog.length }} / {{ targetWaterIntake }}</span>
-                  </div>
-                  <div class="stat-item">
-                    <span class="stat-icon">⏰</span>
-                    <span class="stat-label">首次打卡</span>
-                    <span class="stat-value">{{ waterLog[0]?.time || '--:--' }}</span>
-                  </div>
-                  <div class="stat-item">
-                    <span class="stat-icon">🎯</span>
-                    <span class="stat-label">完成度</span>
-                    <span class="stat-value">{{ waterProgress }}%</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-            
-            <div v-else class="no-data">
-              <div class="no-data-icon">🏜️</div>
-              <p>今天还没有喝水记录</p>
-              <button class="btn drink-now-btn" @click="addWaterIntake; closeWaterLogDetail()">
-                立即补水
-              </button>
+          <div class="water-cup-grid" :aria-label="`饮水进度 ${dailyWaterIntake}/${targetWaterIntake}`">
+            <div
+              v-for="n in targetWaterIntake"
+              :key="n"
+              class="water-cup-slot"
+              :class="{ 'water-cup-slot--filled': n <= dailyWaterIntake }"
+            >
+              <span class="water-cup-slot__icon" aria-hidden="true">{{ n <= dailyWaterIntake ? '💧' : '' }}</span>
+              <span class="water-cup-slot__num">{{ n }}</span>
             </div>
           </div>
+          <ul v-if="waterLog.length > 0" class="water-time-list">
+            <li v-for="(record, idx) in recentWaterLog" :key="idx">
+              <span class="water-time-list__idx">第 {{ waterLog.length - idx }} 次</span>
+              <span class="water-time-list__time">{{ record.time }}</span>
+            </li>
+          </ul>
+          <p v-else class="water-log-panel__hint">点击「打卡喝水」开始记录，格子会逐格点亮</p>
         </div>
       </div>
 
-      <!-- 营养摄入详情 -->
-      <div class="card nutrition-card">
-        <h2>🥗 今日营养摄入</h2>
+      <!-- 营养摄入：与今日概览同宽（左 7 列）；类名避开 RecipesView 全局 .nutrition-card -->
+      <div class="card dashboard-nutrition-card bh-card bento-cell bento-cell--nutrition">
+        <div class="card-header-section">
+          <SectionLabel label="营养摄入" />
+          <h2>🥗 今日营养摄入</h2>
+        </div>
         <div class="nutrition-progress-container">
           <div class="nutrition-progress-item">
             <div class="progress-header">
@@ -199,29 +194,29 @@
               <span class="progress-value">{{ todayProtein }}g</span>
             </div>
             <div class="progress-bar">
-              <div class="progress-fill protein" :style="`width: ${getNutritionProgress(todayProtein, 50)}%`"></div>
+              <div class="progress-fill protein nutrition-progress-fill" :data-progress="getNutritionProgress(todayProtein, 50)" :style="`width: ${getNutritionProgress(todayProtein, 50)}%`"></div>
             </div>
             <div class="progress-info">
               <span class="progress-percent">{{ getNutritionProgress(todayProtein, 50) }}%</span>
               <span class="progress-target">目标: 50g</span>
             </div>
           </div>
-          
+
           <div class="nutrition-progress-item">
             <div class="progress-header">
               <span class="progress-icon carbs">🍚</span>
-              <span class="progress-label">碳水化合物</span>
+              <span class="progress-label">碳水</span>
               <span class="progress-value">{{ todayCarbs }}g</span>
             </div>
             <div class="progress-bar">
-              <div class="progress-fill carbs" :style="`width: ${getNutritionProgress(todayCarbs, 150)}%`"></div>
+              <div class="progress-fill carbs nutrition-progress-fill" :data-progress="getNutritionProgress(todayCarbs, 150)" :style="`width: ${getNutritionProgress(todayCarbs, 150)}%`"></div>
             </div>
             <div class="progress-info">
               <span class="progress-percent">{{ getNutritionProgress(todayCarbs, 150) }}%</span>
               <span class="progress-target">目标: 150g</span>
             </div>
           </div>
-          
+
           <div class="nutrition-progress-item">
             <div class="progress-header">
               <span class="progress-icon fat">🥑</span>
@@ -229,7 +224,7 @@
               <span class="progress-value">{{ todayFat }}g</span>
             </div>
             <div class="progress-bar">
-              <div class="progress-fill fat" :style="`width: ${getNutritionProgress(todayFat, 60)}%`"></div>
+              <div class="progress-fill fat nutrition-progress-fill" :data-progress="getNutritionProgress(todayFat, 60)" :style="`width: ${getNutritionProgress(todayFat, 60)}%`"></div>
             </div>
             <div class="progress-info">
               <span class="progress-percent">{{ getNutritionProgress(todayFat, 60) }}%</span>
@@ -239,11 +234,9 @@
         </div>
       </div>
 
-      
-
-      <!-- 健康贴士 -->
-      <div class="card tips-card full-width-card">
-        <h2>💡 健康小贴士</h2>
+      <!-- 健康贴士：红色宽色块 -->
+      <div class="card tips-card bh-card bento-cell bento-cell--tips bauhaus-block bauhaus-block--red">
+        <h2 class="bh-heading-on-color">💡 健康小贴士</h2>
         <div class="tips-container">
           <div class="tip-item" v-for="(tip, index) in healthTips" :key="index">
             <div class="tip-header">
@@ -258,6 +251,65 @@
 
 
 
+    </div>
+
+    <!-- 喝水记录详情弹窗：移出 Bento 网格，避免占据 grid 子项槽位 -->
+    <div v-if="showWaterLogDetail" class="modal-overlay" @click="closeWaterLogDetail">
+      <div class="modal-content" @click.stop>
+        <div class="modal-header">
+          <h3>📋 今日喝水记录详情</h3>
+          <button @click="closeWaterLogDetail" class="close-button">×</button>
+        </div>
+
+        <div class="modal-body">
+          <div v-if="waterLog.length > 0" class="water-log-detail">
+            <div class="log-timeline">
+              <div
+                v-for="(record, index) in waterLog"
+                :key="index"
+                class="timeline-item"
+              >
+                <div class="timeline-marker">
+                  <span class="marker-icon">💧</span>
+                </div>
+                <div class="timeline-content">
+                  <div class="timeline-time">{{ record.time }}</div>
+                  <div class="timeline-label">第 {{ index + 1 }} 次打卡</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="daily-water-summary">
+              <h4>今日总结</h4>
+              <div class="summary-stats">
+                <div class="stat-item">
+                  <span class="stat-icon">💧</span>
+                  <span class="stat-label">总次数</span>
+                  <span class="stat-value">{{ waterLog.length }} / {{ targetWaterIntake }}</span>
+                </div>
+                <div class="stat-item">
+                  <span class="stat-icon">⏰</span>
+                  <span class="stat-label">首次打卡</span>
+                  <span class="stat-value">{{ waterLog[0]?.time || '--:--' }}</span>
+                </div>
+                <div class="stat-item">
+                  <span class="stat-icon">🎯</span>
+                  <span class="stat-label">完成度</span>
+                  <span class="stat-value">{{ waterProgress }}%</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div v-else class="no-data">
+            <div class="no-data-icon">🏜️</div>
+            <p>今天还没有喝水记录</p>
+            <button class="btn drink-now-btn" @click="addWaterIntake; closeWaterLogDetail()">
+              立即补水
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -274,8 +326,17 @@
 import { ref, computed, onMounted, watch } from 'vue';
 import { useUserStore } from '../stores/userStore';
 import { healthApi } from '../api/healthApi';
+import SectionLabel from '../components/common/SectionLabel.vue';
+import PageHeader from '@/components/common/PageHeader.vue';
 
 const userStore = useUserStore();
+const dashboardLayoutRef = ref(null);
+const wheelRef = ref(null);
+const wheelIconsRef = ref(null);
+const pointerRef = ref(null);
+const waterBtnRef = ref(null);
+const WATER_RING_CIRC = 264;
+let currentWheelRotation = 0;
 
 // 数据状态
 const todayRecordsCount = ref(0);
@@ -300,24 +361,19 @@ const lastWaterTime = ref(''); // 最近一次喝水时间
 
 // 转盘相关状态
 const wheelItems = ref([
-  { emoji: '🏃', title: '去运动', description: '今天去跑步或健身30分钟，让身体充满活力！', color: '#FF6B6B' },
-  { emoji: '🥗', title: '吃健康餐', description: '做一份营养均衡的沙拉，多吃蔬菜少吃油腻！', color: '#4ECDC4' },
-  { emoji: '💧', title: '多喝水', description: '每小时喝一杯水，保持身体水分充足！', color: '#45B7D1' },
-  { emoji: '😴', title: '早睡觉', description: '今晚11点前入睡，保证8小时优质睡眠！', color: '#96CEB4' },
-  { emoji: '🧘', title: '做冥想', description: '花10分钟做深呼吸冥想，放松身心！', color: '#FFEAA7' },
-  { emoji: '🍎', title: '吃水果', description: '今天吃2-3种不同颜色的水果补充维生素！', color: '#DDA0DD' },
-  { emoji: '🚶', title: '多走路', description: '今天走满10000步，少坐电梯多走楼梯！', color: '#98D8C8' },
-  { emoji: '🥛', title: '喝牛奶', description: '喝一杯牛奶或酸奶，补充钙质和蛋白质！', color: '#F7DC6F' }
+  { emoji: '🏃', title: '去运动', description: '今天去跑步或健身30分钟，让身体充满活力！', color: '#d02020' },
+  { emoji: '🥗', title: '吃健康餐', description: '做一份营养均衡的沙拉，多吃蔬菜少吃油腻！', color: '#1040c0' },
+  { emoji: '💧', title: '多喝水', description: '每小时喝一杯水，保持身体水分充足！', color: '#f0c020' },
+  { emoji: '😴', title: '早睡觉', description: '今晚11点前入睡，保证8小时优质睡眠！', color: '#d02020' },
+  { emoji: '🧘', title: '做冥想', description: '花10分钟做深呼吸冥想，放松身心！', color: '#1040c0' },
+  { emoji: '🍎', title: '吃水果', description: '今天吃2-3种不同颜色的水果补充维生素！', color: '#f0c020' },
+  { emoji: '🚶', title: '多走路', description: '今天走满10000步，少坐电梯多走楼梯！', color: '#d02020' },
+  { emoji: '🥛', title: '喝牛奶', description: '喝一杯牛奶或酸奶，补充钙质和蛋白质！', color: '#1040c0' },
 ]);
 const wheelRotation = ref(0);
 const isSpinning = ref(false);
 const selectedSuggestion = ref(null);
 const showSuggestion = ref(false);
-
-// 转盘样式计算
-const wheelStyle = computed(() => ({
-  transform: `rotate(${wheelRotation.value}deg)`
-}));
 
 // 获取图标位置样式
 const getIconStyle = (index) => {
@@ -334,39 +390,37 @@ const getIconStyle = (index) => {
   };
 };
 
-// 转动转盘
+// 转动转盘（CSS transition，无弹性 GSAP）
 const spinWheel = () => {
   if (isSpinning.value) return;
 
   isSpinning.value = true;
   showSuggestion.value = false;
 
-  // 随机选择结果
   const randomIndex = Math.floor(Math.random() * wheelItems.value.length);
   const anglePerSegment = 360 / wheelItems.value.length;
-
-  // 计算目标角度
-  // 当前角度
-  const currentRotation = wheelRotation.value % 360;
-  // 目标扇形的中间角度（每个扇形45度，中间是22.5度偏移）
   const targetAngle = randomIndex * anglePerSegment + 22.5;
-  // 至少转5圈
-  const extraRotation = 360 * 5;
-
-  // 计算需要旋转的角度
-  // 转盘顺时针旋转，需要让目标扇形的中间对准指针（12点钟方向，即-90度或270度）
+  const extraRotation = 360 * (5 + Math.floor(Math.random() * 3));
+  const currentRotation = currentWheelRotation % 360;
   const rotationNeeded = extraRotation + (360 - targetAngle) - currentRotation + 22.5;
+  const finalRotation = currentWheelRotation + rotationNeeded;
 
-  // 累加旋转角度
-  wheelRotation.value += rotationNeeded;
+  currentWheelRotation = finalRotation;
+  wheelRotation.value = finalRotation;
 
-  // 动画结束后显示结果
+  const spinMs = 2800;
   setTimeout(() => {
     selectedSuggestion.value = wheelItems.value[randomIndex];
     showSuggestion.value = true;
     isSpinning.value = false;
-  }, 3000);
+  }, spinMs);
 };
+
+/** 喝水环形进度样式（CSS，无 GSAP） */
+const waterRingStyle = computed(() => ({
+  strokeDasharray: `${WATER_RING_CIRC}`,
+  strokeDashoffset: `${WATER_RING_CIRC * (1 - waterProgress.value / 100)}`,
+}));
 
 // 根据时间显示不同的问候语
 const greeting = computed(() => {
@@ -550,6 +604,11 @@ const isWaterTargetAchieved = computed(() => {
   return dailyWaterIntake.value >= targetWaterIntake.value;
 });
 
+/** 最近 4 条饮水记录（倒序，用于面板展示） */
+const recentWaterLog = computed(() => {
+  return [...waterLog.value].reverse().slice(0, 4);
+});
+
 // 随机健康小贴士库
 const healthTipLibrary = [
   '每天吃五种不同颜色的水果和蔬菜，有助于摄取全面的营养。',
@@ -590,9 +649,9 @@ const closeWaterLogDetail = () => {
 };
 
 
-onMounted(() => {
+onMounted(async () => {
   if (userStore.userData?.userId) {
-    loadTodayData();
+    await loadTodayData();
   }
   initHealthTips();
 });
@@ -609,60 +668,31 @@ watch(
 </script>
 
 <style scoped>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
-
-* {
-  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Inter', 'Segoe UI', Roboto, sans-serif;
-}
 
 .dashboard-layout {
-  max-width: 1400px;
+  width: 100%;
+  max-width: 100%;
   margin: 0 auto;
   padding: 0;
-  background: #ffffff;
+  background: var(--color-background);
   min-height: 100vh;
   position: relative;
 }
 
-.dashboard-layout::before {
-  content: '';
-  position: fixed;
-  top: -50%;
-  left: -50%;
-  width: 200%;
-  height: 200%;
-  background: 
-    radial-gradient(ellipse at 30% 20%, rgba(0, 122, 255, 0.03) 0%, transparent 50%),
-    radial-gradient(ellipse at 70% 80%, rgba(88, 86, 214, 0.03) 0%, transparent 50%);
-  pointer-events: none;
-  z-index: 0;
-  animation: gradientShift 20s ease-in-out infinite;
-}
-
-@keyframes gradientShift {
-  0%, 100% { transform: translate(0, 0); }
-  50% { transform: translate(-5%, -5%); }
-}
-
 .page-header {
   text-align: center;
-  padding: 48px 24px 36px;
+  padding: 32px 24px 24px;
   position: relative;
   z-index: 1;
-  background: linear-gradient(180deg, #fafafa 0%, #ffffff 100%);
+  background: var(--color-foreground);
 }
 
 .page-header h1 {
-  color: #1d1d1f;
   margin-bottom: 12px;
   font-weight: 700;
   letter-spacing: -0.5px;
   font-size: 36px;
   line-height: 1.1;
-  background: linear-gradient(135deg, #1d1d1f 0%, #424245 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
 }
 
 .stats-bar {
@@ -685,41 +715,129 @@ watch(
   background: rgba(255, 255, 255, 0.8);
   border-radius: 980px;
   border: 1px solid rgba(0, 0, 0, 0.04);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  box-shadow: none;
   transition: all 0.3s cubic-bezier(0.25, 0.1, 0.25, 1);
 }
 
 .stat-item:hover {
   background: rgba(255, 255, 255, 0.95);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+  box-shadow: none;
   transform: translateY(-2px);
 }
 
-.main-container {
+.main-container,
+.dashboard-bento {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-  gap: 20px;
-  padding: 0 32px 48px;
+  grid-template-columns: repeat(12, 1fr);
+  gap: var(--space-4);
+  padding: var(--space-6) var(--space-4) var(--space-12);
   position: relative;
   z-index: 1;
-  max-width: 1200px;
+  width: 100%;
+  max-width: var(--content-area-max-width);
   margin: 0 auto;
 }
 
+/* Bento 不对称分区：左 7 列概览+营养同宽，右 5 列饮水区跨两行 */
+.bento-cell {
+  width: 100%;
+  min-width: 0;
+  justify-self: stretch;
+}
+
+.dashboard-bento > .bento-cell--overview,
+.dashboard-bento > .bento-cell--nutrition {
+  grid-column: 1 / 8;
+}
+
+.bento-cell--overview {
+  grid-row: 1;
+}
+
+.bento-cell--water {
+  grid-column: 8 / -1;
+  grid-row: 1 / span 2;
+}
+
+.bento-cell--nutrition {
+  grid-row: 2;
+}
+
+.bento-cell--tips {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 1023px) {
+  .dashboard-bento {
+    grid-template-columns: 1fr;
+  }
+
+  .bento-cell--overview,
+  .bento-cell--water,
+  .bento-cell--nutrition,
+  .bento-cell--tips {
+    grid-column: 1 / -1;
+    grid-row: auto;
+  }
+}
+
 .card {
-  background: #ffffff;
-  border-radius: 20px;
-  padding: 24px;
+  background: var(--color-card);
+  border-radius: 0;
+  padding: var(--space-6);
   margin-bottom: 0;
-  border: none;
-  box-shadow: 
-    0 2px 8px rgba(0, 0, 0, 0.02),
-    0 8px 32px rgba(0, 0, 0, 0.04);
-  transition: all 0.5s cubic-bezier(0.25, 0.1, 0.25, 1);
+  border: var(--border-width-thick) solid var(--color-border);
+  box-shadow: var(--shadow-xl);
+  transition: transform var(--transition-fast);
   position: relative;
-  overflow: hidden;
+  overflow: visible;
+}
+
+.card:hover {
+  transform: translateY(-4px);
+}
+
+.bauhaus-block--blue .section-label,
+.bauhaus-block--yellow .section-label,
+.bauhaus-block--red .section-label {
+  background: #fff;
+  color: var(--color-foreground);
+}
+
+.bauhaus-block--blue > .card-header-section h2,
+.bauhaus-block--red > .bh-heading-on-color {
+  color: #fff;
+  text-shadow: 1px 1px 0 rgba(0, 0, 0, 0.25);
+}
+
+/* 蓝色饮水区：进度条改白卡片，文字深色 */
+.bauhaus-block--blue .water-progress {
+  background: #fff;
+  border: var(--border-width) solid var(--color-border);
+  box-shadow: var(--shadow-sm);
+}
+
+.bauhaus-block--blue .water-progress .progress-label,
+.bauhaus-block--blue .water-progress .progress-percent,
+.bauhaus-block--blue .water-progress .progress-status,
+.bauhaus-block--blue .water-ring__pct {
+  color: var(--color-foreground);
+}
+
+.bauhaus-block--blue .water-btn {
+  background: var(--color-primary-yellow);
+  color: var(--color-foreground);
+  border: var(--border-width) solid var(--color-border);
+  box-shadow: var(--shadow-md);
+}
+
+.bauhaus-block--blue .water-btn:hover:not(:disabled) {
+  background: #fff;
+  transform: translateY(-2px);
+}
+
+.bauhaus-block--blue .action-section-divider {
+  background: rgba(255, 255, 255, 0.45);
 }
 
 /* 合并卡片特殊样式 */
@@ -728,13 +846,19 @@ watch(
   padding: 32px 24px;
 }
 
+.water-wheel-card {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
 .card-header-section {
   margin-bottom: 20px;
 }
 
 .action-section-divider {
   height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(0, 0, 0, 0.08), transparent);
+  background: var(--color-border-light);
   margin: 24px 0;
 }
 
@@ -742,27 +866,30 @@ watch(
   margin-top: 8px;
 }
 
-/* 营养卡片特殊设置 */
-.nutrition-card {
+/* 营养卡片：占满 Bento 列宽，边框完整包裹内部三列网格 */
+.dashboard-nutrition-card {
   padding: 32px 24px;
   min-height: 320px;
+  width: 100%;
+  min-width: 0;
+  max-width: none;
+  box-sizing: border-box;
 }
 
 .card:hover {
-  transform: translateY(-6px) scale(1.01);
-  box-shadow: 
-    0 4px 16px rgba(0, 0, 0, 0.04),
-    0 24px 64px rgba(0, 0, 0, 0.08);
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-xl);
 }
 
 .card h2 {
-  color: #1d1d1f;
+  color: var(--color-foreground);
   margin-bottom: 20px;
   padding-bottom: 0;
   border-bottom: none;
-  font-weight: 600;
-  letter-spacing: -0.3px;
-  font-size: 20px;
+  font-weight: var(--font-weight-black);
+  text-transform: uppercase;
+  letter-spacing: -0.02em;
+  font-size: var(--font-size-xl);
 }
 
 .stats-grid {
@@ -772,15 +899,16 @@ watch(
 }
 
 .stat-card {
-  background: #f5f5f7;
-  border-radius: 16px;
+  background: #fff;
+  border-radius: 0;
   padding: 20px;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   gap: 12px;
-  transition: all 0.4s cubic-bezier(0.25, 0.1, 0.25, 1);
-  border: none;
+  transition: transform var(--transition-fast);
+  border: var(--border-width) solid var(--color-border);
+  box-shadow: var(--shadow-sm);
   position: relative;
   overflow: hidden;
 }
@@ -791,8 +919,7 @@ watch(
 
 .stat-card:hover {
   transform: translateY(-3px);
-  background: #ebebf0;
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.08);
+  box-shadow: var(--shadow-md);
 }
 
 .stat-icon {
@@ -802,10 +929,10 @@ watch(
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #007aff 0%, #5856d6 100%);
+  background: var(--color-foreground);
   border-radius: 12px;
   color: white;
-  box-shadow: 0 8px 24px rgba(0, 122, 255, 0.25);
+  box-shadow: none;
   position: relative;
   z-index: 1;
   animation: iconFloat 3s ease-in-out infinite;
@@ -825,7 +952,7 @@ watch(
 .stat-number {
   font-size: 32px;
   font-weight: 700;
-  color: #1d1d1f;
+  color: var(--color-foreground);
   margin-bottom: 4px;
   letter-spacing: -2px;
   line-height: 1;
@@ -847,10 +974,75 @@ watch(
 }
 
 .water-progress {
-  background: linear-gradient(135deg, #f5f5f7 0%, #ebebf0 100%);
-  border-radius: 20px;
-  padding: 24px;
-  border: none;
+  background: var(--color-bg-subtle);
+  border-radius: var(--radius-xl);
+  padding: var(--space-6);
+  border: 1px solid var(--color-border);
+}
+
+.water-progress__row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+}
+
+.water-progress__meta {
+  flex: 1;
+  min-width: 0;
+}
+
+.water-ring-wrap {
+  position: relative;
+  width: 88px;
+  height: 88px;
+  flex-shrink: 0;
+}
+
+.water-ring {
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+
+.water-ring__track {
+  fill: none;
+  stroke: var(--color-border-strong);
+  stroke-width: 6;
+}
+
+.water-ring__fill {
+  fill: none;
+  stroke: var(--color-primary);
+  stroke-width: 6;
+  stroke-linecap: round;
+}
+
+.water-ring__pct {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-primary);
+}
+
+.water-btn {
+  position: relative;
+  overflow: hidden;
+}
+
+.water-ripple {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 48px;
+  height: 48px;
+  margin: -24px 0 0 -24px;
+  border-radius: 50%;
+  background: var(--color-primary-muted);
+  pointer-events: none;
 }
 
 .progress-info {
@@ -862,18 +1054,15 @@ watch(
 
 .progress-label {
   font-weight: 600;
-  color: #1d1d1f;
+  color: var(--color-foreground);
   letter-spacing: -0.2px;
   font-size: 17px;
 }
 
 .progress-percent {
-  font-weight: 700;
+  font-weight: var(--font-weight-black);
   font-size: 28px;
-  background: linear-gradient(135deg, #007aff 0%, #5856d6 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  color: var(--color-foreground);
   letter-spacing: -1px;
 }
 
@@ -887,7 +1076,7 @@ watch(
 
 .progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, #007aff 0%, #5856d6 50%, #af52de 100%);
+  background: var(--color-foreground);
   border-radius: 6px;
   transition: width 0.8s cubic-bezier(0.25, 0.1, 0.25, 1);
   position: relative;
@@ -900,7 +1089,7 @@ watch(
   left: 0;
   right: 0;
   bottom: 0;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+  background: var(--color-border-light);
   animation: shimmer 2.5s infinite;
 }
 
@@ -945,9 +1134,9 @@ watch(
 }
 
 .water-btn {
-  background: #007aff;
+  background: var(--color-foreground);
   color: white;
-  box-shadow: 0 4px 20px rgba(0, 122, 255, 0.3);
+  box-shadow: none;
 }
 
 .water-btn::before {
@@ -957,7 +1146,7 @@ watch(
   left: -100%;
   width: 100%;
   height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  background: var(--color-border-light);
   transition: left 0.6s ease;
 }
 
@@ -968,7 +1157,7 @@ watch(
 .water-btn:hover:not(:disabled) {
   background: #0066d6;
   transform: scale(1.02);
-  box-shadow: 0 8px 32px rgba(0, 122, 255, 0.4);
+  box-shadow: none;
 }
 
 .water-btn:active:not(:disabled) {
@@ -991,7 +1180,7 @@ watch(
 }
 
 .water-log-summary {
-  background: #f5f5f7;
+  background: var(--color-muted);
   border-radius: 16px;
   padding: 16px 20px;
   cursor: pointer;
@@ -1016,14 +1205,14 @@ watch(
 
 .summary-text {
   flex: 1;
-  color: #1d1d1f;
+  color: var(--color-foreground);
   font-size: 15px;
   letter-spacing: -0.1px;
   margin-left: 8px;
 }
 
 .last-time {
-  color: #007aff;
+  color: var(--color-foreground);
   font-weight: 500;
   margin-left: 4px;
 }
@@ -1045,8 +1234,6 @@ watch(
   width: 100%;
   height: 100%;
   background: rgba(0, 0, 0, 0.4);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
   display: flex;
   justify-content: center;
   align-items: flex-start;
@@ -1066,9 +1253,7 @@ watch(
   padding: 32px;
   width: 90%;
   max-width: 480px;
-  box-shadow: 
-    0 24px 80px rgba(0, 0, 0, 0.2),
-    0 0 0 1px rgba(0, 0, 0, 0.02);
+  box-shadow: none;
   position: relative;
   border: none;
   animation: slideUp 0.4s cubic-bezier(0.25, 0.1, 0.25, 1);
@@ -1099,13 +1284,13 @@ watch(
 .modal-header h3 {
   font-size: 22px;
   margin: 0;
-  color: #1d1d1f;
+  color: var(--color-foreground);
   font-weight: 600;
   letter-spacing: -0.3px;
 }
 
 .close-button {
-  background: #f5f5f7;
+  background: var(--color-muted);
   border: none;
   font-size: 18px;
   color: #86868b;
@@ -1121,7 +1306,7 @@ watch(
 }
 
 .close-button:hover {
-  color: #1d1d1f;
+  color: var(--color-foreground);
   background: #ebebf0;
 }
 
@@ -1160,7 +1345,7 @@ watch(
   align-items: center;
   gap: 16px;
   padding: 16px;
-  background: #f5f5f7;
+  background: var(--color-muted);
   border-radius: 16px;
   border: none;
   transition: all 0.3s ease;
@@ -1176,11 +1361,11 @@ watch(
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #007aff 0%, #5856d6 100%);
+  background: var(--color-foreground);
   border-radius: 50%;
   color: white;
   font-size: 0.9rem;
-  box-shadow: 0 4px 16px rgba(0, 122, 255, 0.3);
+  box-shadow: none;
 }
 
 .timeline-content {
@@ -1189,7 +1374,7 @@ watch(
 
 .timeline-time {
   font-size: 20px;
-  color: #1d1d1f;
+  color: var(--color-foreground);
   font-weight: 600;
   letter-spacing: -0.5px;
 }
@@ -1210,7 +1395,7 @@ watch(
 .daily-water-summary h4 {
   font-size: 17px;
   margin: 0;
-  color: #1d1d1f;
+  color: var(--color-foreground);
   font-weight: 600;
   letter-spacing: -0.2px;
 }
@@ -1227,14 +1412,14 @@ watch(
   align-items: center;
   gap: 8px;
   padding: 16px;
-  background: #f5f5f7;
+  background: var(--color-muted);
   border-radius: 16px;
   border: none;
 }
 
 .stat-icon {
   font-size: 1.25rem;
-  color: #007aff;
+  color: var(--color-foreground);
   width: auto;
   height: auto;
   background: none;
@@ -1250,7 +1435,7 @@ watch(
 
 .stat-value {
   font-size: 17px;
-  color: #1d1d1f;
+  color: var(--color-foreground);
   font-weight: 600;
   letter-spacing: -0.3px;
 }
@@ -1278,7 +1463,7 @@ watch(
 }
 
 .drink-now-btn {
-  background: #007aff;
+  background: var(--color-foreground);
   color: white;
   padding: 14px 28px;
   border-radius: 980px;
@@ -1287,158 +1472,166 @@ watch(
   cursor: pointer;
   transition: all 0.4s cubic-bezier(0.25, 0.1, 0.25, 1);
   border: none;
-  box-shadow: 0 4px 20px rgba(0, 122, 255, 0.3);
+  box-shadow: none;
   letter-spacing: -0.2px;
 }
 
 .drink-now-btn:hover {
   background: #0066d6;
   transform: scale(1.02);
-  box-shadow: 0 8px 32px rgba(0, 122, 255, 0.4);
+  box-shadow: none;
 }
 
-/* 营养摄入进度条样式 */
+/* 营养摄入：三列等宽网格，子项可收缩以防撑破父级边框 */
 .nutrition-progress-container {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-4);
+  width: 100%;
+  min-width: 0;
+}
+
+@media (max-width: 1023px) {
+  .nutrition-progress-container {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* 每项固定纵向分区：标题区 / 进度条 / 底部信息，保证等高对齐 */
+.nutrition-progress-item {
   display: flex;
   flex-direction: column;
-  gap: 24px;
-}
-
-.nutrition-progress-item {
-  background: #f8f9ff;
-  border-radius: 16px;
-  padding: 20px;
-  border: 1px solid rgba(0, 122, 255, 0.1);
-  transition: all 0.3s cubic-bezier(0.25, 0.1, 0.25, 1);
+  min-width: 0;
+  min-height: 132px;
+  background: #fff;
+  border-radius: 0;
+  padding: var(--space-5);
+  border: var(--border-width) solid var(--color-border);
+  box-shadow: var(--shadow-sm);
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+  box-sizing: border-box;
 }
 
 .nutrition-progress-item:hover {
   transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(0, 122, 255, 0.1);
-  border-color: rgba(0, 122, 255, 0.2);
+  box-shadow: var(--shadow-md);
 }
 
-.progress-header {
+/* 营养区专用进度样式，与饮水区 .progress-* 解耦 */
+.nutrition-progress-item .progress-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 16px;
-  gap: 12px;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+  min-height: 48px;
+  flex-shrink: 0;
 }
 
-.progress-icon {
+.nutrition-progress-item .progress-icon {
   width: 48px;
   height: 48px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 12px;
+  border-radius: 0;
+  border: var(--border-width) solid var(--color-border);
   font-size: 1.25rem;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
   flex-shrink: 0;
 }
 
-.progress-icon.protein {
-  background: linear-gradient(135deg, #ff3b30 0%, #ff6b6b 100%);
-  box-shadow: 0 4px 12px rgba(255, 59, 48, 0.3);
-  color: white;
+.nutrition-progress-item .progress-icon.protein {
+  background: var(--color-primary-red);
+  color: #fff;
 }
 
-.progress-icon.carbs {
-  background: linear-gradient(135deg, #ff9500 0%, #ffcc00 100%);
-  box-shadow: 0 4px 12px rgba(255, 149, 0, 0.3);
-  color: white;
+.nutrition-progress-item .progress-icon.carbs {
+  background: var(--color-primary-blue);
+  color: #fff;
 }
 
-.progress-icon.fat {
-  background: linear-gradient(135deg, #34c759 0%, #30d158 100%);
-  box-shadow: 0 4px 12px rgba(52, 199, 89, 0.3);
-  color: white;
+.nutrition-progress-item .progress-icon.fat {
+  background: var(--color-primary-yellow);
+  color: var(--color-foreground);
 }
 
-.progress-label {
+.nutrition-progress-item .progress-label {
   flex: 1;
+  min-width: 0;
   font-weight: 600;
-  color: #1d1d1f;
-  font-size: 16px;
-  letter-spacing: -0.2px;
-}
-
-.progress-value {
-  font-weight: 700;
-  font-size: 18px;
-  color: #1d1d1f;
-  background: linear-gradient(135deg, #1d1d1f 0%, #424245 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  flex-shrink: 0;
-  min-width: 60px;
-  text-align: right;
-}
-
-.progress-bar {
-  height: 12px;
-  background: rgba(0, 0, 0, 0.06);
-  border-radius: 6px;
+  color: var(--color-foreground);
+  font-size: var(--font-size-base);
+  letter-spacing: -0.02em;
+  white-space: nowrap;
   overflow: hidden;
-  margin-bottom: 12px;
+  text-overflow: ellipsis;
+}
+
+.nutrition-progress-item .progress-value {
+  font-weight: var(--font-weight-bold);
+  font-size: var(--font-size-lg);
+  color: var(--color-foreground);
+  flex-shrink: 0;
+  min-width: 3.5rem;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 固定高度进度条槽，三项视觉等高 */
+.nutrition-progress-item .progress-bar {
+  height: 12px;
+  flex-shrink: 0;
+  background: var(--color-muted);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: 0;
+  overflow: hidden;
+  margin-bottom: var(--space-3);
   position: relative;
 }
 
-.progress-fill {
+.nutrition-progress-item .progress-fill {
   height: 100%;
-  border-radius: 6px;
+  border-radius: 0;
   transition: width 1s cubic-bezier(0.25, 0.1, 0.25, 1);
   position: relative;
 }
 
-.progress-fill::after {
+.nutrition-progress-item .progress-fill::after {
   content: '';
   position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+  inset: 0;
+  background: var(--color-border-light);
   animation: shimmer 2s infinite;
 }
 
-@keyframes shimmer {
-  0% { transform: translateX(-100%); }
-  100% { transform: translateX(100%); }
+.nutrition-progress-item .progress-fill.protein,
+.nutrition-progress-item .progress-fill.carbs,
+.nutrition-progress-item .progress-fill.fat {
+  background: var(--color-foreground);
+  box-shadow: none;
 }
 
-.progress-fill.protein {
-  background: linear-gradient(90deg, #ff3b30, #ff6b6b);
-  box-shadow: 0 0 12px rgba(255, 59, 48, 0.4);
-}
-
-.progress-fill.carbs {
-  background: linear-gradient(90deg, #ff9500, #ffcc00);
-  box-shadow: 0 0 12px rgba(255, 149, 0, 0.4);
-}
-
-.progress-fill.fat {
-  background: linear-gradient(90deg, #34c759, #30d158);
-  box-shadow: 0 0 12px rgba(52, 199, 89, 0.4);
-}
-
-.progress-info {
+.nutrition-progress-item .progress-info {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 14px;
+  margin-top: auto;
+  min-height: 24px;
+  flex-shrink: 0;
+  font-size: var(--font-size-sm);
 }
 
-.progress-percent {
-  font-weight: 600;
-  color: #1d1d1f;
+.nutrition-progress-item .progress-percent {
+  font-weight: var(--font-weight-bold);
+  font-size: var(--font-size-base);
+  color: var(--color-foreground);
+  letter-spacing: -0.02em;
 }
 
-.progress-target {
-  color: #86868b;
-  font-weight: 500;
+.nutrition-progress-item .progress-target {
+  color: var(--color-muted-foreground);
+  font-weight: var(--font-weight-medium);
+  white-space: nowrap;
 }
 
 .action-grid {
@@ -1448,83 +1641,54 @@ watch(
 }
 
 .action-button {
-  padding: 24px;
-  border: none;
-  border-radius: 20px;
+  padding: var(--space-6);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: 0;
   cursor: pointer;
-  transition: all 0.4s cubic-bezier(0.25, 0.1, 0.25, 1);
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 12px;
-  font-weight: 600;
-  letter-spacing: -0.2px;
-  position: relative;
-  overflow: hidden;
+  gap: var(--space-3);
+  font-weight: var(--font-weight-bold);
+  font-size: var(--font-size-sm);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  box-shadow: var(--shadow-md);
 }
 
 .action-button::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.15) 0%, transparent 100%);
-  opacity: 0;
-  transition: opacity 0.3s ease;
-}
-
-.action-button:hover::before {
-  opacity: 1;
+  display: none;
 }
 
 .action-button:hover {
-  transform: translateY(-4px) scale(1.02);
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-lg);
 }
 
 .action-button:active {
-  transform: translateY(-2px) scale(0.98);
+  transform: translate(2px, 2px);
+  box-shadow: none;
 }
 
 .primary {
-  background: linear-gradient(135deg, #007aff 0%, #5856d6 100%);
-  color: white;
-  box-shadow: 0 4px 20px rgba(0, 122, 255, 0.25);
-}
-
-.primary:hover {
-  box-shadow: 0 12px 40px rgba(0, 122, 255, 0.35);
+  background: var(--color-primary-red);
+  color: #fff;
 }
 
 .secondary {
-  background: linear-gradient(135deg, #34c759 0%, #30d158 100%);
-  color: white;
-  box-shadow: 0 4px 20px rgba(52, 199, 89, 0.25);
-}
-
-.secondary:hover {
-  box-shadow: 0 12px 40px rgba(52, 199, 89, 0.35);
+  background: var(--color-primary-blue);
+  color: #fff;
 }
 
 .accent {
-  background: linear-gradient(135deg, #ff9500 0%, #ff6b00 100%);
-  color: white;
-  box-shadow: 0 4px 20px rgba(255, 149, 0, 0.25);
-}
-
-.accent:hover {
-  box-shadow: 0 12px 40px rgba(255, 149, 0, 0.35);
+  background: var(--color-primary-yellow);
+  color: var(--color-foreground);
 }
 
 .info {
-  background: linear-gradient(135deg, #af52de 0%, #5856d6 100%);
-  color: white;
-  box-shadow: 0 4px 20px rgba(175, 82, 222, 0.25);
-}
-
-.info:hover {
-  box-shadow: 0 12px 40px rgba(175, 82, 222, 0.35);
+  background: #fff;
+  color: var(--color-foreground);
 }
 
 .button-icon {
@@ -1548,15 +1712,18 @@ watch(
 }
 
 .tip-item {
-  background: #f5f5f7;
-  border-radius: 20px;
-  padding: 24px;
-  border-left: none;
-  border-image: none;
-  transition: all 0.4s cubic-bezier(0.25, 0.1, 0.25, 1);
-  box-shadow: none;
+  background: #fff;
+  border-radius: 0;
+  padding: var(--space-6);
+  border: var(--border-width) solid var(--color-border);
+  box-shadow: var(--shadow-sm);
+  transition: transform var(--transition-fast);
   position: relative;
-  overflow: hidden;
+}
+
+.tip-item:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
 }
 
 .tip-item::before {
@@ -1566,14 +1733,7 @@ watch(
   top: 0;
   bottom: 0;
   width: 4px;
-  background: linear-gradient(180deg, #007aff, #af52de);
-  border-radius: 2px;
-}
-
-.tip-item:hover {
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.06);
-  transform: translateX(4px);
-  background: #ebebf0;
+  background: var(--color-primary-yellow);
 }
 
 .tip-header {
@@ -1583,28 +1743,30 @@ watch(
   margin-bottom: 12px;
 }
 
-.tip-category {
-  font-weight: 600;
-  background: linear-gradient(135deg, #007aff 0%, #5856d6 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  font-size: 13px;
-  letter-spacing: -0.1px;
+.tip-icon {
+  font-size: 1rem;
+}
+
+.tips-card > .bh-heading-on-color,
+.tips-card > h2 {
+  margin-bottom: var(--space-5);
+  font-weight: var(--font-weight-black);
   text-transform: uppercase;
 }
 
-.tip-icon {
-  font-size: 1rem;
-  animation: iconFloat 2s ease-in-out infinite;
+.tip-category {
+  font-weight: var(--font-weight-bold);
+  color: var(--color-foreground);
+  font-size: var(--font-size-sm);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
 .tip-content {
-  color: #424245;
-  line-height: 1.6;
+  color: var(--color-muted-foreground);
+  line-height: 1.65;
   margin: 0;
-  font-size: 15px;
-  letter-spacing: -0.1px;
+  font-size: var(--font-size-base);
 }
 
 .progress-container {
@@ -1618,19 +1780,18 @@ watch(
 }
 
 .wheel-subtitle-title {
-  color: #1d1d1f;
   margin-bottom: 8px;
   padding-bottom: 0;
   border-bottom: none;
-  font-weight: 600;
-  letter-spacing: -0.3px;
-  font-size: 18px;
+  font-weight: var(--font-weight-black);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: var(--font-size-lg);
   text-align: center;
 }
 
 .wheel-subtitle {
-  color: #86868b;
-  font-size: 13px;
+  font-size: var(--font-size-sm);
   margin-bottom: 16px;
   text-align: center;
 }
@@ -1638,7 +1799,147 @@ watch(
 .wheel-container {
   display: flex;
   justify-content: center;
-  margin-bottom: 24px;
+  margin-bottom: var(--space-4);
+}
+
+/* 饮水格面板：白底黑框高对比，在蓝底上始终可读 */
+.water-log-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-top: var(--space-4);
+  padding: var(--space-4);
+  background: #fff;
+  border: var(--border-width-thick) solid var(--color-border);
+  box-shadow: var(--shadow-md);
+  min-height: 140px;
+  color: var(--color-foreground);
+}
+
+.water-log-panel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding-bottom: var(--space-2);
+  border-bottom: var(--border-width) solid var(--color-border);
+}
+
+.water-log-panel__title {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-black);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-foreground);
+}
+
+.water-log-panel__link {
+  border: var(--border-width) solid var(--color-border);
+  background: var(--color-primary-yellow);
+  color: var(--color-foreground);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: var(--space-2) var(--space-3);
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.water-log-panel__link:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.water-log-panel__link:active {
+  transform: translate(2px, 2px);
+  box-shadow: none;
+}
+
+.water-cup-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-2);
+  flex: 1;
+}
+
+.water-cup-slot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-height: 56px;
+  background: var(--color-muted);
+  border: var(--border-width) solid var(--color-border);
+  box-shadow: var(--shadow-sm);
+  transition: transform var(--transition-fast), background var(--transition-fast);
+}
+
+.water-cup-slot--filled {
+  background: var(--color-primary-yellow);
+  border-color: var(--color-border);
+  color: var(--color-foreground);
+  box-shadow: var(--shadow-md);
+}
+
+.water-cup-slot__icon {
+  font-size: 1.15rem;
+  line-height: 1;
+  min-height: 1.15rem;
+}
+
+.water-cup-slot__num {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-black);
+  color: var(--color-foreground);
+}
+
+.water-time-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.water-time-list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-muted);
+  border: var(--border-width) solid var(--color-border);
+  font-size: var(--font-size-sm);
+  color: var(--color-foreground);
+  font-weight: var(--font-weight-medium);
+}
+
+.water-time-list__idx {
+  font-weight: var(--font-weight-black);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: var(--font-size-xs);
+  color: var(--color-foreground);
+}
+
+.water-time-list__time {
+  font-weight: var(--font-weight-bold);
+  font-variant-numeric: tabular-nums;
+}
+
+.water-log-panel__hint {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  line-height: 1.55;
+  text-align: center;
+  padding: var(--space-2) 0;
+  color: var(--color-muted-foreground);
+  font-weight: var(--font-weight-medium);
 }
 
 .wheel-wrapper {
@@ -1652,14 +1953,13 @@ watch(
   height: 100%;
   border-radius: 50%;
   position: relative;
-  box-shadow: 
-    0 8px 32px rgba(0, 0, 0, 0.15),
-    inset 0 0 0 8px rgba(255, 255, 255, 0.1);
-  transition: transform 3s cubic-bezier(0.17, 0.67, 0.12, 0.99);
+  border: 2px solid var(--color-border);
+  box-shadow: none;
+  transition: transform 2.8s ease-out;
 }
 
 .wheel.spinning {
-  transition: transform 3s cubic-bezier(0.17, 0.67, 0.12, 0.99);
+  transition: transform 2.8s ease-out;
 }
 
 .wheel-bg {
@@ -1669,17 +1969,7 @@ watch(
   width: 100%;
   height: 100%;
   border-radius: 50%;
-  background: conic-gradient(
-    from -22.5deg,
-    #FF6B6B 0deg 45deg,
-    #4ECDC4 45deg 90deg,
-    #45B7D1 90deg 135deg,
-    #96CEB4 135deg 180deg,
-    #FFEAA7 180deg 225deg,
-    #DDA0DD 225deg 270deg,
-    #98D8C8 270deg 315deg,
-    #F7DC6F 315deg 360deg
-  );
+  background: var(--color-muted);
 }
 
 .wheel-icons {
@@ -1688,6 +1978,7 @@ watch(
   left: 50%;
   width: 0;
   height: 0;
+  transition: transform 2.8s ease-out;
 }
 
 .wheel-icon {
@@ -1696,7 +1987,7 @@ watch(
   display: flex;
   align-items: center;
   justify-content: center;
-  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.4));
+  filter: none;
   transform-origin: center center;
   margin-left: -22px;
   margin-top: -22px;
@@ -1710,15 +2001,8 @@ watch(
   left: 50%;
   transform: translateX(-50%);
   font-size: 28px;
-  color: #ff3b30;
+  color: #fff;
   z-index: 10;
-  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
-  animation: bounce 1s ease-in-out infinite;
-}
-
-@keyframes bounce {
-  0%, 100% { transform: translateX(-50%) translateY(0); }
-  50% { transform: translateX(-50%) translateY(-5px); }
 }
 
 .wheel-center {
@@ -1728,24 +2012,21 @@ watch(
   transform: translate(-50%, -50%);
   width: 80px;
   height: 80px;
-  background: linear-gradient(135deg, #007aff 0%, #5856d6 100%);
+  background: var(--color-foreground);
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  box-shadow: 
-    0 4px 20px rgba(0, 122, 255, 0.4),
-    inset 0 0 0 4px rgba(255, 255, 255, 0.2);
+  box-shadow: none;
+  border: 2px solid var(--color-foreground);
   z-index: 10;
-  transition: all 0.3s cubic-bezier(0.25, 0.1, 0.25, 1);
+  transition: background var(--transition-fast), color var(--transition-fast);
 }
 
 .wheel-center:hover:not(.disabled) {
   transform: translate(-50%, -50%) scale(1.1);
-  box-shadow: 
-    0 6px 30px rgba(0, 122, 255, 0.5),
-    inset 0 0 0 4px rgba(255, 255, 255, 0.3);
+  box-shadow: none;
 }
 
 .wheel-center:active:not(.disabled) {
@@ -1765,19 +2046,27 @@ watch(
 }
 
 .suggestion-result {
-  background: linear-gradient(135deg, #f5f5f7 0%, #ffffff 100%);
-  border-radius: 20px;
-  padding: 24px;
-  margin-top: 20px;
+  position: relative;
+  background: #fff;
+  border-radius: 0;
+  padding: var(--space-6);
+  margin-top: var(--space-5);
   opacity: 0;
-  transform: translateY(20px);
-  transition: all 0.5s cubic-bezier(0.25, 0.1, 0.25, 1);
-  border: 1px solid rgba(0, 0, 0, 0.04);
+  transform: translateY(12px);
+  transition: opacity var(--transition-normal), transform var(--transition-normal);
+  border: var(--border-width) solid var(--color-border);
+  box-shadow: var(--shadow-md);
+  color: var(--color-foreground);
 }
 
 .suggestion-result.show {
   opacity: 1;
   transform: translateY(0);
+  box-shadow: none;
+}
+
+.suggestion-result.show::before {
+  display: none;
 }
 
 .result-icon {
@@ -1787,11 +2076,17 @@ watch(
 }
 
 .result-title {
-  font-size: 20px;
-  font-weight: 700;
-  color: #1d1d1f;
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-black);
+  color: var(--color-foreground);
   margin-bottom: 8px;
-  letter-spacing: -0.3px;
+  text-transform: uppercase;
+}
+
+.result-desc {
+  color: var(--color-muted-foreground);
+  line-height: 1.6;
+  font-size: var(--font-size-base);
 }
 
 .result-desc {
@@ -1825,7 +2120,7 @@ watch(
 }
 
 .progress-item {
-  background: #f5f5f7;
+  background: var(--color-muted);
   border-radius: 20px;
   padding: 24px;
   border: none;
@@ -1840,18 +2135,15 @@ watch(
 
 .progress-label {
   font-weight: 600;
-  color: #1d1d1f;
+  color: var(--color-foreground);
   font-size: 17px;
   letter-spacing: -0.2px;
 }
 
 .progress-percent {
-  font-weight: 700;
+  font-weight: var(--font-weight-black);
   font-size: 24px;
-  background: linear-gradient(135deg, #007aff 0%, #5856d6 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  color: var(--color-foreground);
   letter-spacing: -1px;
 }
 
@@ -1864,7 +2156,7 @@ watch(
 
 .progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, #007aff 0%, #5856d6 50%, #af52de 100%);
+  background: var(--color-foreground);
   border-radius: 6px;
   transition: width 0.8s cubic-bezier(0.25, 0.1, 0.25, 1);
 }
@@ -1964,25 +2256,23 @@ watch(
   transform: translateX(-50%);
   padding: 16px 24px;
   border-radius: 12px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+  box-shadow: none;
   display: flex;
   align-items: center;
   gap: 12px;
   z-index: 10000;
   min-width: 300px;
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
   animation: toastSlideIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 .toast-success {
-  background: linear-gradient(135deg, rgba(76, 175, 80, 0.95) 0%, rgba(56, 142, 60, 0.95) 100%);
+  background: var(--color-foreground);
   color: white;
   border: 1px solid rgba(255, 255, 255, 0.3);
 }
 
 .toast-error {
-  background: linear-gradient(135deg, rgba(244, 67, 54, 0.95) 0%, rgba(229, 57, 53, 0.95) 100%);
+  background: var(--color-muted-foreground);
   color: white;
   border: 1px solid rgba(255, 255, 255, 0.3);
 }

@@ -139,101 +139,72 @@ const handleSave = () => {
 }
 
 .modal-content {
-  background: white;
-  border-radius: 12px;
+  background: var(--color-card);
+  border-radius: 0;
+  border: var(--border-width-thick) solid var(--color-border);
   width: 90%;
   max-width: 500px;
   max-height: 90vh;
   overflow-y: auto;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+  box-shadow: var(--shadow-xl);
 }
 
 .modal-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 20px;
-  border-bottom: 1px solid #eee;
+  padding: var(--space-5);
+  border-bottom: var(--border-width) solid var(--color-border);
 }
 
 .modal-header h3 {
   margin: 0;
-  font-size: 1.3rem;
-  color: #333;
-}
-
-.close-btn {
-  background: none;
-  border: none;
-  font-size: 1.5rem;
-  cursor: pointer;
-  color: #999;
-  padding: 0;
-  width: 30px;
-  height: 30px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  transition: all 0.3s;
-}
-
-.close-btn:hover {
-  background: #f0f0f0;
-  color: #333;
-}
-
-.modal-body {
-  padding: 20px;
+  font-family: var(--font-display);
+  font-size: var(--font-size-lg);
+  color: var(--color-foreground);
+  text-transform: uppercase;
 }
 
 .food-info {
-  background: #f8f9fa;
-  padding: 15px;
-  border-radius: 8px;
-  margin-bottom: 20px;
+  background: var(--color-muted);
+  padding: var(--space-4);
+  border-radius: 0;
+  border: var(--border-width) solid var(--color-border);
+  margin-bottom: var(--space-5);
 }
 
 .food-info h4 {
-  margin: 0 0 5px 0;
-  color: #333;
+  margin: 0 0 var(--space-1) 0;
+  color: var(--color-foreground);
 }
 
 .food-quantity {
   margin: 0;
-  color: #666;
-  font-size: 0.9rem;
-}
-
-.nutrition-form {
-  display: flex;
-  flex-direction: column;
-  gap: 15px;
-}
-
-.form-group {
-  display: flex;
-  flex-direction: column;
+  color: var(--color-muted-foreground);
+  font-size: var(--font-size-sm);
 }
 
 .form-group label {
-  font-weight: 600;
-  color: #555;
-  margin-bottom: 5px;
-  font-size: 0.9rem;
+  font-weight: var(--font-weight-bold);
+  color: var(--color-foreground);
+  margin-bottom: var(--space-1);
+  font-size: var(--font-size-sm);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
 }
 
 .form-input {
-  padding: 10px 12px;
-  border: 2px solid #ddd;
-  border-radius: 6px;
-  font-size: 1rem;
-  transition: border-color 0.3s;
+  padding: var(--space-3);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: 0;
+  font-size: var(--font-size-base);
+  background: var(--color-card);
 }
 
 .form-input:focus {
   outline: none;
-  border-color: #667eea;
+  border-color: var(--color-primary-blue);
+  box-shadow: var(--shadow-sm);
 }
 
 .modal-footer {

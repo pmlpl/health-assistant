@@ -33,7 +33,7 @@ public class UserAiSettingsService {
             PlatformAiQuotaService platformAiQuotaService,
             @Lazy ApiKeyResolver apiKeyResolver,
             @Value("${ai.deployment-mode:dev}") String deploymentMode,
-            @Value("${ai.provider.default:lmstudio}") String defaultProvider,
+            @Value("${ai.provider.default:deepseek}") String defaultProvider,
             @Value("${ai.lmstudio.base-url:http://127.0.0.1:1234/v1}") String defaultLmBaseUrl,
             @Value("${ai.lmstudio.model:qwen3.5-9b}") String defaultLmModel,
             @Value("${ai.require-user-config:false}") boolean requireUserConfig) {
@@ -61,12 +61,12 @@ public class UserAiSettingsService {
         settings.setUserId(userId);
         settings.setCreatedAt(LocalDateTime.now());
         settings.setUpdatedAt(LocalDateTime.now());
-        if (isDevMode()) {
-            settings.setTextProvider("lmstudio");
+        // 新用户默认走 resolveDefaultTextProvider：优先 DeepSeek，本地 LM 需用户显式选择
+        String initialProvider = resolveDefaultTextProvider();
+        settings.setTextProvider(initialProvider);
+        if ("lmstudio".equals(initialProvider)) {
             settings.setLmstudioBaseUrl(defaultLmBaseUrl);
             settings.setLmstudioModel(defaultLmModel);
-        } else {
-            settings.setTextProvider("deepseek");
         }
         return repository.save(settings);
     }
@@ -77,10 +77,7 @@ public class UserAiSettingsService {
 
     public ResolvedAiConfig resolve(String userId) {
         UserAiSettings settings = getOrCreate(userId);
-        String provider = settings.getTextProvider();
-        if (provider == null || "unset".equals(provider)) {
-            provider = isDevMode() ? defaultProvider : "unset";
-        }
+        String provider = resolveEffectiveTextProvider(userId, settings);
 
         String lmUrl = firstNonBlank(settings.getLmstudioBaseUrl(), isDevMode() ? defaultLmBaseUrl : null);
         String lmModel = firstNonBlank(settings.getLmstudioModel(), isDevMode() ? defaultLmModel : null);
@@ -91,7 +88,7 @@ public class UserAiSettingsService {
         String pexelsKey = encryptionService.decryptSafe(settings.getPexelsApiKeyEnc());
         String visionKey = encryptionService.decryptSafe(settings.getVisionApiKeyEnc());
 
-        boolean configured = isConfigured(provider, lmUrl, dashKey, deepseekKey, customKey, doubaoKey, settings);
+        boolean configured = isConfigured(userId, provider, lmUrl, dashKey, deepseekKey, customKey, doubaoKey, settings);
         boolean visionConfigured = isVisionConfigured(settings, visionKey, lmUrl);
 
         return ResolvedAiConfig.builder()
@@ -130,18 +127,63 @@ public class UserAiSettingsService {
         };
     }
 
-    private boolean isConfigured(String provider, String lmUrl, String dashKey, String deepseekKey,
+    private boolean isConfigured(String userId, String provider, String lmUrl, String dashKey, String deepseekKey,
             String customKey, String doubaoKey, UserAiSettings settings) {
         return switch (provider) {
-            case "dashscope" -> hasText(dashKey);
-            case "deepseek" -> hasText(deepseekKey);
-            case "doubao" -> hasText(doubaoKey);
+            case "dashscope" -> hasText(dashKey) || apiKeyResolver.resolveDashscopeForText(userId).isPresent();
+            case "deepseek" -> hasText(deepseekKey) || apiKeyResolver.resolveDeepseekForText(userId).isPresent();
+            case "doubao" -> hasText(doubaoKey) || apiKeyResolver.resolveDoubaoForText(userId).isPresent();
             case "other" -> hasText(customKey) && hasText(settings.getCustomApiBaseUrl());
             case "lmstudio" -> hasText(lmUrl);
-            case "auto" -> hasText(lmUrl) || hasText(dashKey) || hasText(deepseekKey)
-                    || hasText(doubaoKey) || (hasText(customKey) && hasText(settings.getCustomApiBaseUrl()));
-            default -> isDevMode() && hasText(lmUrl);
+            case "auto" -> hasText(lmUrl) || apiKeyResolver.resolveDeepseekForText(userId).isPresent()
+                    || apiKeyResolver.resolveDashscopeForText(userId).isPresent()
+                    || apiKeyResolver.resolveDoubaoForText(userId).isPresent()
+                    || (hasText(customKey) && hasText(settings.getCustomApiBaseUrl()));
+            default -> apiKeyResolver.resolveDeepseekForText(userId).isPresent();
         };
+    }
+
+    /**
+     * 解析实际使用的文本 AI 平台：未设置时优先 DeepSeek；历史 dev 默认 lmstudio 记录在用户未改过设置时自动升级。
+     */
+    private String resolveEffectiveTextProvider(String userId, UserAiSettings settings) {
+        String provider = settings.getTextProvider();
+        if (provider == null || provider.isBlank() || "unset".equals(provider)) {
+            return resolveDefaultTextProvider();
+        }
+        if ("lmstudio".equals(provider) && isDeepseekAvailable(userId) && isLegacyDevLmStudioDefault(settings)) {
+            return "deepseek";
+        }
+        return provider;
+    }
+
+    /** 平台或用户是否已配置 DeepSeek Key */
+    private boolean isDeepseekAvailable(String userId) {
+        return apiKeyResolver.resolveDeepseekForText(userId).isPresent();
+    }
+
+    /**
+     * 判断是否为开发环境自动写入的 lmstudio 默认值（用户从未在 AI 设置中保存过修改）。
+     */
+    private boolean isLegacyDevLmStudioDefault(UserAiSettings settings) {
+        LocalDateTime created = settings.getCreatedAt();
+        LocalDateTime updated = settings.getUpdatedAt();
+        if (created == null || updated == null || !created.equals(updated)) {
+            return false;
+        }
+        String savedUrl = settings.getLmstudioBaseUrl();
+        String savedModel = settings.getLmstudioModel();
+        boolean urlIsDefault = savedUrl == null || savedUrl.isBlank() || savedUrl.equals(defaultLmBaseUrl);
+        boolean modelIsDefault = savedModel == null || savedModel.isBlank() || savedModel.equals(defaultLmModel);
+        return urlIsDefault && modelIsDefault;
+    }
+
+    /** 默认文本 provider：DeepSeek 可用时用 DeepSeek，否则回退到配置的 defaultProvider */
+    private String resolveDefaultTextProvider() {
+        if (isDeepseekAvailable(null)) {
+            return "deepseek";
+        }
+        return defaultProvider != null && !defaultProvider.isBlank() ? defaultProvider : "deepseek";
     }
 
     public UserAiSettingsDto toDto(String userId) {
@@ -285,7 +327,7 @@ public class UserAiSettingsService {
             case "deepseek" -> {
                 if (!apiKeyResolver.resolveDeepseekForText(userId).isPresent()) {
                     throw new com.example.healthassistant.exception.AiNotConfiguredException(
-                            "当前为 DeepSeek，请配置 API Key，或改选「本地 LM Studio」");
+                            "请在后端 .env 中配置 DEEPSEEK_API_KEY，或在 AI 设置中填写 DeepSeek API Key");
                 }
             }
             case "doubao" -> {

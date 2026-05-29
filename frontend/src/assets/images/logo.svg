@@ -76,7 +76,4 @@
   <text x="100" y="180" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="white" opacity="0.8">
     Health Assistant
   </text>
-
-  <!-- 动态光效 (可选动画效果) -->
-  <animate attributeName="opacity" values="0.8;1;0.8" dur="3s" repeatCount="indefinite" />
 </svg>

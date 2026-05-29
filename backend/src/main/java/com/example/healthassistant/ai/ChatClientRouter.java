@@ -105,7 +105,7 @@ public class ChatClientRouter {
             case "doubao" -> callDoubao(userId, config, messages, effective);
             case "other" -> callOther(config, messages, effective);
             case "lmstudio" -> callLmStudio(config, messages, effective);
-            default -> callLmStudio(config, messages, effective);
+            default -> callDeepseekOrFail(userId, config, messages, effective);
         };
     }
 
@@ -130,10 +130,28 @@ public class ChatClientRouter {
 
         switch (provider) {
             case "lmstudio" -> streamLmStudio(config, messages, consumer);
-            case "deepseek" -> streamDeepseek(config, messages, consumer);
+            case "deepseek" -> streamDeepseek(userId, config, messages, consumer);
             case "other" -> streamOther(config, messages, consumer);
-            default -> emitAsPseudoStream(completeWithMessages(userId, messages), consumer);
+            case "dashscope", "doubao" ->
+                    emitAsPseudoStream(completeWithMessages(userId, messages), consumer);
+            default -> {
+                if (apiKeyResolver.resolveDeepseekForText(userId).isPresent()) {
+                    streamDeepseek(userId, config, messages, consumer);
+                } else {
+                    throw new AiNotConfiguredException(
+                            "请在后端 .env 中配置 DEEPSEEK_API_KEY，或在 AI 设置中选择「本地 LM Studio」");
+                }
+            }
         }
+    }
+
+    /** 未知 provider 时优先 DeepSeek，避免误连本地 127.0.0.1:1234 */
+    private String callDeepseekOrFail(String userId, ResolvedAiConfig config, List<ChatMessage> messages, int tokens) {
+        if (apiKeyResolver.resolveDeepseekForText(userId).isPresent()) {
+            return callDeepseek(userId, config, messages, tokens);
+        }
+        throw new AiNotConfiguredException(
+                "请在后端 .env 中配置 DEEPSEEK_API_KEY，或在 AI 设置中选择「本地 LM Studio」");
     }
 
     private static void emitAsPseudoStream(String fullText, AiStreamChunkConsumer consumer) {
@@ -163,8 +181,10 @@ public class ChatClientRouter {
         emitAsPseudoStream(full, consumer);
     }
 
-    private void streamDeepseek(ResolvedAiConfig config, List<ChatMessage> messages, AiStreamChunkConsumer consumer) {
-        String key = requireKey(config.getDeepseekApiKey(), "请配置 DeepSeek API Key");
+    private void streamDeepseek(String userId, ResolvedAiConfig config, List<ChatMessage> messages,
+            AiStreamChunkConsumer consumer) {
+        ResolvedApiKey keyRef = apiKeyResolver.resolveDeepseekForText(userId);
+        String key = requireResolvedKey(keyRef, "请在后端 .env 中配置 DEEPSEEK_API_KEY，或在 AI 设置中填写 DeepSeek API Key");
         String model = resolveCloudModel(config, defaultDeepseekModel);
         trackCall("deepseek", model, OpenAiCompatibleChatClient.DEEPSEEK_DEFAULT_BASE);
         openAiCompatibleChatClient.stream(
@@ -174,6 +194,7 @@ public class ChatClientRouter {
                 messages,
                 maxTokens,
                 consumer);
+        apiKeyResolver.recordPlatformUsageIfNeeded(userId, keyRef, UsageKind.TEXT);
     }
 
     private void streamOther(ResolvedAiConfig config, List<ChatMessage> messages, AiStreamChunkConsumer consumer) {

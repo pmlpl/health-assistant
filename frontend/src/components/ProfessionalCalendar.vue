@@ -470,12 +470,15 @@ onMounted(() => {
 </script>
 
 <style scoped>
+/* 在 CalendarView 左右布局中占满可用宽度，不再居中收窄 */
 .professional-calendar {
-  max-width: 680px;
-  margin: 0 auto;
-  background: white;
-  border-radius: 16px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  background: var(--color-card);
+  border-radius: 0;
+  box-shadow: none;
+  border: var(--border-width) solid var(--color-border);
   overflow: hidden;
 }
 
@@ -484,8 +487,9 @@ onMounted(() => {
   justify-content: space-between;
   align-items: center;
   padding: 20px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
+  background: var(--color-primary-blue);
+  color: #fff;
+  border-bottom: var(--border-width-thick) solid var(--color-border);
 }
 
 .nav-btn {
@@ -541,7 +545,7 @@ onMounted(() => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  border-radius: 12px;
+  border-radius: 0;
   cursor: pointer;
   transition: all 0.2s ease;
   position: relative;
@@ -561,32 +565,38 @@ onMounted(() => {
 }
 
 .calendar-cell.today {
-  background: linear-gradient(135deg, #667eea, #764ba2);
-  color: white;
-  font-weight: bold;
-  border-color: #667eea;
+  background: var(--color-primary-red);
+  color: #fff;
+  font-weight: var(--font-weight-bold);
+  border-color: var(--color-border);
 }
 
 .calendar-cell.today .day-number {
-  color: white;
+  color: #fff;
 }
 
 .calendar-cell.has-data {
-  background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
-  border-color: #667eea;
-  border-width: 2px;
-  font-weight: 600;
+  background: var(--color-primary-yellow);
+  color: var(--color-foreground);
+  border-color: var(--color-border);
+  border-width: var(--border-width);
+  font-weight: var(--font-weight-semibold);
 }
 
 .calendar-cell.has-data .day-number {
-  color: #1565c0;
+  color: var(--color-foreground);
 }
 
 .calendar-cell.selected {
-  background: linear-gradient(135deg, #ff6b6b, #ee5a52);
-  color: white;
+  background: var(--color-primary-blue);
+  color: #fff;
   transform: scale(1.05);
-  box-shadow: 0 4px 15px rgba(255, 107, 107, 0.4);
+  box-shadow: var(--shadow-md);
+  border-color: var(--color-border);
+}
+
+.calendar-cell.selected .day-number {
+  color: #fff;
 }
 
 .calendar-cell:hover:not(.selected) {
@@ -602,23 +612,26 @@ onMounted(() => {
 
 .calories-badge {
   font-size: 10px;
-  background: rgba(102, 126, 234, 0.1);
-  color: #667eea;
+  background: #fff;
+  color: var(--color-foreground);
+  border: 1px solid var(--color-border);
   padding: 2px 6px;
-  border-radius: 10px;
-  font-weight: 600;
+  border-radius: 0;
+  font-weight: var(--font-weight-bold);
 }
 
 .calendar-cell.today .calories-badge,
 .calendar-cell.selected .calories-badge {
-  background: rgba(255, 255, 255, 0.2);
-  color: white;
+  background: rgba(255, 255, 255, 0.25);
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.5);
 }
 
 .calendar-cell.has-data .calories-badge {
-  background: rgba(102, 126, 234, 0.15);
-  color: #667eea;
-  font-weight: 700;
+  background: #fff;
+  color: var(--color-foreground);
+  border: 1px solid var(--color-border);
+  font-weight: var(--font-weight-bold);
 }
 
 /* 弹窗样式 */
@@ -639,7 +652,7 @@ onMounted(() => {
 
 .modal-content {
   background: white;
-  border-radius: 16px;
+  border-radius: 0;
   max-width: 500px;
   width: 100%;
   max-height: calc(100vh - 140px);
@@ -653,10 +666,10 @@ onMounted(() => {
   justify-content: space-between;
   align-items: center;
   padding: 20px;
-  border-bottom: 1px solid #eee;
-  background: linear-gradient(135deg, #667eea, #764ba2);
-  color: white;
-  border-radius: 16px 16px 0 0;
+  border-bottom: var(--border-width) solid var(--color-border);
+  background: var(--color-primary-blue);
+  color: #fff;
+  border-radius: 0;
 }
 
 .modal-header h3 {
@@ -696,7 +709,7 @@ onMounted(() => {
 
 .record-card {
   background: #fafafa;
-  border-radius: 12px;
+  border-radius: 0;
   padding: 15px;
   border: 1px solid #eee;
 }
@@ -740,7 +753,7 @@ onMounted(() => {
 .nutrition-tag {
   font-size: 11px;
   padding: 3px 8px;
-  border-radius: 12px;
+  border-radius: 0;
   font-weight: 500;
 }
 
@@ -750,9 +763,10 @@ onMounted(() => {
 .nutrition-tag.fat { background: #fce4ec; color: #c2185b; }
 
 .daily-summary {
-  background: linear-gradient(135deg, #667eea, #764ba2);
-  color: white;
-  border-radius: 12px;
+  background: var(--color-primary-blue);
+  color: #fff;
+  border: var(--border-width) solid var(--color-border);
+  border-radius: 0;
   padding: 20px;
   margin-top: 20px;
 }
@@ -807,8 +821,8 @@ onMounted(() => {
 /* 响应式设计 */
 @media (max-width: 768px) {
   .professional-calendar {
-    margin: 10px;
-    border-radius: 12px;
+    margin: 0;
+    border-radius: 0;
   }
 
   .calendar-header {

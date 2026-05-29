@@ -36,6 +36,10 @@ public class FitnessRecord {
     
     @Column(name = "weight_kg")
     private Double weightKg;
+
+    /** 跑步等有氧项目的距离（公里） */
+    @Column(name = "distance_km")
+    private Double distanceKm;
     
     @Column
     private Double calories;
@@ -80,6 +84,9 @@ public class FitnessRecord {
     
     public Double getWeightKg() { return weightKg; }
     public void setWeightKg(Double weightKg) { this.weightKg = weightKg; }
+
+    public Double getDistanceKm() { return distanceKm; }
+    public void setDistanceKm(Double distanceKm) { this.distanceKm = distanceKm; }
     
     public Double getCalories() { return calories; }
     public void setCalories(Double calories) { this.calories = calories; }

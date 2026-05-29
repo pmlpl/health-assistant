@@ -1,18 +1,22 @@
 <template>
   <div class="diary-layout">
-    <!-- 页面头部 -->
-    <div class="page-header">
-      <h1>🍽️ 饮食日记</h1>
-      <div class="stats-bar">
+    <!-- 页面头部：设计系统 PageHeader -->
+    <PageHeader
+      title="饮食日记"
+      section-label="饮食记录"
+      :label-pulse="true"
+      icon="🍽️"
+    >
+      <template #stats>
         <span class="stat-item">📊 今日记录: {{ diaryEntries.length }} 条</span>
         <span class="stat-item">🔥 总热量: {{ totalNutrition.calories }}kcal</span>
-      </div>
-    </div>
+      </template>
+    </PageHeader>
     
     <div class="main-container">
       <!-- 左侧：记录区域 -->
       <div class="left-panel">
-        <div class="card record-card">
+        <div class="card record-card bh-card">
           <!-- 保存记录时的加载动画 - 居中显示 -->
           <div v-if="savingRecord" class="loading-overlay">
             <div class="loading-content">
@@ -24,7 +28,10 @@
             </div>
           </div>
           
-          <h2>➕ 添加新记录</h2>
+          <div class="card-header-section">
+            <SectionLabel label="新建记录" />
+            <h2>➕ 添加新记录</h2>
+          </div>
           
           <!-- 餐别选择 -->
           <div class="meal-selection">
@@ -99,14 +106,14 @@
               @click="analyzeFoodItems" 
               :disabled="analyzing || foodItems.length === 0"
             >
-              🤖 {{ analyzing ? '🔄 分析中...' : '智能分析' }}
+              🤖 {{ analyzing ? '智能分析中...' : '智能分析' }}
             </button>
             <button 
               class="btn upload-btn" 
               @click="triggerImageUpload"
               :disabled="uploading"
             >
-              📸 {{ uploading ? '⏳ 上传中...' : '拍照上传' }}
+              📸 {{ uploading ? '智能分析中...' : '拍照上传' }}
             </button>
             <input 
               type="file" 
@@ -115,10 +122,12 @@
               accept="image/*" 
               style="display: none;" 
             />
-            <button 
-              class="btn save-btn" 
+            <button
+              class="btn-brand"
               @click="recordDiet"
-              :disabled="!hasAnalyzed || foodItems.length === 0"
+              :disabled="recordDisabled"
+              :aria-disabled="recordDisabled"
+              title="请先完成智能分析后再记录"
             >
               💾 记录
             </button>
@@ -155,9 +164,12 @@
 
       <!-- 右侧：历史记录 -->
       <div class="right-panel">
-        <div class="card history-card">
+        <div class="card history-card bh-card">
           <div class="history-header">
-            <h2>📖 今日饮食记录</h2>
+            <div class="card-header-section">
+              <SectionLabel label="今日记录" />
+              <h2>📖 今日饮食记录</h2>
+            </div>
             <div class="summary-stats">
               <span class="summary-item">🔥 总热量: {{ totalNutrition.calories }}kcal</span>
               <span class="summary-item">🥩 蛋白质: {{ totalNutrition.protein }}g</span>
@@ -269,9 +281,27 @@
           <h3>📈 今日营养总计</h3>
           <div class="summary-grid">
             <div class="summary-box calories">
-              <div class="big-number">{{ totalNutrition.calories }}</div>
-              <div class="metric">总热量</div>
-              <div class="small-unit">kcal</div>
+              <div class="calorie-ring-wrap" aria-hidden="true">
+                <svg class="calorie-ring" viewBox="0 0 100 100">
+                  <circle class="calorie-ring__track" cx="50" cy="50" r="42" />
+                  <circle
+                    class="calorie-ring__fill"
+                    :class="calorieRingStatusClass"
+                    cx="50"
+                    cy="50"
+                    r="42"
+                    :style="calorieRingStyle"
+                  />
+                </svg>
+                <div class="calorie-ring__center">
+                  <div class="big-number">{{ totalNutrition.calories }}</div>
+                  <div class="metric">总热量</div>
+                  <div class="small-unit">kcal</div>
+                </div>
+              </div>
+              <p class="calorie-target-label">
+                目标 {{ Math.round(calorieTarget) }} kcal · {{ calorieProgressPct }}%
+              </p>
             </div>
             <div class="summary-box protein">
               <div class="big-number">{{ totalNutrition.protein }}</div>
@@ -297,7 +327,7 @@
               class="btn-ai-analyze"
               :disabled="analyzingNutrition"
             >
-              {{ analyzingNutrition ? '🔄 分析中...' : '🤖 AI 智能分析建议' }}
+              {{ analyzingNutrition ? '智能分析中...' : '🤖 AI 智能分析建议' }}
             </button>
                 
             <!-- AI 分析结果 -->
@@ -317,12 +347,19 @@
       @save="handleManualNutritionSave"
     />
     
+    <!-- 底部引导：跳转食谱或健身 -->
+    <PageCta
+      title="搭配运动，效果更佳"
+      description="记录饮食后，可浏览健康食谱或前往健身页记录今日训练。"
+      to="/recipes"
+      button-text="浏览健康食谱"
+    />
+
     <!-- AI 分析失败提示 -->
     <div v-if="analyzing" class="ai-analyzing">
       <div class="analyzing-content">
         <div class="spinner"></div>
-        <p>🤖 正在使用豆包 AI 进行智能分析...</p>
-        <p class="analyzing-tip">💡 提示：AI 分析通常需要 10-30 秒，请耐心等待</p>
+        <p>智能分析中...</p>
       </div>
     </div>
   </div>
@@ -330,6 +367,9 @@
 
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
+import PageHeader from '@/components/common/PageHeader.vue'
+import PageCta from '@/components/common/PageCta.vue'
+import SectionLabel from '@/components/common/SectionLabel.vue'
 import { healthApi } from '../api/healthApi'
 import { useUserStore } from '../stores/userStore'
 import { useAiPageJobsStore } from '../stores/aiPageJobsStore'
@@ -341,6 +381,10 @@ import { savePageDraft, loadPageDraft, clearPageDraft } from '../utils/pageDraft
 
 // 饮食日记未保存表单草稿键（切路由后恢复）
 const DIARY_DRAFT_KEY = 'diary_form_draft'
+
+// 总热量圆环：周长与默认目标（档案未加载时的回退值）
+const CALORIE_RING_CIRC = 264
+const DEFAULT_TARGET_CALORIES = 2000
 
 // 使用环境变量配置 API 基础 URL
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api'
@@ -384,10 +428,18 @@ const imageUploader = ref(null)
 const uploading = computed(() => aiPageJobs.isRunning(AI_PAGE_JOB_IDS.DIARY_IMAGE_RECOGNIZE))
 const hasAnalyzed = ref(false) // 是否已经过 AI 分析
 
+// 未完成智能分析前禁用「记录」按钮
+const recordDisabled = computed(
+  () => !hasAnalyzed.value || foodItems.value.length === 0
+)
+
 // 批量删除相关
 const selectedRecords = ref([])
 const selectAll = ref(false)
 const batchDeleting = ref(false)
+
+// 用户档案中的每日目标热量（kcal）
+const targetCalories = ref(null)
 
 // 餐别选项
 const mealOptions = [
@@ -433,6 +485,37 @@ const totalNutrition = computed(() => {
     fat: Math.round(totals.fat * 10) / 10,
     fiber: Math.round(totals.fiber * 10) / 10
   }
+})
+
+// 有效目标热量：优先档案值，无效时回退默认值
+const calorieTarget = computed(() => {
+  const target = Number(targetCalories.value)
+  return target > 0 ? target : DEFAULT_TARGET_CALORIES
+})
+
+// 摄入占目标的百分比（可超过 100%）
+const calorieProgressPct = computed(() => {
+  const intake = totalNutrition.value.calories || 0
+  if (!calorieTarget.value) return 0
+  return Math.round((intake / calorieTarget.value) * 100)
+})
+
+// 圆环填充比例（SVG 最多画满一圈）
+const calorieRingFillPct = computed(() =>
+  Math.min(Math.max(calorieProgressPct.value, 0), 100)
+)
+
+// 圆环 stroke-dashoffset：随摄入/目标比例更新弧长
+const calorieRingStyle = computed(() => ({
+  strokeDasharray: `${CALORIE_RING_CIRC}`,
+  strokeDashoffset: `${CALORIE_RING_CIRC * (1 - calorieRingFillPct.value / 100)}`
+}))
+
+// 圆环进度色：未达标黄、达标蓝、超标红
+const calorieRingStatusClass = computed(() => {
+  const ratio = (totalNutrition.value.calories || 0) / calorieTarget.value
+  if (ratio >= 1) return ratio > 1.15 ? 'is-over' : 'is-met'
+  return 'is-under'
 })
 
 // 添加食物项
@@ -599,6 +682,17 @@ const analyzeFoodItems = async () => {
 }
 
 const recordDiet = async () => {
+  if (recordDisabled.value) {
+    ElNotification({
+      title: '⚠️ 提示',
+      message: '请先点击「智能分析」完成营养评估后再记录',
+      type: 'warning',
+      duration: 2500,
+      offset: 80
+    })
+    return
+  }
+
   if (foodItems.value.length === 0) {
     ElNotification({
       title: '⚠️ 提示',
@@ -861,7 +955,7 @@ const handleImageUpload = async (event) => {
       if (mockItems.length > 0) {
         ElNotification({
           title: '⚠️ 未使用真实识别',
-          message: '返回了演示数据，请配置豆包 API Key 与视觉模型后重试。',
+          message: '返回了演示数据，请在「AI 设置」配置视觉 API Key 与模型后重试。',
           type: 'warning',
           duration: 6000,
           offset: 80,
@@ -924,9 +1018,9 @@ const handleImageUpload = async (event) => {
     if (isQuotaError) {
       ElNotification({
         title: '⚠️ API 配额已达限制',
-        message: '豆包 AI 图片识别服务暂时不可用。\n\n' + 
+        message: '智能分析服务暂时不可用。\n\n' +
                  '原因：您的 AI 账户已达到推理次数限制\n' +
-                 '解决方案：请登录豆包 AI 控制台调整模型配额\n' +
+                 '解决方案：请在 AI 服务商控制台调整模型配额，\n' +
                  '或暂时使用手动输入功能记录食物。\n\n' +
                  '错误详情：' + errMsg,
         type: 'warning',
@@ -1178,6 +1272,19 @@ const deleteRecord = async (recordId, index) => {
   }
 }
 
+// 从用户档案加载每日目标热量
+const loadTargetCalories = async () => {
+  const userId = userStore.userData?.userId
+  if (!userId) return
+  try {
+    const profile = await healthApi.getUserProfile(userId)
+    const target = Number(profile?.targetCalories)
+    targetCalories.value = target > 0 ? target : null
+  } catch (err) {
+    console.warn('加载目标热量失败，将使用默认值', err)
+  }
+}
+
 // 组件挂载时加载数据
 onMounted(async () => {
   
@@ -1186,7 +1293,7 @@ onMounted(async () => {
   
   // 如果已认证，加载记录
   if (userStore.isAuthenticated) {
-    await loadTodayRecords()
+    await Promise.all([loadTodayRecords(), loadTargetCalories()])
     restoreDiaryDraft()
     restoreAiPageJobs()
   } else {
@@ -1198,7 +1305,7 @@ onMounted(async () => {
         console.log('从 localStorage 恢复用户数据:', userData)
         if (userData.userId) {
           userStore.setUserData(userData)
-          await loadTodayRecords()
+          await Promise.all([loadTodayRecords(), loadTargetCalories()])
         }
       } catch (e) {
         console.error('恢复用户数据失败:', e)
@@ -1240,12 +1347,11 @@ onMounted(async () => {
   right: 0;
   bottom: 0;
   background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(10px);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 100;
-  border-radius: 20px;
+  border-radius: 0;
   animation: fadeIn 0.3s ease-out;
 }
 
@@ -1280,7 +1386,7 @@ onMounted(async () => {
   width: 100%;
   height: 100%;
   border: 4px solid rgba(0, 122, 255, 0.1);
-  border-top-color: #007aff;
+  border-top-color: var(--color-foreground);
   border-radius: 50%;
   animation: spin 1s linear infinite;
   /* 确保只有圆环在旋转 */
@@ -1305,7 +1411,7 @@ onMounted(async () => {
 }
 
 .loading-text {
-  color: #1d1d1f;
+  color: var(--color-foreground);
   font-size: 16px;
   font-weight: 500;
   letter-spacing: -0.2px;
@@ -1338,45 +1444,23 @@ onMounted(async () => {
   position: relative;
 }
 
-.diary-layout::before {
-  content: '';
-  position: fixed;
-  top: -50%;
-  left: -50%;
-  width: 200%;
-  height: 200%;
-  background: 
-    radial-gradient(ellipse at 30% 20%, rgba(0, 122, 255, 0.03) 0%, transparent 50%),
-    radial-gradient(ellipse at 70% 80%, rgba(88, 86, 214, 0.03) 0%, transparent 50%);
-  pointer-events: none;
-  z-index: 0;
-  animation: gradientShift 20s ease-in-out infinite;
-}
 
-@keyframes gradientShift {
-  0%, 100% { transform: translate(0, 0); }
-  50% { transform: translate(-5%, -5%); }
-}
+
 
 .page-header {
   text-align: center;
   padding: 48px 24px 36px;
   position: relative;
   z-index: 1;
-  background: linear-gradient(180deg, #fafafa 0%, #ffffff 100%);
+  background: var(--color-background);
 }
 
 .page-header h1 {
-  color: #1d1d1f;
   margin-bottom: 12px;
   font-weight: 700;
   letter-spacing: -0.5px;
   font-size: 36px;
   line-height: 1.1;
-  background: linear-gradient(135deg, #1d1d1f 0%, #424245 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
 }
 
 .stats-bar {
@@ -1385,7 +1469,7 @@ onMounted(async () => {
   gap: 10px;
   align-items: center;
   font-size: 15px;
-  color: #86868b;
+  color: var(--color-muted-foreground);
   flex-wrap: wrap;
   margin-top: 16px;
 }
@@ -1397,17 +1481,15 @@ onMounted(async () => {
   letter-spacing: -0.2px;
   padding: 8px 16px;
   background: rgba(255, 255, 255, 0.8);
-  border-radius: 980px;
+  border-radius: 0;
   border: 1px solid rgba(0, 0, 0, 0.04);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  transition: all 0.3s cubic-bezier(0.25, 0.1, 0.25, 1);
+  box-shadow: none;
+  -webkit-transition: all 0.3s cubic-bezier(0.25, 0.1, 0.25, 1);
 }
 
 .stat-item:hover {
   background: rgba(255, 255, 255, 0.95);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+  box-shadow: none;
   transform: translateY(-2px);
 }
 
@@ -1416,7 +1498,8 @@ onMounted(async () => {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 20px;
-  margin: 0 32px;
+  /* 顶栏间距由 design-system .page-shell-header margin-bottom 统一控制 */
+  margin: 0 32px 0;
   position: relative;
   z-index: 1;
   align-items: stretch;
@@ -1424,10 +1507,8 @@ onMounted(async () => {
 
 .card {
   background: #ffffff;
-  border-radius: 20px;
-  box-shadow: 
-    0 2px 8px rgba(0, 0, 0, 0.02),
-    0 8px 32px rgba(0, 0, 0, 0.04);
+  border-radius: 0;
+  box-shadow: none;
   padding: 24px;
   margin-bottom: 0;
   border: none;
@@ -1441,9 +1522,7 @@ onMounted(async () => {
 
 .card:hover {
   transform: translateY(-3px);
-  box-shadow: 
-    0 4px 16px rgba(0, 0, 0, 0.04),
-    0 24px 64px rgba(0, 0, 0, 0.08);
+  box-shadow: none;
 }
 
 .card.history-card {
@@ -1454,7 +1533,7 @@ onMounted(async () => {
 }
 
 .card h2 {
-  color: #1d1d1f;
+  color: var(--color-foreground);
   margin-bottom: 24px;
   padding-bottom: 0;
   border-bottom: none;
@@ -1484,7 +1563,7 @@ onMounted(async () => {
   display: block;
   margin-bottom: 8px;
   font-weight: 600;
-  color: #1d1d1f;
+  color: var(--color-foreground);
   font-size: 15px;
   letter-spacing: -0.1px;
 }
@@ -1493,22 +1572,22 @@ onMounted(async () => {
   width: 100%;
   padding: 14px 16px;
   border: none;
-  border-radius: 12px;
+  border-radius: 0;
   font-size: 17px;
-  background: #f5f5f7;
+  background: var(--color-muted);
   transition: all 0.3s cubic-bezier(0.25, 0.1, 0.25, 1);
-  color: #1d1d1f;
+  color: var(--color-foreground);
   letter-spacing: -0.2px;
 }
 
 .food-input:focus, .quantity-number:focus {
   outline: none;
   background: #ebebf0;
-  box-shadow: 0 0 0 4px rgba(0, 122, 255, 0.1);
+  box-shadow: none;
 }
 
 .food-input::placeholder, .quantity-number::placeholder {
-  color: #86868b;
+  color: var(--color-muted-foreground);
 }
 
 .quantity-combo {
@@ -1519,11 +1598,11 @@ onMounted(async () => {
 .unit-select {
   padding: 14px 16px;
   border: none;
-  border-radius: 12px;
+  border-radius: 0;
   font-size: 17px;
-  background: #f5f5f7;
+  background: var(--color-muted);
   transition: all 0.3s cubic-bezier(0.25, 0.1, 0.25, 1);
-  color: #1d1d1f;
+  color: var(--color-foreground);
   cursor: pointer;
   min-width: 80px;
 }
@@ -1536,7 +1615,7 @@ onMounted(async () => {
 .unit-tip {
   margin-top: 8px;
   font-size: 13px;
-  color: #86868b;
+  color: var(--color-muted-foreground);
   letter-spacing: -0.1px;
   line-height: 1.5;
 }
@@ -1544,10 +1623,10 @@ onMounted(async () => {
 .add-food-btn {
   width: 48px;
   height: 48px;
-  background: #007aff;
+  background: var(--color-foreground);
   color: white;
   border: none;
-  border-radius: 12px;
+  border-radius: 0;
   font-size: 24px;
   cursor: pointer;
   transition: all 0.3s cubic-bezier(0.25, 0.1, 0.25, 1);
@@ -1557,9 +1636,9 @@ onMounted(async () => {
 }
 
 .add-food-btn:hover {
-  background: #0066d6;
+  background: var(--color-foreground);
   transform: scale(1.05);
-  box-shadow: 0 4px 16px rgba(0, 122, 255, 0.3);
+  box-shadow: none;
 }
 
 .add-food-btn:active {
@@ -1569,13 +1648,13 @@ onMounted(async () => {
 .added-foods {
   margin-top: 24px;
   padding: 20px;
-  background: #f5f5f7;
-  border-radius: 16px;
+  background: var(--color-muted);
+  border-radius: 0;
 }
 
 .added-foods h3 {
   margin: 0 0 16px 0;
-  color: #1d1d1f;
+  color: var(--color-foreground);
   font-size: 17px;
   font-weight: 600;
   letter-spacing: -0.2px;
@@ -1593,11 +1672,11 @@ onMounted(async () => {
   gap: 10px;
   background: #ffffff;
   border: none;
-  border-radius: 980px;
+  border-radius: 0;
   padding: 8px 16px;
   font-size: 15px;
-  color: #1d1d1f;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  color: var(--color-foreground);
+  box-shadow: none;
 }
 
 .food-name {
@@ -1606,14 +1685,14 @@ onMounted(async () => {
 }
 
 .food-quantity {
-  color: #86868b;
+  color: var(--color-muted-foreground);
   font-size: 13px;
 }
 
 .remove-btn {
   width: 22px;
   height: 22px;
-  background: #ff3b30;
+  background: #000000;
   color: white;
   border: none;
   border-radius: 50%;
@@ -1638,7 +1717,7 @@ onMounted(async () => {
   display: block;
   margin-bottom: 12px;
   font-weight: 600;
-  color: #1d1d1f;
+  color: var(--color-foreground);
   font-size: 15px;
   letter-spacing: -0.1px;
 }
@@ -1652,13 +1731,13 @@ onMounted(async () => {
 .meal-btn {
   padding: 12px 20px;
   border: none;
-  background: #f5f5f7;
-  border-radius: 980px;
+  background: var(--color-muted);
+  border-radius: 0;
   cursor: pointer;
   transition: all 0.3s cubic-bezier(0.25, 0.1, 0.25, 1);
   font-size: 15px;
   font-weight: 500;
-  color: #1d1d1f;
+  color: var(--color-foreground);
   letter-spacing: -0.1px;
 }
 
@@ -1667,9 +1746,9 @@ onMounted(async () => {
 }
 
 .meal-btn.active {
-  background: #007aff;
+  background: var(--color-foreground);
   color: white;
-  box-shadow: 0 4px 16px rgba(0, 122, 255, 0.3);
+  box-shadow: none;
 }
 
 .action-buttons {
@@ -1682,7 +1761,7 @@ onMounted(async () => {
 .btn {
   padding: 14px 24px;
   border: none;
-  border-radius: 980px;
+  border-radius: 0;
   font-size: 15px;
   font-weight: 600;
   cursor: pointer;
@@ -1694,41 +1773,41 @@ onMounted(async () => {
 }
 
 .analyze-btn {
-  background: #007aff;
+  background: var(--color-foreground);
   color: white;
 }
 
 .analyze-btn:hover:not(:disabled) {
-  background: #0066d6;
+  background: var(--color-foreground);
   transform: scale(1.02);
-  box-shadow: 0 4px 16px rgba(0, 122, 255, 0.3);
+  box-shadow: none;
 }
 
 .upload-btn {
-  background: #34c759;
+  background: #000000;
   color: white;
 }
 
 .upload-btn:hover:not(:disabled) {
   background: #2db84e;
   transform: scale(1.02);
-  box-shadow: 0 4px 16px rgba(52, 199, 89, 0.3);
+  box-shadow: none;
 }
 
 .save-btn {
-  background: #1d1d1f;
+  background: var(--color-foreground);
   color: white;
 }
 
 .save-btn:hover:not(:disabled) {
   background: #333336;
   transform: scale(1.02);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  box-shadow: none;
 }
 
 .btn:disabled {
   background: #d1d1d6;
-  color: #86868b;
+  color: var(--color-muted-foreground);
   cursor: not-allowed;
   transform: none;
 }
@@ -1736,12 +1815,12 @@ onMounted(async () => {
 .analysis-results {
   margin-bottom: 24px;
   padding: 24px;
-  background: #f5f5f7;
-  border-radius: 16px;
+  background: var(--color-muted);
+  border-radius: 0;
 }
 
 .analysis-results h3 {
-  color: #1d1d1f;
+  color: var(--color-foreground);
   margin-bottom: 16px;
   font-size: 17px;
   font-weight: 600;
@@ -1756,23 +1835,26 @@ onMounted(async () => {
 
 .food-tag {
   padding: 8px 16px;
-  border-radius: 980px;
+  border-radius: 0;
   font-size: 14px;
   font-weight: 500;
   letter-spacing: -0.1px;
 }
 
-.food-tag.protein { background: rgba(0, 122, 255, 0.1); color: #007aff; }
-.food-tag.carbs { background: rgba(255, 149, 0, 0.1); color: #ff9500; }
-.food-tag.fiber { background: rgba(52, 199, 89, 0.1); color: #34c759; }
-.food-tag.other { background: #f5f5f7; color: #86868b; }
+.food-tag.protein { background: rgba(0, 122, 255, 0.1); color: var(--color-foreground); }
+.food-tag.carbs { background: rgba(255, 149, 0, 0.1); color: #525252; }
+.food-tag.fiber { background: rgba(52, 199, 89, 0.1); color: #000000; }
+.food-tag.other { background: var(--color-muted); color: var(--color-muted-foreground); }
 
+/* 智能成分评估：浅底黑字，符合 Bauhaus 对比度规范 */
 .nutrition-preview {
   padding: 24px;
-  background: linear-gradient(135deg, #007aff 0%, #5856d6 100%);
-  border-radius: 20px;
-  color: white;
+  background: var(--color-card);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: 0;
+  color: var(--color-foreground);
   margin-bottom: 24px;
+  box-shadow: var(--shadow-sm);
 }
 
 .nutrition-preview h3 {
@@ -1780,6 +1862,7 @@ onMounted(async () => {
   font-size: 17px;
   font-weight: 600;
   letter-spacing: -0.2px;
+  color: var(--color-foreground);
 }
 
 .nutrition-grid {
@@ -1789,12 +1872,12 @@ onMounted(async () => {
 }
 
 .nutrient-item {
-  background: rgba(255, 255, 255, 0.15);
+  background: var(--color-muted);
   padding: 16px;
-  border-radius: 12px;
+  border-radius: 0;
   text-align: center;
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  border: var(--border-width) solid var(--color-border);
+  color: var(--color-foreground);
 }
 
 .nutrient-item .value {
@@ -1802,17 +1885,23 @@ onMounted(async () => {
   font-weight: 700;
   margin-bottom: 4px;
   letter-spacing: -0.5px;
+  color: var(--color-foreground);
 }
+
+.nutrient-item.calories .value { color: var(--color-calories); }
+.nutrient-item.protein .value { color: var(--color-protein); }
+.nutrient-item.carbs .value { color: var(--color-carbs); }
+.nutrient-item.fat .value { color: var(--color-fat); }
 
 .nutrient-item .unit {
   font-size: 13px;
-  opacity: 0.9;
   margin-bottom: 4px;
+  color: var(--color-muted-foreground);
 }
 
 .nutrient-item .label {
   font-size: 13px;
-  opacity: 0.9;
+  color: var(--color-muted-foreground);
 }
 
 .history-header {
@@ -1836,10 +1925,10 @@ onMounted(async () => {
 }
 
 .summary-item {
-  background: #f5f5f7;
-  color: #1d1d1f;
+  background: var(--color-muted);
+  color: var(--color-foreground);
   padding: 8px 16px;
-  border-radius: 980px;
+  border-radius: 0;
   font-weight: 500;
   font-size: 13px;
   letter-spacing: -0.1px;
@@ -1848,8 +1937,8 @@ onMounted(async () => {
 .loading-state, .empty-state {
   text-align: center;
   padding: 80px 40px;
-  background: #f5f5f7;
-  border-radius: 20px;
+  background: var(--color-muted);
+  border-radius: 0;
   margin: 32px auto;
   display: flex;
   flex-direction: column;
@@ -1861,8 +1950,8 @@ onMounted(async () => {
 .spinner {
   width: 48px;
   height: 48px;
-  border: 3px solid #f5f5f7;
-  border-top: 3px solid #007aff;
+  border: 3px solid var(--color-muted);
+  border-top: 3px solid var(--color-foreground);
   border-radius: 50%;
   animation: spin 1s linear infinite;
   margin: 0 auto 24px;
@@ -1886,7 +1975,7 @@ onMounted(async () => {
 }
 
 .empty-state h3 {
-  color: #1d1d1f;
+  color: var(--color-foreground);
   margin-bottom: 12px;
   font-size: 22px;
   font-weight: 600;
@@ -1894,7 +1983,7 @@ onMounted(async () => {
 }
 
 .empty-state p {
-  color: #86868b;
+  color: var(--color-muted-foreground);
   margin: 0;
   font-size: 17px;
   letter-spacing: -0.2px;
@@ -1902,7 +1991,7 @@ onMounted(async () => {
 
 .tip {
   font-style: normal;
-  color: #007aff !important;
+  color: var(--color-foreground) !important;
   margin-top: 8px !important;
 }
 
@@ -1941,8 +2030,8 @@ onMounted(async () => {
   align-items: center;
   gap: 16px;
   padding: 16px 20px;
-  background: #f5f5f7;
-  border-radius: 12px;
+  background: var(--color-muted);
+  border-radius: 0;
   margin-bottom: 16px;
   flex-wrap: wrap;
   flex-shrink: 0;
@@ -1954,7 +2043,7 @@ onMounted(async () => {
   gap: 8px;
   cursor: pointer;
   font-weight: 500;
-  color: #1d1d1f;
+  color: var(--color-foreground);
   font-size: 15px;
   letter-spacing: -0.1px;
 }
@@ -1963,11 +2052,11 @@ onMounted(async () => {
   width: 20px;
   height: 20px;
   cursor: pointer;
-  accent-color: #007aff;
+  accent-color: var(--color-foreground);
 }
 
 .selected-count {
-  color: #007aff;
+  color: var(--color-foreground);
   font-weight: 600;
   font-size: 14px;
   letter-spacing: -0.1px;
@@ -1976,10 +2065,10 @@ onMounted(async () => {
 .btn-batch-delete {
   margin-left: auto;
   padding: 10px 20px;
-  background: #ff3b30;
+  background: #000000;
   color: white;
   border: none;
-  border-radius: 980px;
+  border-radius: 0;
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
@@ -1990,7 +2079,7 @@ onMounted(async () => {
 .btn-batch-delete:hover:not(:disabled) {
   background: #e5342d;
   transform: scale(1.02);
-  box-shadow: 0 4px 16px rgba(255, 59, 48, 0.3);
+  box-shadow: none;
 }
 
 .btn-batch-delete:disabled {
@@ -2000,7 +2089,7 @@ onMounted(async () => {
 
 .record-item {
   background: #ffffff;
-  border-radius: 16px;
+  border-radius: 0;
   padding: 20px;
   margin-bottom: 12px;
   border: 1px solid rgba(0, 0, 0, 0.04);
@@ -2009,12 +2098,12 @@ onMounted(async () => {
 
 .record-item:hover {
   border-color: rgba(0, 122, 255, 0.2);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+  box-shadow: none;
 }
 
 .record-item.selected {
   background: rgba(0, 122, 255, 0.05);
-  border-color: #007aff;
+  border-color: var(--color-foreground);
 }
 
 .record-checkbox {
@@ -2022,7 +2111,7 @@ onMounted(async () => {
   height: 20px;
   cursor: pointer;
   margin-right: 12px;
-  accent-color: #007aff;
+  accent-color: var(--color-foreground);
 }
 
 .record-header {
@@ -2041,19 +2130,19 @@ onMounted(async () => {
 
 .meal-badge {
   padding: 6px 12px;
-  border-radius: 980px;
+  border-radius: 0;
   font-size: 12px;
   font-weight: 600;
   letter-spacing: -0.1px;
 }
 
-.meal-badge.breakfast { background: rgba(255, 149, 0, 0.1); color: #ff9500; }
-.meal-badge.lunch { background: rgba(0, 122, 255, 0.1); color: #007aff; }
-.meal-badge.dinner { background: rgba(175, 82, 222, 0.1); color: #af52de; }
-.meal-badge.snack { background: rgba(52, 199, 89, 0.1); color: #34c759; }
+.meal-badge.breakfast { background: rgba(255, 149, 0, 0.1); color: #525252; }
+.meal-badge.lunch { background: rgba(0, 122, 255, 0.1); color: var(--color-foreground); }
+.meal-badge.dinner { background: rgba(175, 82, 222, 0.1); color: #525252; }
+.meal-badge.snack { background: rgba(52, 199, 89, 0.1); color: #000000; }
 
 .time-stamp {
-  color: #86868b;
+  color: var(--color-muted-foreground);
   font-size: 13px;
   letter-spacing: -0.1px;
 }
@@ -2067,19 +2156,19 @@ onMounted(async () => {
 .calories-badge {
   font-size: 20px;
   font-weight: 700;
-  color: #ff9500;
+  color: #525252;
   letter-spacing: -0.5px;
 }
 
 .unit {
   font-size: 13px;
-  color: #86868b;
+  color: var(--color-muted-foreground);
   margin-left: 2px;
 }
 
 .delete-btn {
-  background: #f5f5f7;
-  color: #86868b;
+  background: var(--color-muted);
+  color: var(--color-muted-foreground);
   border: none;
   border-radius: 50%;
   width: 32px;
@@ -2093,12 +2182,12 @@ onMounted(async () => {
 }
 
 .delete-btn:hover {
-  background: #ff3b30;
+  background: #000000;
   color: white;
 }
 
 .record-body .food-desc {
-  color: #1d1d1f;
+  color: var(--color-foreground);
   line-height: 1.6;
   margin-bottom: 12px;
   font-size: 15px;
@@ -2114,15 +2203,15 @@ onMounted(async () => {
 
 .chip {
   padding: 6px 12px;
-  border-radius: 980px;
+  border-radius: 0;
   font-size: 12px;
   font-weight: 500;
   letter-spacing: -0.1px;
 }
 
-.chip.protein { background: rgba(0, 122, 255, 0.1); color: #007aff; }
-.chip.carbs { background: rgba(255, 149, 0, 0.1); color: #ff9500; }
-.chip.fat { background: rgba(255, 59, 48, 0.1); color: #ff3b30; }
+.chip.protein { background: rgba(0, 122, 255, 0.1); color: var(--color-foreground); }
+.chip.carbs { background: rgba(255, 149, 0, 0.1); color: #525252; }
+.chip.fat { background: rgba(255, 59, 48, 0.1); color: #000000; }
 
 .ingredients-section {
   border-top: 1px solid rgba(0, 0, 0, 0.04);
@@ -2132,7 +2221,7 @@ onMounted(async () => {
 .ingredients-section strong {
   display: block;
   margin-bottom: 10px;
-  color: #1d1d1f;
+  color: var(--color-foreground);
   font-size: 14px;
   font-weight: 600;
 }
@@ -2144,24 +2233,27 @@ onMounted(async () => {
 }
 
 .ingredient-tag {
-  background: #f5f5f7;
+  background: var(--color-muted);
   padding: 6px 12px;
-  border-radius: 980px;
+  border-radius: 0;
   font-size: 12px;
   color: #424245;
 }
 
+/* 今日营养总计：浅底黑字，与「营养成分预估」卡片风格一致 */
 .summary-section {
   margin-top: 24px;
   padding: 24px;
-  background: linear-gradient(135deg, #007aff 0%, #5856d6 100%);
-  border-radius: 20px;
-  color: white;
+  background: var(--color-card);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: 0;
+  color: var(--color-foreground);
   flex-shrink: 0;
+  box-shadow: var(--shadow-sm);
 }
 
 .bottom-summary-section {
-  margin-top: 20px;
+  margin: 20px 32px 0;
   display: flex;
   justify-content: center;
 }
@@ -2177,52 +2269,55 @@ onMounted(async () => {
   font-size: 20px;
   font-weight: 600;
   letter-spacing: -0.3px;
+  color: var(--color-foreground);
 }
 
 .ai-analysis-section {
   margin-top: 20px;
   padding-top: 20px;
-  border-top: 1px solid rgba(255, 255, 255, 0.2);
+  border-top: var(--border-width) solid var(--color-border-light);
 }
 
 .btn-ai-analyze {
   width: 100%;
   padding: 14px 24px;
-  background: rgba(255, 255, 255, 0.2);
-  color: white;
-  border: none;
-  border-radius: 980px;
+  background: var(--color-foreground);
+  color: var(--color-inverted-fg);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: 0;
   font-size: 15px;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.3s cubic-bezier(0.25, 0.1, 0.25, 1);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
   letter-spacing: -0.1px;
+  box-shadow: var(--shadow-sm);
 }
 
 .btn-ai-analyze:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.3);
-  transform: scale(1.01);
+  background: var(--color-primary-blue);
+  transform: translateY(-2px);
 }
 
 .btn-ai-analyze:disabled {
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--color-muted);
+  color: var(--color-muted-foreground);
   cursor: not-allowed;
+  box-shadow: none;
 }
 
 .analysis-result {
   margin-top: 16px;
   padding: 20px;
-  background: rgba(255, 255, 255, 0.95);
-  border-radius: 16px;
-  color: #1d1d1f;
+  background: var(--color-muted);
+  border: var(--border-width) solid var(--color-border-light);
+  border-radius: 0;
+  color: var(--color-foreground);
   text-align: left;
 }
 
 .analysis-result h4 {
   margin: 0 0 16px 0;
-  color: #007aff;
+  color: var(--color-foreground);
   font-size: 17px;
   font-weight: 600;
   letter-spacing: -0.2px;
@@ -2235,7 +2330,7 @@ onMounted(async () => {
 }
 
 .analysis-content strong {
-  color: #007aff;
+  color: var(--color-foreground);
 }
 
 .analysis-content .emoji {
@@ -2248,13 +2343,77 @@ onMounted(async () => {
   gap: 12px;
 }
 
+/* 营养四项网格：浅灰底 + 三原色数值 + 静音标签 */
 .summary-box {
-  background: rgba(255, 255, 255, 0.15);
+  background: var(--color-muted);
   padding: 16px;
-  border-radius: 12px;
+  border-radius: 0;
   text-align: center;
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  border: var(--border-width) solid var(--color-border);
+  color: var(--color-foreground);
+}
+
+.summary-box.calories .big-number { color: var(--color-calories); }
+.summary-box.protein .big-number { color: var(--color-protein); }
+.summary-box.carbs .big-number { color: var(--color-carbs); }
+.summary-box.fat .big-number { color: var(--color-fat); }
+
+/* 总热量进度环：背景轨 + 按比例着色的进度轨 */
+.calorie-ring-wrap {
+  position: relative;
+  width: 112px;
+  height: 112px;
+  margin: 0 auto 10px;
+}
+
+.calorie-ring {
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+
+.calorie-ring__track {
+  fill: none;
+  stroke: var(--color-border-light);
+  stroke-width: 6;
+}
+
+.calorie-ring__fill {
+  fill: none;
+  stroke-width: 6;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.45s ease, stroke 0.3s ease;
+}
+
+.calorie-ring__fill.is-under { stroke: var(--color-warning); }
+.calorie-ring__fill.is-met { stroke: var(--color-success); }
+.calorie-ring__fill.is-over { stroke: var(--color-danger); }
+
+.calorie-ring__center {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.calorie-ring__center .big-number {
+  font-size: 22px;
+  margin-bottom: 2px;
+}
+
+.calorie-ring__center .metric,
+.calorie-ring__center .small-unit {
+  font-size: 11px;
+  line-height: 1.2;
+}
+
+.calorie-target-label {
+  margin: 0;
+  font-size: 12px;
+  color: var(--color-muted-foreground);
+  letter-spacing: -0.1px;
 }
 
 .big-number {
@@ -2262,17 +2421,18 @@ onMounted(async () => {
   font-weight: 700;
   margin-bottom: 4px;
   letter-spacing: -0.5px;
+  color: var(--color-foreground);
 }
 
 .metric {
   font-size: 13px;
-  opacity: 0.9;
+  color: var(--color-muted-foreground);
   margin-bottom: 2px;
 }
 
 .small-unit {
   font-size: 12px;
-  opacity: 0.8;
+  color: var(--color-muted-foreground);
 }
 
 .ai-analyzing {
@@ -2282,8 +2442,6 @@ onMounted(async () => {
   width: 100%;
   height: 100%;
   background: rgba(0, 0, 0, 0.4);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2293,22 +2451,22 @@ onMounted(async () => {
 .analyzing-content {
   background: #ffffff;
   padding: 32px 48px;
-  border-radius: 20px;
+  border-radius: 0;
   text-align: center;
-  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.2);
+  box-shadow: none;
 }
 
 .analyzing-content p {
   margin: 0;
   font-size: 17px;
-  color: #1d1d1f;
+  color: var(--color-foreground);
   margin-top: 16px;
   letter-spacing: -0.2px;
 }
 
 .analyzing-tip {
   font-size: 14px;
-  color: #86868b;
+  color: var(--color-muted-foreground);
   margin-top: 12px !important;
   font-weight: normal;
 }
@@ -2336,7 +2494,7 @@ onMounted(async () => {
   .calendar-section {
     margin: 0 20px 20px;
     padding: 20px;
-    border-radius: 20px;
+    border-radius: 0;
   }
   
   .main-container {
@@ -2344,10 +2502,14 @@ onMounted(async () => {
     gap: 20px;
     margin: 0 20px;
   }
+
+  .bottom-summary-section {
+    margin: 20px 20px 0;
+  }
   
   .card {
     padding: 20px;
-    border-radius: 20px;
+    border-radius: 0;
   }
   
   .input-row {

@@ -38,10 +38,10 @@ public class FoodRecognitionController {
         Map<String, Object> status = new HashMap<>();
         boolean configured = apiKeyResolver.isDoubaoConfigured();
         status.put("doubaoConfigured", configured);
-        status.put("mode", configured ? "豆包AI模式" : "本地识别模式");
+        status.put("mode", configured ? "智能识别模式" : "本地识别模式");
         status.put("message", configured
-                ? "已配置豆包AI，享受智能食物识别"
-                : "未配置豆包API密钥，使用本地识别");
+                ? "已配置 AI 识食，享受智能食物识别"
+                : "未配置 AI API 密钥，使用本地识别");
         if (!configured) {
             status.put("setupInstructions", "请在 backend/.env 中设置 DOUBAO_API_KEY");
         }
@@ -61,7 +61,7 @@ public class FoodRecognitionController {
             response.put("foods", results);
             response.put("count", results.size());
             response.put("totalNutrition", sumNutrition(results));
-            response.put("mode", apiKeyResolver.isDoubaoConfigured() ? "豆包AI模式" : "本地识别模式");
+            response.put("mode", apiKeyResolver.isDoubaoConfigured() ? "智能识别模式" : "本地识别模式");
             return ApiResponse.success(response);
         } catch (Exception e) {
             return ApiResponse.error("食物识别失败，请稍后重试");

@@ -1,23 +1,21 @@
 <template>
   <div class="recipes-layout">
-    <!-- 页面头部 -->
-    <div class="page-header">
-      <h1>
+    <PageHeader title="健康食谱" section-label="食谱库" :label-pulse="true">
+      <template #icon>
         <svg class="header-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
           <path d="M11 4H4C3.46957 4 2.96086 4.21071 2.58579 4.58579C2.21071 4.96086 2 5.46957 2 6V20C2 20.5304 2.21071 21.0391 2.58579 21.4142C2.96086 21.7893 3.46957 22 4 22H18C18.5304 22 19.0391 21.7893 19.4142 21.4142C19.7893 21.0391 20 20.5304 20 20V13" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
           <path d="M18.5 2.50023C18.8978 2.1024 19.4374 1.87891 20 1.87891C20.5626 1.87891 21.1022 2.1024 21.4999 2.50023C21.8978 2.89789 22.1213 3.43762 22.1213 4.00023C22.1213 4.56284 21.8978 5.10257 21.4999 5.50023L12 15.0002L8 16.0002L9 12.0002L18.5 2.50023Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
-        健康食谱
-      </h1>
-      <div class="stats-bar">
+      </template>
+      <template #stats>
         <span class="stat-item">📊 全部食谱：{{ filteredRecipes.length }} 个</span>
         <span class="stat-item" v-if="selectedType !== 'all'">🔍 分类：{{ mealTypes.find(t => t.value === selectedType)?.label }}</span>
-      </div>
-    </div>
+      </template>
+    </PageHeader>
 
     
     <div class="main-container">
-      <!-- AI 智能推荐 + 手动创建 -->
+      <!-- 操作区：AI 生成与手动创建并排，小屏自动改为纵向 -->
       <div class="ai-generate-section action-row">
         <button class="ai-generate-btn" @click="showMealTypeSelector">
           <div class="btn-content">
@@ -63,8 +61,8 @@
           
           <div class="selector-actions">
             <button class="cancel-btn" @click="closeSelector">取消</button>
-            <button 
-              class="confirm-btn" 
+            <button
+              class="btn-brand confirm-btn"
               @click="confirmAndGenerate"
               :disabled="!selectedMealType"
             >
@@ -133,7 +131,7 @@
 
           <div class="selector-actions">
             <button class="cancel-btn" @click="closeCreateModal">取消</button>
-            <button class="confirm-btn" :disabled="creating" @click="submitManualRecipe">
+            <button class="btn-brand confirm-btn" :disabled="creating" @click="submitManualRecipe">
               {{ creating ? '保存中…' : '保存食谱' }}
             </button>
           </div>
@@ -158,7 +156,7 @@
           <div
             v-for="recipe in paginatedRecipes"
             :key="recipe.id"
-            class="recipe-card"
+            class="recipe-card bh-card"
           >
             <div class="recipe-image">
               <img
@@ -264,11 +262,20 @@
         </div>
       </div>
     </div>
+
+    <PageCta
+      title="记录今日饮食"
+      description="选好食谱后，前往饮食日记记录实际摄入，让营养数据更完整。"
+      to="/diary"
+      button-text="前往饮食日记"
+    />
   </div>
 </template>
 
 <script setup>
 import { ref, computed, watch, onMounted } from 'vue';
+import PageHeader from '@/components/common/PageHeader.vue';
+import PageCta from '@/components/common/PageCta.vue';
 import { useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { healthApi } from '../api/healthApi';
@@ -572,11 +579,14 @@ const confirmAndGenerate = () => {
 
 // 查看食谱详情
 const viewDetail = (recipe) => {
-  // 使用 Element Plus 的 MessageBox 显示详情 - Apple 风格简约设计
+  // 使用 Element Plus MessageBox 展示详情；关闭按钮在 header 内，底部不显示确认按钮
   const detailContent = `
     <div class="apple-recipe-detail">
       <!-- 食谱头部 -->
       <div class="recipe-header">
+        <button type="button" class="recipe-detail-close" aria-label="关闭">
+          <span aria-hidden="true">&times;</span>
+        </button>
         <h3 class="recipe-title">${recipe.name}</h3>
         <p class="recipe-description">${recipe.description || '无描述'}</p>
         
@@ -590,6 +600,7 @@ const viewDetail = (recipe) => {
       <!-- 营养成分 -->
       ${recipe.protein || recipe.carbs || recipe.fat ? `
         <div class="nutrition-section">
+          <div class="detail-section-inner">
           <h4 class="section-title">营养成分</h4>
           <div class="nutrition-grid">
             ${recipe.protein ? `
@@ -611,12 +622,14 @@ const viewDetail = (recipe) => {
               </div>
             ` : ''}
           </div>
+          </div>
         </div>
       ` : ''}
       
       <!-- 所需食材 -->
       ${recipe.ingredients && recipe.ingredients.length > 0 ? `
         <div class="ingredients-section">
+          <div class="detail-section-inner">
           <h4 class="section-title">
             <span class="section-icon">🥗</span>
             所需食材
@@ -626,12 +639,14 @@ const viewDetail = (recipe) => {
               <li class="ingredient-item">${item}</li>
             `).join('')}
           </ul>
+          </div>
         </div>
       ` : ''}
       
       <!-- 制作步骤 -->
       ${recipe.instructions && recipe.instructions.length > 0 ? `
         <div class="instructions-section">
+          <div class="detail-section-inner">
           <h4 class="section-title">
             <span class="section-icon">👨‍🍳</span>
             制作步骤
@@ -644,19 +659,28 @@ const viewDetail = (recipe) => {
               </li>
             `).join('')}
           </ol>
+          </div>
         </div>
       ` : ''}
     </div>
   `;
   
   ElMessageBox.confirm(detailContent, '食谱详情', {
-    confirmButtonText: '关闭',
-    cancelButtonText: '',
+    showConfirmButton: false,
     showCancelButton: false,
     dangerouslyUseHTMLString: true,
-    customClass: 'apple-recipe-dialog'
+    customClass: 'apple-recipe-dialog',
+    closeOnClickModal: true,
+    closeOnPressEscape: true,
   }).catch(() => {
-    // 关闭对话框
+    // 用户关闭对话框
+  });
+
+  // MessageBox 渲染 HTML 后，为左上角关闭按钮绑定事件
+  requestAnimationFrame(() => {
+    document.querySelector('.apple-recipe-dialog .recipe-detail-close')?.addEventListener('click', () => {
+      ElMessageBox.close();
+    });
   });
 };
 
@@ -722,14 +746,14 @@ const printRecipe = (recipe) => {
           margin-bottom: 20px;
         }
         .meta-item {
-          background: #f5f5f7;
+          background: var(--color-muted);
           padding: 8px 12px;
           border-radius: 6px;
         }
         .section-title {
           font-size: 18px;
           margin: 20px 0 10px;
-          border-bottom: 2px solid #007aff;
+          border-bottom: 2px solid var(--color-foreground);
           padding-bottom: 5px;
         }
         .ingredients-list, .instructions-list {
@@ -770,8 +794,8 @@ const printRecipe = (recipe) => {
       ` : ''}
 
       <div class="no-print" style="text-align: center; margin-top: 30px;">
-        <button onclick="window.print()" style="padding: 12px 24px; background: #007aff; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 15px;">打印</button>
-        <button onclick="window.close()" style="padding: 12px 24px; background: #f5f5f7; color: #333; border: 1px solid #ddd; border-radius: 8px; cursor: pointer; font-size: 15px; margin-left: 10px;">关闭</button>
+        <button onclick="window.print()" style="padding: 12px 24px; background: var(--color-foreground); color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 15px;">打印</button>
+        <button onclick="window.close()" style="padding: 12px 24px; background: var(--color-muted); color: #333; border: 1px solid #ddd; border-radius: 8px; cursor: pointer; font-size: 15px; margin-left: 10px;">关闭</button>
       </div>
     </body>
     </html>
@@ -847,7 +871,7 @@ onMounted(() => {
 <style scoped>
 .recipes-layout {
   min-height: 100vh;
-  background: #f5f5f7;
+  background: var(--color-muted);
   padding-bottom: 80px;
 }
 
@@ -856,29 +880,20 @@ onMounted(() => {
   padding: 48px 24px 36px;
   position: relative;
   z-index: 1;
-  background: linear-gradient(180deg, #fafafa 0%, #ffffff 100%);
+  background: var(--color-foreground);
 }
 
 .page-header h1 {
-  color: #1d1d1f;
   margin-bottom: 12px;
   font-weight: 700;
   font-size: 36px;
   line-height: 1.1;
-  background: linear-gradient(135deg, #1d1d1f 0%, #424245 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
 }
 
 .header-icon {
-  width: 40px;
-  height: 40px;
-  color: #007aff;
+  width: 1.15em;
+  height: 1.15em;
+  color: var(--color-primary);
   flex-shrink: 0;
 }
 
@@ -888,7 +903,7 @@ onMounted(() => {
   gap: 10px;
   align-items: center;
   font-size: 15px;
-  color: #86868b;
+  color: var(--color-muted-foreground);
   flex-wrap: wrap;
   margin-top: 16px;
 }
@@ -900,17 +915,15 @@ onMounted(() => {
   letter-spacing: -0.2px;
   padding: 8px 16px;
   background: rgba(255, 255, 255, 0.8);
-  border-radius: 980px;
+  border-radius: 0;
   border: 1px solid rgba(0, 0, 0, 0.04);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  transition: all 0.3s cubic-bezier(0.25, 0.1, 0.25, 1);
+  box-shadow: none;
+  -webkit-transition: all 0.3s cubic-bezier(0.25, 0.1, 0.25, 1);
 }
 
 .stat-item:hover {
   background: rgba(255, 255, 255, 0.95);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+  box-shadow: none;
   transform: translateY(-2px);
 }
 
@@ -922,28 +935,32 @@ onMounted(() => {
   z-index: 1;
 }
 
-/* AI 生成按钮区域 */
+/* AI 生成 + 手动创建：横向并排，四周留白 */
 .ai-generate-section {
-  margin-bottom: 20px;
+  margin-top: var(--space-6);
+  margin-bottom: var(--space-6);
+  padding: var(--space-5);
 }
 
 .action-row {
   display: flex;
-  flex-direction: column;
-  gap: 12px;
+  flex-direction: row;
+  align-items: stretch;
+  gap: var(--space-4);
 }
 
 .manual-create-btn {
-  width: 100%;
+  flex: 1;
+  min-width: 0;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
   padding: 14px 20px;
   border: 2px dashed #c7c7cc;
-  border-radius: 16px;
+  border-radius: 0;
   background: #fff;
-  color: #1d1d1f;
+  color: var(--color-foreground);
   font-size: 16px;
   font-weight: 600;
   cursor: pointer;
@@ -951,8 +968,8 @@ onMounted(() => {
 }
 
 .manual-create-btn:hover {
-  border-color: #007aff;
-  color: #007aff;
+  border-color: var(--color-foreground);
+  color: var(--color-foreground);
   background: #f0f7ff;
 }
 
@@ -962,13 +979,13 @@ onMounted(() => {
 
 .create-recipe-modal {
   background: #ffffff;
-  border-radius: 24px;
+  border-radius: 0;
   padding: 28px;
   width: 92%;
   max-width: 560px;
   max-height: 90vh;
   overflow-y: auto;
-  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.2);
+  box-shadow: none;
 }
 
 .create-form {
@@ -1017,15 +1034,14 @@ onMounted(() => {
 }
 
 .ai-generate-btn {
-  width: 100%;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  flex: 1;
+  min-width: 0;
+  background: var(--gradient-brand);
   border: none;
-  border-radius: 20px;
+  border-radius: 0;
   cursor: pointer;
   transition: all 0.3s cubic-bezier(0.25, 0.1, 0.25, 1);
-  box-shadow: 
-    0 2px 8px rgba(0, 0, 0, 0.02),
-    0 8px 32px rgba(0, 0, 0, 0.04);
+  box-shadow: none;
   color: white;
   padding: 0;
   overflow: hidden;
@@ -1033,9 +1049,7 @@ onMounted(() => {
 
 .ai-generate-btn:hover {
   transform: translateY(-3px);
-  box-shadow: 
-    0 4px 16px rgba(0, 0, 0, 0.04),
-    0 24px 64px rgba(0, 0, 0, 0.08);
+  box-shadow: none;
 }
 
 .btn-content {
@@ -1104,8 +1118,6 @@ onMounted(() => {
   width: 100%;
   height: 100%;
   background: rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
   display: flex;
   justify-content: center;
   align-items: center;
@@ -1120,13 +1132,11 @@ onMounted(() => {
 
 .meal-type-selector {
   background: #ffffff;
-  border-radius: 24px;
+  border-radius: 0;
   padding: 32px;
   width: 90%;
   max-width: 520px;
-  box-shadow: 
-    0 24px 80px rgba(0, 0, 0, 0.2),
-    0 0 0 1px rgba(0, 0, 0, 0.05);
+  box-shadow: none;
   animation: slideUp 0.4s cubic-bezier(0.25, 0.1, 0.25, 1);
 }
 
@@ -1149,14 +1159,14 @@ onMounted(() => {
 .selector-header h3 {
   font-size: 26px;
   font-weight: 700;
-  color: #1d1d1f;
+  color: var(--color-foreground);
   margin: 0 0 8px 0;
   letter-spacing: -0.5px;
 }
 
 .selector-header p {
   font-size: 15px;
-  color: #86868b;
+  color: var(--color-muted-foreground);
   margin: 0;
   letter-spacing: -0.2px;
 }
@@ -1173,8 +1183,8 @@ onMounted(() => {
   align-items: center;
   gap: 16px;
   padding: 20px;
-  background: #f5f5f7;
-  border-radius: 16px;
+  background: var(--color-muted);
+  border-radius: 0;
   cursor: pointer;
   transition: all 0.3s cubic-bezier(0.25, 0.1, 0.25, 1);
   border: 2px solid transparent;
@@ -1186,9 +1196,9 @@ onMounted(() => {
 }
 
 .meal-option.selected {
-  background: linear-gradient(135deg, rgba(102, 126, 234, 0.08) 0%, rgba(118, 75, 162, 0.08) 100%);
-  border-color: #667eea;
-  box-shadow: 0 4px 16px rgba(102, 126, 234, 0.15);
+  background: var(--color-muted);
+  border-color: var(--color-foreground);
+  box-shadow: none;
 }
 
 .option-emoji {
@@ -1200,8 +1210,8 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   background: #ffffff;
-  border-radius: 16px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  border-radius: 0;
+  box-shadow: none;
 }
 
 .option-info {
@@ -1214,13 +1224,13 @@ onMounted(() => {
 .option-name {
   font-size: 18px;
   font-weight: 600;
-  color: #1d1d1f;
+  color: var(--color-foreground);
   letter-spacing: -0.3px;
 }
 
 .option-desc {
   font-size: 14px;
-  color: #86868b;
+  color: var(--color-muted-foreground);
   letter-spacing: -0.1px;
   line-height: 1.4;
 }
@@ -1244,9 +1254,9 @@ onMounted(() => {
 }
 
 .radio-dot.active {
-  border-color: #667eea;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+  border-color: var(--color-foreground);
+  background: var(--color-foreground);
+  box-shadow: none;
 }
 
 .selector-actions {
@@ -1257,37 +1267,37 @@ onMounted(() => {
 
 .cancel-btn {
   padding: 14px 28px;
-  background: #f5f5f7;
+  background: var(--color-muted);
   border: none;
-  border-radius: 12px;
+  border-radius: 0;
   font-size: 16px;
   font-weight: 600;
-  color: #86868b;
+  color: var(--color-muted-foreground);
   cursor: pointer;
   transition: all 0.3s cubic-bezier(0.25, 0.1, 0.25, 1);
 }
 
 .cancel-btn:hover {
   background: #ebebf0;
-  color: #1d1d1f;
+  color: var(--color-foreground);
 }
 
 .confirm-btn {
   padding: 14px 32px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: var(--gradient-brand);
   border: none;
-  border-radius: 12px;
+  border-radius: 0;
   font-size: 16px;
   font-weight: 600;
   color: #ffffff;
   cursor: pointer;
   transition: all 0.3s cubic-bezier(0.25, 0.1, 0.25, 1);
-  box-shadow: 0 4px 16px rgba(102, 126, 234, 0.3);
+  box-shadow: none;
 }
 
 .confirm-btn:hover:not(:disabled) {
   transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(102, 126, 234, 0.4);
+  box-shadow: none;
 }
 
 .confirm-btn:disabled {
@@ -1297,6 +1307,37 @@ onMounted(() => {
 }
 
 @media (max-width: 768px) {
+  /* 小屏：按钮恢复纵向全宽堆叠 */
+  .ai-generate-section {
+    padding: var(--space-4);
+    margin-top: var(--space-4);
+    margin-bottom: var(--space-4);
+  }
+
+  .action-row {
+    flex-direction: column;
+    gap: var(--space-3);
+  }
+
+  .ai-generate-btn,
+  .manual-create-btn {
+    flex: none;
+    width: 100%;
+  }
+
+  .btn-content {
+    padding: 16px 18px;
+    gap: 12px;
+  }
+
+  .btn-text {
+    font-size: 16px;
+  }
+
+  .btn-desc {
+    font-size: 12px;
+  }
+
   .meal-type-selector {
     padding: 24px;
     width: 95%;
@@ -1324,10 +1365,8 @@ onMounted(() => {
 /* 筛选栏 */
 .filter-bar {
   background: #ffffff;
-  border-radius: 20px;
-  box-shadow: 
-    0 2px 8px rgba(0, 0, 0, 0.02),
-    0 8px 32px rgba(0, 0, 0, 0.04);
+  border-radius: 0;
+  box-shadow: none;
   padding: 24px;
   margin-bottom: 20px;
   border: none;
@@ -1343,19 +1382,19 @@ onMounted(() => {
 .tab-btn {
   padding: 12px 20px;
   border: none;
-  background: #f5f5f7;
-  border-radius: 12px;
+  background: var(--color-muted);
+  border-radius: 0;
   cursor: pointer;
   transition: all 0.3s cubic-bezier(0.25, 0.1, 0.25, 1);
   white-space: nowrap;
   font-size: 15px;
-  color: #1d1d1f;
+  color: var(--color-foreground);
 }
 
 .tab-btn.active {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: var(--color-foreground);
   color: white;
-  box-shadow: 0 4px 16px rgba(0, 122, 255, 0.3);
+  box-shadow: none;
 }
 
 .search-box {
@@ -1366,22 +1405,22 @@ onMounted(() => {
   width: 100%;
   padding: 14px 16px;
   border: none;
-  border-radius: 12px;
+  border-radius: 0;
   font-size: 17px;
-  background: #f5f5f7;
+  background: var(--color-muted);
   transition: all 0.3s cubic-bezier(0.25, 0.1, 0.25, 1);
-  color: #1d1d1f;
+  color: var(--color-foreground);
   letter-spacing: -0.2px;
 }
 
 .search-box input:focus {
   outline: none;
   background: #ebebf0;
-  box-shadow: 0 0 0 4px rgba(0, 122, 255, 0.1);
+  box-shadow: none;
 }
 
 .search-box input::placeholder {
-  color: #86868b;
+  color: var(--color-muted-foreground);
 }
 
 .search-icon {
@@ -1390,7 +1429,7 @@ onMounted(() => {
   top: 50%;
   transform: translateY(-50%);
   font-size: 18px;
-  color: #86868b;
+  color: var(--color-muted-foreground);
 }
 
 /* 分页控件 */
@@ -1407,22 +1446,22 @@ onMounted(() => {
   width: 40px;
   height: 40px;
   border: none;
-  background: #f5f5f7;
-  border-radius: 12px;
+  background: var(--color-muted);
+  border-radius: 0;
   cursor: pointer;
   transition: all 0.3s cubic-bezier(0.25, 0.1, 0.25, 1);
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 16px;
-  color: #1d1d1f;
+  color: var(--color-foreground);
 }
 
 .page-btn:hover:not(:disabled) {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: var(--color-foreground);
   color: white;
   transform: translateY(-2px);
-  box-shadow: 0 4px 16px rgba(102, 126, 234, 0.3);
+  box-shadow: none;
 }
 
 .page-btn:disabled {
@@ -1439,8 +1478,8 @@ onMounted(() => {
   min-width: 40px;
   height: 40px;
   border: none;
-  background: #f5f5f7;
-  border-radius: 12px;
+  background: var(--color-muted);
+  border-radius: 0;
   cursor: pointer;
   transition: all 0.3s cubic-bezier(0.25, 0.1, 0.25, 1);
   display: flex;
@@ -1448,7 +1487,7 @@ onMounted(() => {
   justify-content: center;
   font-size: 15px;
   font-weight: 600;
-  color: #1d1d1f;
+  color: var(--color-foreground);
   padding: 0 16px;
 }
 
@@ -1458,16 +1497,16 @@ onMounted(() => {
 }
 
 .page-number.active {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: var(--color-foreground);
   color: white;
-  box-shadow: 0 4px 16px rgba(102, 126, 234, 0.3);
+  box-shadow: none;
   transform: scale(1.05);
 }
 
 .pagination-info {
   text-align: center;
   font-size: 14px;
-  color: #86868b;
+  color: var(--color-muted-foreground);
   margin-top: 16px;
   letter-spacing: -0.1px;
 }
@@ -1480,27 +1519,20 @@ onMounted(() => {
 }
 
 .recipe-card {
-  background: #ffffff;
-  border-radius: 20px;
+  border-radius: var(--radius-xl);
   overflow: hidden;
-  box-shadow: 
-    0 2px 8px rgba(0, 0, 0, 0.02),
-    0 8px 32px rgba(0, 0, 0, 0.04);
-  transition: all 0.5s cubic-bezier(0.25, 0.1, 0.25, 1);
-  border: none;
+  transition: all 0.5s var(--ease-smooth-out);
 }
 
 .recipe-card:hover {
   transform: translateY(-3px);
-  box-shadow: 
-    0 4px 16px rgba(0, 0, 0, 0.04),
-    0 24px 64px rgba(0, 0, 0, 0.08);
+  box-shadow: none;
 }
 
 .recipe-image {
   width: 100%;
   height: 220px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: var(--color-foreground);
   overflow: hidden;
   display: flex;
   align-items: center;
@@ -1524,7 +1556,7 @@ onMounted(() => {
 .recipe-info h4 {
   margin: 0 0 8px 0;
   font-size: 20px;
-  color: #1d1d1f;
+  color: var(--color-foreground);
   font-weight: 600;
   letter-spacing: -0.3px;
 }
@@ -1532,7 +1564,7 @@ onMounted(() => {
 .description {
   margin: 0 0 12px 0;
   font-size: 15px;
-  color: #86868b;
+  color: var(--color-muted-foreground);
   line-height: 1.6;
   letter-spacing: -0.1px;
 }
@@ -1545,7 +1577,7 @@ onMounted(() => {
 
 .tag {
   padding: 6px 12px;
-  border-radius: 980px;
+  border-radius: 0;
   font-size: 13px;
   font-weight: 600;
   letter-spacing: -0.2px;
@@ -1553,12 +1585,12 @@ onMounted(() => {
 
 .tag.meal-type {
   background: rgba(0, 122, 255, 0.1);
-  color: #007aff;
+  color: var(--color-foreground);
 }
 
 .tag.calories {
   background: rgba(255, 149, 0, 0.1);
-  color: #ff9500;
+  color: #525252;
 }
 
 .nutrition-preview {
@@ -1567,8 +1599,8 @@ onMounted(() => {
   gap: 8px;
   margin-top: 12px;
   padding: 12px;
-  background: #f5f5f7;
-  border-radius: 12px;
+  background: var(--color-muted);
+  border-radius: 0;
 }
 
 .nutrition-item {
@@ -1578,7 +1610,7 @@ onMounted(() => {
 .nutrient-label {
   display: block;
   font-size: 12px;
-  color: #86868b;
+  color: var(--color-muted-foreground);
   margin-bottom: 4px;
 }
 
@@ -1586,7 +1618,7 @@ onMounted(() => {
   display: block;
   font-size: 16px;
   font-weight: 700;
-  color: #1d1d1f;
+  color: var(--color-foreground);
 }
 
 .actions {
@@ -1598,7 +1630,7 @@ onMounted(() => {
 .actions button {
   padding: 10px 16px;
   border: none;
-  border-radius: 12px;
+  border-radius: 0;
   cursor: pointer;
   font-size: 14px;
   font-weight: 600;
@@ -1607,19 +1639,19 @@ onMounted(() => {
 }
 
 .btn-detail {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: var(--color-foreground);
   color: white;
   flex: 1;
 }
 
 .btn-detail:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 16px rgba(102, 126, 234, 0.3);
+  box-shadow: none;
 }
 
 .btn-print {
-  background: #f5f5f7;
-  color: #1d1d1f;
+  background: var(--color-muted);
+  color: var(--color-foreground);
 }
 
 .btn-print:hover {
@@ -1644,10 +1676,8 @@ onMounted(() => {
   text-align: center;
   padding: 60px 20px;
   background: #ffffff;
-  border-radius: 20px;
-  box-shadow: 
-    0 2px 8px rgba(0, 0, 0, 0.02),
-    0 8px 32px rgba(0, 0, 0, 0.04);
+  border-radius: 0;
+  box-shadow: none;
 }
 
 .empty-icon {
@@ -1657,12 +1687,12 @@ onMounted(() => {
 
 .empty-state p {
   margin: 10px 0;
-  color: #86868b;
+  color: var(--color-muted-foreground);
 }
 
 .empty-hint {
   font-size: 14px;
-  color: #86868b;
+  color: var(--color-muted-foreground);
 }
 </style>
 
@@ -1670,9 +1700,9 @@ onMounted(() => {
 <style>
 /* Apple 风格食谱详情整体样式 */
 .apple-recipe-dialog.el-message-box {
-  border-radius: 20px;
+  border-radius: 0;
   overflow: hidden;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.08);
+  box-shadow: none;
   max-width: 720px;
   width: 90%;
   border: none;
@@ -1683,11 +1713,26 @@ onMounted(() => {
   display: none;
 }
 
-/* 内容区域 */
+/* 内容区域 — 去除默认内边距，让详情内容撑满弹窗宽度 */
 .apple-recipe-dialog .el-message-box__content {
   padding: 0;
   max-height: 75vh;
   overflow-y: auto;
+}
+
+.apple-recipe-dialog .el-message-box__message {
+  padding: 0;
+  width: 100%;
+}
+
+.apple-recipe-dialog .el-message-box__message p {
+  margin: 0;
+  width: 100%;
+}
+
+/* 隐藏底部按钮区（关闭已移至 header 左上角） */
+.apple-recipe-dialog .el-message-box__footer {
+  display: none;
 }
 
 /* 自定义滚动条 - Webkit */
@@ -1717,15 +1762,54 @@ onMounted(() => {
 /* 食谱详情内容容器 */
 .apple-recipe-detail {
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
-  color: #1d1d1f;
+  color: var(--color-foreground);
   line-height: 1.6;
+  width: 100%;
+}
+
+/* 各区块内容区 — 限制最大宽度并居中，避免右侧留白不均 */
+.detail-section-inner {
+  width: 100%;
+  max-width: 560px;
+  margin: 0 auto;
 }
 
 /* 食谱头部区域 */
 .recipe-header {
+  position: relative;
   padding: 40px 40px 32px;
-  background: linear-gradient(180deg, #fafafa 0%, #ffffff 100%);
-  border-bottom: 1px solid #f5f5f7;
+  background: var(--color-foreground);
+  border-bottom: 1px solid var(--color-muted);
+  text-align: center;
+}
+
+/* 左上角 × 关闭按钮 — 浅色图标置于深色 header 上 */
+.recipe-detail-close {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 1;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: var(--color-inverted-fg);
+  font-size: 28px;
+  line-height: 1;
+  cursor: pointer;
+  transition: opacity 0.2s ease;
+}
+
+.recipe-detail-close:hover {
+  opacity: 0.75;
+}
+
+.recipe-detail-close:focus-visible {
+  outline: 2px solid var(--color-inverted-fg);
+  outline-offset: 2px;
 }
 
 .recipe-title {
@@ -1733,13 +1817,14 @@ onMounted(() => {
   font-weight: 700;
   letter-spacing: -0.02em;
   margin: 0 0 12px 0;
-  color: #1d1d1f;
+  /* 深底区域使用反色文字 */
+  color: var(--color-inverted-fg);
   line-height: 1.2;
 }
 
 .recipe-description {
   font-size: 17px;
-  color: #86868b;
+  color: var(--color-inverted-muted);
   margin: 0 0 20px 0;
   line-height: 1.6;
   letter-spacing: -0.01em;
@@ -1749,11 +1834,12 @@ onMounted(() => {
   display: flex;
   gap: 10px;
   flex-wrap: wrap;
+  justify-content: center;
 }
 
 .tag {
   padding: 8px 16px;
-  border-radius: 980px;
+  border-radius: 0;
   font-size: 14px;
   font-weight: 600;
   letter-spacing: -0.01em;
@@ -1766,20 +1852,20 @@ onMounted(() => {
 }
 
 .tag-meal {
-  background: rgba(0, 122, 255, 0.08);
-  color: #007aff;
+  background: var(--color-primary-blue);
+  color: var(--color-inverted-fg);
 }
 
 .tag-calories {
-  background: rgba(255, 149, 0, 0.08);
-  color: #ff9500;
+  background: var(--color-primary-yellow);
+  color: var(--color-foreground);
 }
 
 /* 营养成分区域 */
 .nutrition-section {
   padding: 32px 40px;
   background: #ffffff;
-  border-bottom: 1px solid #f5f5f7;
+  border-bottom: 1px solid var(--color-muted);
 }
 
 .section-title {
@@ -1787,10 +1873,12 @@ onMounted(() => {
   font-weight: 700;
   letter-spacing: -0.02em;
   margin: 0 0 24px 0;
-  color: #1d1d1f;
+  color: var(--color-foreground);
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 10px;
+  text-align: center;
 }
 
 .section-icon {
@@ -1798,15 +1886,20 @@ onMounted(() => {
 }
 
 .nutrition-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
   gap: 16px;
+  width: 100%;
 }
 
 .nutrition-card {
-  background: linear-gradient(135deg, #f8f9fa 0%, #f1f3f5 100%);
+  flex: 1 1 140px;
+  min-width: 140px;
+  max-width: 180px;
+  background: var(--color-foreground);
   padding: 24px 20px;
-  border-radius: 16px;
+  border-radius: 0;
   text-align: center;
   transition: all 0.3s cubic-bezier(0.25, 0.1, 0.25, 1);
   border: 1px solid rgba(0, 0, 0, 0.02);
@@ -1814,16 +1907,14 @@ onMounted(() => {
 
 .nutrition-card:hover {
   transform: translateY(-4px);
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.06);
+  box-shadow: none;
 }
 
 .nutrient-value {
   font-size: 32px;
-  font-weight: 700;
-  background: linear-gradient(135deg, #007aff 0%, #5ac8fa 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  font-weight: var(--font-weight-black);
+  /* 营养卡片为深底，数值用反色 */
+  color: var(--color-inverted-fg);
   display: block;
   margin-bottom: 8px;
   letter-spacing: -0.02em;
@@ -1831,7 +1922,7 @@ onMounted(() => {
 
 .nutrient-label {
   font-size: 14px;
-  color: #86868b;
+  color: var(--color-inverted-muted);
   font-weight: 500;
   letter-spacing: -0.01em;
 }
@@ -1840,7 +1931,7 @@ onMounted(() => {
 .ingredients-section {
   padding: 32px 40px;
   background: #ffffff;
-  border-bottom: 1px solid #f5f5f7;
+  border-bottom: 1px solid var(--color-muted);
 }
 
 .ingredient-list {
@@ -1851,18 +1942,18 @@ onMounted(() => {
 
 .ingredient-item {
   padding: 16px 20px;
-  background: #fafafa;
-  border-radius: 12px;
+  background: var(--color-muted);
+  border-radius: 0;
   margin-bottom: 12px;
   font-size: 16px;
-  color: #424245;
+  color: var(--color-foreground);
   transition: all 0.3s cubic-bezier(0.25, 0.1, 0.25, 1);
   border-left: 3px solid transparent;
 }
 
 .ingredient-item:hover {
-  background: #f5f5f7;
-  border-left-color: #007aff;
+  background: var(--color-muted);
+  border-left-color: var(--color-foreground);
   transform: translateX(4px);
 }
 
@@ -1883,16 +1974,16 @@ onMounted(() => {
   display: flex;
   gap: 16px;
   padding: 20px;
-  background: #fafafa;
-  border-radius: 12px;
+  background: var(--color-muted);
+  border-radius: 0;
   margin-bottom: 16px;
   transition: all 0.3s cubic-bezier(0.25, 0.1, 0.25, 1);
   border-left: 3px solid transparent;
 }
 
 .instruction-item:hover {
-  background: #f5f5f7;
-  border-left-color: #5ac8fa;
+  background: var(--color-muted);
+  border-left-color: #a3a3a3;
   transform: translateX(4px);
 }
 
@@ -1900,46 +1991,23 @@ onMounted(() => {
   flex-shrink: 0;
   width: 32px;
   height: 32px;
-  background: linear-gradient(135deg, #007aff 0%, #5ac8fa 100%);
-  color: white;
+  background: var(--color-foreground);
+  color: var(--color-inverted-fg);
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 15px;
   font-weight: 700;
-  box-shadow: 0 4px 12px rgba(0, 122, 255, 0.2);
+  box-shadow: none;
 }
 
 .step-text {
   flex: 1;
   font-size: 16px;
-  color: #424245;
+  color: var(--color-foreground);
   line-height: 1.7;
   padding-top: 2px;
-}
-
-/* 底部按钮区域 */
-.apple-recipe-dialog .el-message-box__footer {
-  padding: 20px 24px;
-  background: #fafafa;
-  border-top: 1px solid #e8e8ed;
-}
-
-.apple-recipe-dialog .el-button--primary {
-  background: linear-gradient(135deg, #007aff 0%, #5ac8fa 100%) !important;
-  border: none !important;
-  padding: 12px 40px !important;
-  font-size: 16px !important;
-  font-weight: 600 !important;
-  border-radius: 12px !important;
-  box-shadow: 0 4px 16px rgba(0, 122, 255, 0.25) !important;
-  transition: all 0.3s cubic-bezier(0.25, 0.1, 0.25, 1) !important;
-}
-
-.apple-recipe-dialog .el-button--primary:hover {
-  transform: translateY(-2px) !important;
-  box-shadow: 0 8px 24px rgba(0, 122, 255, 0.35) !important;
 }
 
 /* 响应式适配 */
@@ -1961,8 +2029,22 @@ onMounted(() => {
     font-size: 24px;
   }
   
-  .nutrition-grid {
-    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  .nutrition-card {
+    flex: 1 1 120px;
+    min-width: 120px;
+    max-width: none;
+  }
+
+  .detail-section-inner {
+    max-width: 100%;
+  }
+
+  .recipe-detail-close {
+    top: 8px;
+    left: 8px;
+    width: 36px;
+    height: 36px;
+    font-size: 24px;
   }
   
   .nutrient-value {

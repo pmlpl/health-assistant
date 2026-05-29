@@ -1,0 +1,158 @@
+/**
+ * 设计 Token — Bauhaus
+ * 三原色 + 硬阴影 + 几何构图，全站唯一色值来源
+ */
+:root {
+  /* —— Bauhaus 色板 —— */
+  --color-background: #f0f0f0;
+  --color-foreground: #121212;
+  --color-primary-red: #d02020;
+  --color-primary-blue: #1040c0;
+  --color-primary-yellow: #f0c020;
+  --color-muted: #e0e0e0;
+  --color-muted-foreground: #525252;
+  --color-border: #121212;
+  --color-border-light: #c0c0c0;
+  --color-card: #ffffff;
+  --color-accent-open: #fff9c4;
+
+  /* —— 迁移别名 —— */
+  --color-primary: var(--color-primary-red);
+  --color-primary-hover: #b01818;
+  --color-primary-light: var(--color-primary-blue);
+  --color-primary-muted: var(--color-muted);
+
+  --color-bg: var(--color-background);
+  --color-bg-elevated: #ffffff;
+  --color-bg-subtle: var(--color-muted);
+  --color-text: var(--color-foreground);
+  --color-text-secondary: var(--color-muted-foreground);
+  --color-text-muted: var(--color-muted-foreground);
+
+  --color-success: var(--color-primary-blue);
+  --color-warning: var(--color-primary-yellow);
+  --color-danger: var(--color-primary-red);
+  --color-info: var(--color-primary-blue);
+
+  /* 营养数据 — 三原色轮换 */
+  --color-calories: var(--color-primary-red);
+  --color-protein: var(--color-primary-red);
+  --color-carbs: var(--color-primary-blue);
+  --color-fat: var(--color-primary-yellow);
+  --color-fitness: var(--color-primary-blue);
+
+  --color-inverted-bg: var(--color-foreground);
+  --color-inverted-fg: #ffffff;
+  --color-inverted-muted: rgba(255, 255, 255, 0.82);
+
+  /* —— 字体：Outfit 几何无衬线 —— */
+  --font-display: "Outfit", system-ui, sans-serif;
+  --font-body: "Outfit", system-ui, sans-serif;
+  --font-mono: "Outfit", system-ui, sans-serif;
+  --font-sans: var(--font-body);
+
+  --font-size-xs: 0.75rem;
+  --font-size-sm: 0.875rem;
+  --font-size-base: 1rem;
+  --font-size-lg: 1.125rem;
+  --font-size-xl: 1.25rem;
+  --font-size-2xl: 1.5rem;
+  --font-size-3xl: 1.875rem;
+  --font-size-4xl: 2.25rem;
+  --font-size-5xl: 3rem;
+  --font-size-6xl: 3.75rem;
+  --font-size-7xl: 4.5rem;
+  --font-size-8xl: 6rem;
+
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+  --font-weight-black: 900;
+
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-10: 2.5rem;
+  --space-12: 3rem;
+  --space-14: 3.5rem;
+  --space-16: 4rem;
+  --space-20: 5rem;
+
+  /* 圆角：仅 0 或全圆 */
+  --radius-none: 0;
+  --radius-sm: 0;
+  --radius-md: 0;
+  --radius-lg: 0;
+  --radius-xl: 0;
+  --radius-pill: 9999px;
+
+  /* 硬偏移阴影 */
+  --shadow-sm: 3px 3px 0 0 var(--color-foreground);
+  --shadow-md: 4px 4px 0 0 var(--color-foreground);
+  --shadow-lg: 6px 6px 0 0 var(--color-foreground);
+  --shadow-xl: 8px 8px 0 0 var(--color-foreground);
+  --shadow-accent: var(--shadow-md);
+  --shadow-accent-lg: var(--shadow-xl);
+
+  --border-width: 2px;
+  --border-width-thick: 4px;
+
+  --header-height: 56px;
+  --top-nav-height: 48px;
+  --shell-top-offset: calc(var(--header-height) + var(--top-nav-height));
+  --sidebar-width: 240px;
+  --bottom-nav-height: 64px;
+  --content-max-width: 1280px;
+  --content-area-max-width: 1400px;
+  --content-inline-padding: 1rem;
+
+  --transition-fast: 200ms ease-out;
+  --transition-normal: 300ms ease-out;
+  --ease-bounce-spring: ease-out;
+  --ease-smooth-out: ease-out;
+
+  --gradient-brand: var(--color-primary-red);
+  --gradient-warm: var(--color-primary-yellow);
+  --gradient-cool: var(--color-primary-blue);
+  --gradient-aurora: var(--color-primary-blue);
+  --gradient-scrollbar: var(--color-foreground);
+
+  --glass-bg: #ffffff;
+  --glass-border: var(--color-border);
+  --glass-shadow: var(--shadow-md);
+  --glass-blur: none;
+
+  --el-color-primary: var(--color-primary-red);
+  --el-color-primary-light-3: #e85a5a;
+  --el-color-primary-light-5: #f09090;
+  --el-color-primary-light-7: #f5c0c0;
+  --el-color-primary-light-9: #faf0f0;
+  --el-color-primary-dark-2: #a01818;
+  --el-border-radius-base: 0;
+  --el-border-radius-small: 0;
+  --el-border-radius-round: 9999px;
+  --el-font-family: var(--font-body);
+}
+
+@media (min-width: 1024px) {
+  :root {
+    --border-width: 4px;
+    --shadow-sm: 4px 4px 0 0 var(--color-foreground);
+    --shadow-md: 6px 6px 0 0 var(--color-foreground);
+    --shadow-lg: 8px 8px 0 0 var(--color-foreground);
+    --shadow-xl: 8px 8px 0 0 var(--color-foreground);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --transition-fast: 0.01ms;
+    --transition-normal: 0.01ms;
+  }
+}
+

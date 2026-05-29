@@ -152,37 +152,26 @@ onMounted(() => {
   justify-content: center;
   align-items: center;
   z-index: 10000;
-  backdrop-filter: blur(5px);
-}
+  }
 
 .message-box {
-  background: white;
-  border-radius: 12px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+  background: var(--color-card);
+  border-radius: 0;
+  border: var(--border-width-thick) solid var(--color-border);
+  box-shadow: var(--shadow-xl);
   width: 90%;
   max-width: 400px;
   overflow: hidden;
-  animation: slideIn 0.3s ease-out;
-}
-
-@keyframes slideIn {
-  from {
-    transform: translateY(-50px);
-    opacity: 0;
-  }
-  to {
-    transform: translateY(0);
-    opacity: 1;
-  }
 }
 
 .message-header {
   display: flex;
   align-items: center;
-  padding: 20px;
-  background: linear-gradient(135deg, #667eea, #764ba2);
-  color: white;
+  padding: var(--space-5);
+  background: var(--color-primary-blue);
+  color: #fff;
   position: relative;
+  border-bottom: var(--border-width) solid var(--color-border);
 }
 
 .header-icon {
@@ -254,7 +243,7 @@ onMounted(() => {
 }
 
 .action-btn.primary {
-  background: linear-gradient(135deg, #667eea, #764ba2);
+  background: var(--color-foreground);
   color: white;
 }
 
@@ -275,7 +264,7 @@ onMounted(() => {
 }
 
 .action-btn.danger {
-  background: linear-gradient(135deg, #ff6b6b, #ee5a52);
+  background: var(--color-foreground);
   color: white;
 }
 
@@ -285,7 +274,7 @@ onMounted(() => {
 }
 
 .action-btn.success {
-  background: linear-gradient(135deg, #4CAF50, #45a049);
+  background: var(--color-foreground);
   color: white;
 }
 

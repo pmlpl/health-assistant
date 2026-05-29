@@ -41,10 +41,11 @@
       <div class="error-icon">❌</div>
       <h2>生成失败</h2>
       <p>{{ error }}</p>
-      <button class="btn retry-btn" @click="retry">重新生成</button>
+      <button class="btn-brand retry-btn" @click="retry">重新生成</button>
     </div>
 
     <div v-else-if="recommendations.length > 0" class="results-container">
+      <PageHeader title="AI 食谱结果" section-label="智能推荐" icon="🍳" />
       <div class="results-header">
         <div class="header-content">
           <p class="page-subtitle">基于您的健康档案和今日营养摄入情况，智能生成的个性化建议</p>
@@ -62,14 +63,14 @@
         </div>
       </div>
 
-      <div class="analysis-card" v-if="analysis">
+      <div class="analysis-card bh-card" v-if="analysis">
         <h3>📊 营养分析</h3>
         <p class="analysis-text">{{ analysis }}</p>
       </div>
 
       <div class="recipes-grid">
         <div 
-          class="card recipe-card" 
+          class="card recipe-card bh-card" 
           v-for="(recipe, index) in recommendations" 
           :key="recipe.id"
           :style="{ animationDelay: index * 0.15 + 's' }"
@@ -164,6 +165,7 @@ import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useRoute } from 'vue-router';
 import { apiClient, healthApi } from '../api/healthApi';
 import { notifySuccess, notifyError, notifyWarning, messageFromError } from '../utils/notify';
+import PageHeader from '../components/common/PageHeader.vue';
 
 const RECIPE_API_TIMEOUT_MS = 180000;
 const IMAGE_LOAD_TIMEOUT_MS = 20000;
@@ -577,7 +579,7 @@ const printResults = () => {
         }
         h1 {
           text-align: center;
-          color: #1d1d1f;
+          color: var(--color-foreground);
           font-size: 24px;
           margin-bottom: 10px;
         }
@@ -598,7 +600,7 @@ const printResults = () => {
           display: inline-block;
           width: 32px;
           height: 32px;
-          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          background: var(--color-foreground);
           color: white;
           border-radius: 50%;
           text-align: center;
@@ -610,7 +612,7 @@ const printResults = () => {
           display: inline-block;
           font-size: 20px;
           font-weight: bold;
-          color: #1d1d1f;
+          color: var(--color-foreground);
           vertical-align: middle;
         }
         .recipe-description {
@@ -619,7 +621,7 @@ const printResults = () => {
           margin: 15px 0;
         }
         .nutrition-info {
-          background: #f5f5f7;
+          background: var(--color-muted);
           padding: 15px;
           border-radius: 8px;
           margin: 15px 0;
@@ -639,12 +641,12 @@ const printResults = () => {
         .nutrition-value {
           font-size: 18px;
           font-weight: bold;
-          color: #1d1d1f;
+          color: var(--color-foreground);
         }
         .section-title {
           font-size: 16px;
           font-weight: bold;
-          color: #1d1d1f;
+          color: var(--color-foreground);
           margin: 15px 0 10px 0;
         }
         .ingredients-list,
@@ -655,18 +657,18 @@ const printResults = () => {
         .tag {
           display: inline-block;
           padding: 6px 12px;
-          border-radius: 980px;
+          border-radius: 0;
           font-size: 12px;
           font-weight: 600;
           margin-right: 8px;
         }
         .tag.meal-type {
           background: rgba(0, 122, 255, 0.1);
-          color: #007aff;
+          color: var(--color-foreground);
         }
         .tag.calories {
           background: rgba(255, 149, 0, 0.1);
-          color: #ff9500;
+          color: #525252;
         }
         @media print {
           body { padding: 0; }
@@ -726,8 +728,8 @@ const printResults = () => {
       `).join('')}
       
       <div class="no-print" style="text-align: center; margin-top: 30px; color: #666;">
-        <button onclick="window.print()" style="padding: 12px 24px; background: #007aff; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 15px;">🖨️ 打印</button>
-        <button onclick="window.close()" style="padding: 12px 24px; background: #f5f5f7; color: #333; border: 1px solid #ddd; border-radius: 8px; cursor: pointer; font-size: 15px; margin-left: 10px;">✖️ 关闭</button>
+        <button onclick="window.print()" style="padding: 12px 24px; background: var(--color-foreground); color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 15px;">🖨️ 打印</button>
+        <button onclick="window.close()" style="padding: 12px 24px; background: var(--color-muted); color: #333; border: 1px solid #ddd; border-radius: 8px; cursor: pointer; font-size: 15px; margin-left: 10px;">✖️ 关闭</button>
       </div>
     </body>
     </html>
@@ -767,7 +769,7 @@ onMounted(() => {
 <style scoped>
 .ai-result-page {
   min-height: 100vh;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: var(--color-foreground);
   padding: 40px 20px;
 }
 
@@ -853,8 +855,7 @@ onMounted(() => {
   gap: 12px;
   padding: 16px;
   background: rgba(255, 255, 255, 0.1);
-  border-radius: 12px;
-  backdrop-filter: blur(10px);
+  border-radius: 0;
   transition: all 0.3s ease;
 }
 
@@ -888,9 +889,9 @@ onMounted(() => {
 
 .progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, #fff, #f0f0f0);
+  background: var(--color-foreground);
   transition: width 0.5s ease;
-  box-shadow: 0 0 20px rgba(255, 255, 255, 0.5);
+  box-shadow: none;
 }
 
 .progress-text {
@@ -911,18 +912,18 @@ onMounted(() => {
   margin-bottom: 32px;
   padding: 24px;
   background: rgba(255, 255, 255, 0.95);
-  border-radius: 16px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+  border-radius: 0;
+  box-shadow: none;
 }
 
 .header-content h1 {
   font-size: 2rem;
-  color: #1d1d1f;
+  color: var(--color-foreground);
   margin-bottom: 8px;
 }
 
 .header-content p {
-  color: #86868b;
+  color: var(--color-muted-foreground);
   font-size: 1rem;
 }
 
@@ -933,7 +934,7 @@ onMounted(() => {
 
 .btn {
   padding: 12px 24px;
-  border-radius: 12px;
+  border-radius: 0;
   font-size: 15px;
   font-weight: 600;
   cursor: pointer;
@@ -942,13 +943,13 @@ onMounted(() => {
 }
 
 .regenerate-btn {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: var(--color-foreground);
   color: white;
 }
 
 .regenerate-btn:hover:not(:disabled) {
   transform: translateY(-2px);
-  box-shadow: 0 4px 16px rgba(102, 126, 234, 0.4);
+  box-shadow: none;
 }
 
 .regenerate-btn:disabled {
@@ -957,19 +958,19 @@ onMounted(() => {
 }
 
 .print-btn {
-  background: #007aff;
+  background: var(--color-foreground);
   color: white;
 }
 
 .print-btn:hover {
-  background: #0066d6;
+  background: var(--color-foreground);
   transform: translateY(-2px);
-  box-shadow: 0 4px 16px rgba(0, 122, 255, 0.3);
+  box-shadow: none;
 }
 
 .close-btn {
-  background: #f5f5f7;
-  color: #1d1d1f;
+  background: var(--color-muted);
+  color: var(--color-foreground);
 }
 
 .close-btn:hover {
@@ -979,13 +980,13 @@ onMounted(() => {
 .analysis-card {
   background: rgba(255, 255, 255, 0.95);
   padding: 24px;
-  border-radius: 16px;
+  border-radius: 0;
   margin-bottom: 32px;
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.1);
+  box-shadow: none;
 }
 
 .analysis-card h3 {
-  color: #1d1d1f;
+  color: var(--color-foreground);
   margin-bottom: 12px;
   font-size: 1.3rem;
 }
@@ -1004,9 +1005,9 @@ onMounted(() => {
 
 .recipe-card {
   background: white;
-  border-radius: 16px;
+  border-radius: 0;
   overflow: hidden;
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.1);
+  box-shadow: none;
   animation: slideUp 0.6s ease forwards;
   opacity: 0;
 }
@@ -1024,7 +1025,7 @@ onMounted(() => {
 
 .recipe-image {
   height: 280px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: var(--color-foreground);
   position: relative;
   overflow: hidden;
 }
@@ -1043,7 +1044,7 @@ onMounted(() => {
   position: absolute;
   inset: 0;
   z-index: 2;
-  background: linear-gradient(135deg, rgba(102, 126, 234, 0.92) 0%, rgba(118, 75, 162, 0.92) 100%);
+  background: var(--color-muted-foreground);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1135,7 +1136,7 @@ onMounted(() => {
 .recipe-number {
   width: 32px;
   height: 32px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: var(--color-foreground);
   color: white;
   border-radius: 50%;
   display: flex;
@@ -1146,14 +1147,14 @@ onMounted(() => {
 }
 
 .recipe-title {
-  color: #1d1d1f;
+  color: var(--color-foreground);
   font-size: 1.3rem;
   font-weight: 700;
   margin: 0;
 }
 
 .recipe-description {
-  color: #86868b;
+  color: var(--color-muted-foreground);
   line-height: 1.5;
   margin-bottom: 16px;
 }
@@ -1167,23 +1168,23 @@ onMounted(() => {
 
 .tag {
   padding: 6px 12px;
-  border-radius: 980px;
+  border-radius: 0;
   font-size: 12px;
   font-weight: 600;
 }
 
 .tag.meal-type {
   background: rgba(0, 122, 255, 0.1);
-  color: #007aff;
+  color: var(--color-foreground);
 }
 
 .tag.calories {
   background: rgba(255, 149, 0, 0.1);
-  color: #ff9500;
+  color: #525252;
 }
 
 .tag.ai-tag {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: var(--color-foreground);
   color: white;
 }
 
@@ -1193,8 +1194,8 @@ onMounted(() => {
   gap: 12px;
   margin-bottom: 20px;
   padding: 16px;
-  background: #f5f5f7;
-  border-radius: 12px;
+  background: var(--color-muted);
+  border-radius: 0;
 }
 
 .meta-item {
@@ -1204,7 +1205,7 @@ onMounted(() => {
 .meta-label {
   display: block;
   font-size: 12px;
-  color: #86868b;
+  color: var(--color-muted-foreground);
   margin-bottom: 4px;
 }
 
@@ -1212,7 +1213,7 @@ onMounted(() => {
   display: block;
   font-size: 18px;
   font-weight: 700;
-  color: #1d1d1f;
+  color: var(--color-foreground);
 }
 
 .recipe-section {
@@ -1220,7 +1221,7 @@ onMounted(() => {
 }
 
 .recipe-section h4 {
-  color: #1d1d1f;
+  color: var(--color-foreground);
   font-size: 1.1rem;
   margin-bottom: 12px;
 }
@@ -1244,32 +1245,32 @@ onMounted(() => {
 
 .add-btn {
   width: 100%;
-  background: linear-gradient(135deg, #34c759 0%, #30b34f 100%);
+  background: var(--color-foreground);
   color: white;
 }
 
 .add-btn:hover {
   transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(52, 199, 89, 0.4);
+  box-shadow: none;
 }
 
 .fix-btn {
   width: 100%;
-  background: linear-gradient(135deg, #007aff 0%, #005ecb 100%);
+  background: var(--color-foreground);
   color: white;
   margin-top: 8px;
 }
 
 .fix-btn:hover {
   transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(0, 122, 255, 0.4);
+  box-shadow: none;
 }
 
 .footer-tip {
   text-align: center;
   padding: 20px;
   background: rgba(255, 255, 255, 0.9);
-  border-radius: 12px;
+  border-radius: 0;
   color: #4a5568;
   font-size: 0.95rem;
 }
@@ -1288,7 +1289,7 @@ onMounted(() => {
 
 .retry-btn {
   background: white;
-  color: #667eea;
+  color: var(--color-foreground);
   margin-top: 20px;
 }
 

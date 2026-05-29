@@ -1,136 +1,68 @@
-<!-- src/components/layout/Navigation.vue -->
+<!-- src/components/layout/Navigation.vue — Bauhaus 主导航（备用） -->
 <template>
-  <nav class="navigation">
+  <nav class="navigation" aria-label="主导航">
     <router-link
-        to="/"
-        class="nav-button bilibili-nav-button"
-        :class="{ active: $route.name === 'Dashboard' }"
+      v-for="item in navItems"
+      :key="item.name"
+      :to="item.to"
+      class="nav-button"
+      :class="{ active: $route.name === item.name }"
     >
-      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M3 9L12 2L21 9V20C21 20.5304 20.7893 21.0391 20.4142 21.4142C20.0391 21.7893 19.5304 22 19 22H5C4.46957 22 3.96086 21.7893 3.58579 21.4142C3.21071 21.0391 3 20.5304 3 20V9Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-        <path d="M9 22V12H15V22" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <path :d="item.iconPath" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
       </svg>
-      首页
-    </router-link>
-    <router-link
-        to="/recipes"
-        class="nav-button bilibili-nav-button"
-        :class="{ active: $route.name === 'Recipes' }"
-    >
-      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M6 9C6 9 6 5 9 5C12 5 12 7 12 9C12 9 12 5 15 5C18 5 18 9 18 9V11H6V9Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-        <path d="M4 11H20V19C20 19.5304 19.7893 20.0391 19.4142 20.4142C19.0391 20.7893 18.5304 21 18 21H6C5.46957 21 4.96086 20.7893 4.58579 20.4142C4.21071 20.0391 4 19.5304 4 19V11Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-        <line x1="9" y1="14" x2="15" y2="14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-        <line x1="9" y1="17" x2="15" y2="17" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-      </svg>
-      健康食谱
-    </router-link>
-    <router-link
-        to="/diary"
-        class="nav-button bilibili-nav-button"
-        :class="{ active: $route.name === 'Diary' }"
-    >
-      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M11 4H4C3.46957 4 2.96086 4.21071 2.58579 4.58579C2.21071 4.96086 2 5.46957 2 6V20C2 20.5304 2.21071 21.0391 2.58579 21.4142C2.96086 21.7893 3.46957 22 4 22H18C18.5304 22 19.0391 21.7893 19.4142 21.4142C19.7893 21.0391 20 20.5304 20 20V13" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-        <path d="M18.5 2.50023C18.8978 2.1024 19.4374 1.87891 20 1.87891C20.5626 1.87891 21.1022 2.1024 21.4999 2.50023C21.8978 2.89789 22.1213 3.43762 22.1213 4.00023C22.1213 4.56284 21.8978 5.10257 21.4999 5.50023L12 15.0002L8 16.0002L9 12.0002L18.5 2.50023Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-      </svg>
-      饮食日记
-    </router-link>
-    <router-link
-        to="/health-report"
-        class="nav-button bilibili-nav-button"
-        :class="{ active: $route.name === 'HealthReport' }"
-    >
-      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M4 19H20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-        <path d="M6 16L9 11L13 14L17 8L20 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-        <rect x="3" y="4" width="18" height="16" rx="2" stroke="currentColor" stroke-width="2"/>
-      </svg>
-      健康报告
-    </router-link>
-    <router-link
-        to="/profile"
-        class="nav-button bilibili-nav-button"
-        :class="{ active: $route.name === 'Profile' }"
-    >
-      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <circle cx="12" cy="8" r="4" stroke="currentColor" stroke-width="2"/>
-        <path d="M20 21C20 16.5817 16.4183 13 12 13C7.58172 13 4 16.5817 4 21" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-      </svg>
-      个人中心
-    </router-link>
-    <router-link
-        to="/fitness"
-        class="nav-button bilibili-nav-button"
-        :class="{ active: $route.name === 'Fitness' }"
-    >
-      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M6.5 6.5L17.5 17.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-        <path d="M21 21L15 15" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-        <path d="M3 3L9 9" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-        <rect x="9" y="9" width="6" height="6" rx="1" stroke="currentColor" stroke-width="2"/>
-        <path d="M3 9V15C3 15.5304 3.21071 16.0391 3.58579 16.4142C3.96086 16.7893 4.46957 17 5 17H9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-        <path d="M15 9H19C19.5304 9 20.0391 9.21071 20.4142 9.58579C20.7893 9.96086 21 10.4696 21 11V15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-      </svg>
-      健身记录
-    </router-link>
-    <router-link
-        to="/calendar"
-        class="nav-button bilibili-nav-button"
-        :class="{ active: $route.name === 'Calendar' }"
-    >
-      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <rect x="3" y="4" width="18" height="18" rx="2" ry="2" stroke="currentColor" stroke-width="2"/>
-        <line x1="16" y1="2" x2="16" y2="6" stroke="currentColor" stroke-width="2"/>
-        <line x1="8" y1="2" x2="8" y2="6" stroke="currentColor" stroke-width="2"/>
-        <line x1="3" y1="10" x2="21" y2="10" stroke="currentColor" stroke-width="2"/>
-      </svg>
-      健康日历
+      {{ item.label }}
     </router-link>
   </nav>
 </template>
 
+<script setup>
+/** 导航项配置：Bauhaus 硬边导航 */
+const navItems = [
+  { to: '/', name: 'Dashboard', label: '首页', iconPath: 'M3 9L12 2L21 9V20C21 20.5304 20.7893 21.0391 20.4142 21.4142C20.0391 21.7893 19.5304 22 19 22H5C4.46957 22 3.96086 21.7893 3.58579 21.4142C3.21071 21.0391 3 20.5304 3 20V9Z M9 22V12H15V22' },
+  { to: '/recipes', name: 'Recipes', label: '健康食谱', iconPath: 'M6 9C6 9 6 5 9 5C12 5 12 7 12 9C12 9 12 5 15 5C18 5 18 9 18 9V11H6V9Z M4 11H20V19C20 19.5304 19.7893 20.0391 19.4142 20.4142C19.0391 20.7893 18.5304 21 18 21H6C5.46957 21 4.96086 20.7893 4.58579 20.4142C4.21071 20.0391 4 19.5304 4 19V11Z' },
+  { to: '/diary', name: 'Diary', label: '饮食日记', iconPath: 'M11 4H4C3.46957 4 2.96086 4.21071 2.58579 4.58579C2.21071 4.96086 2 5.46957 2 6V20C2 20.5304 2.21071 21.0391 2.58579 21.4142C2.96086 21.7893 3.46957 22 4 22H18C18.5304 22 19.0391 21.7893 19.4142 21.4142C19.7893 21.0391 20 20.5304 20 20V13 M18.5 2.5C18.8978 2.1024 19.4374 1.87891 20 1.87891C20.5626 1.87891 21.1022 2.1024 21.4999 2.5C21.8978 2.89789 22.1213 3.43762 22.1213 4C22.1213 4.56284 21.8978 5.10257 21.4999 5.5L12 15L8 16L9 12L18.5 2.5Z' },
+  { to: '/health-report', name: 'HealthReport', label: '健康报告', iconPath: 'M4 19H20 M6 16L9 11L13 14L17 8L20 12 M3 4H21V20H3V4Z' },
+  { to: '/profile', name: 'Profile', label: '个人中心', iconPath: 'M12 8C14.2091 8 16 6.20914 16 4C16 1.79086 14.2091 0 12 0C9.79086 0 8 1.79086 8 4C8 6.20914 9.79086 8 12 8ZM20 21C20 16.5817 16.4183 13 12 13C7.58172 13 4 16.5817 4 21' },
+  { to: '/fitness', name: 'Fitness', label: '健身记录', iconPath: 'M6.5 6.5L17.5 17.5 M21 21L15 15 M3 3L9 9 M9 9H15V15H9V9Z' },
+  { to: '/calendar', name: 'Calendar', label: '健康日历', iconPath: 'M3 4H21V22H3V4Z M16 2V6 M8 2V6 M3 10H21' },
+];
+</script>
+
 <style scoped>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
-
-* {
-  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Inter', 'Segoe UI', Roboto, sans-serif;
-}
-
 .navigation {
-  background: rgba(255, 255, 255, 0.72);
-  backdrop-filter: saturate(180%) blur(20px);
-  -webkit-backdrop-filter: saturate(180%) blur(20px);
-  padding: 0 48px;
-  box-shadow: 
-    0 1px 0 rgba(0, 0, 0, 0.08);
+  background: var(--color-card);
+  padding: 0 var(--space-8);
+  border-bottom: var(--border-width) solid var(--color-border);
+  box-shadow: var(--shadow-sm);
   display: flex;
   justify-content: center;
   flex-wrap: wrap;
   width: 100%;
   position: fixed;
-  top: 52px;
+  top: var(--header-height);
   left: 0;
   z-index: 999;
 }
 
 .nav-button {
-  padding: 16px 20px;
+  padding: var(--space-4) var(--space-5);
   border: none;
   background: none;
   cursor: pointer;
-  font-size: 14px;
-  font-weight: 500;
-  transition: all 0.3s cubic-bezier(0.25, 0.1, 0.25, 1);
+  font-family: var(--font-body);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  transition: color var(--transition-fast), background var(--transition-fast);
   margin: 0;
   text-decoration: none;
-  color: #1d1d1f;
+  color: var(--color-muted-foreground);
   border-radius: 0;
   position: relative;
-  letter-spacing: -0.2px;
+  letter-spacing: 0.02em;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
 }
 
 .nav-icon {
@@ -143,55 +75,44 @@
   content: '';
   position: absolute;
   bottom: 0;
-  left: 50%;
+  left: 0;
   width: 0;
-  height: 2px;
-  background: #007aff;
-  transition: all 0.3s cubic-bezier(0.25, 0.1, 0.25, 1);
-  transform: translateX(-50%);
+  height: 3px;
+  background: var(--color-primary-red);
+  transition: width var(--transition-fast);
 }
 
 .nav-button:hover {
-  color: #007aff;
+  color: var(--color-foreground);
+  background: var(--color-muted);
 }
 
-.nav-button:hover::after {
-  width: 100%;
-}
-
-.nav-button.active {
-  color: #007aff;
-}
-
+.nav-button:hover::after,
 .nav-button.active::after {
   width: 100%;
 }
 
+.nav-button.active {
+  color: var(--color-foreground);
+  font-weight: var(--font-weight-bold);
+}
+
 @media (max-width: 768px) {
   .navigation {
-    padding: 0 20px;
+    padding: 0 var(--space-5);
     overflow-x: auto;
     justify-content: flex-start;
     -webkit-overflow-scrolling: touch;
-    top: 48px;
   }
 
   .nav-button {
     white-space: nowrap;
-    padding: 14px 16px;
-    font-size: 13px;
+    padding: var(--space-3) var(--space-4);
+    font-size: var(--font-size-xs);
   }
 }
 
 .navigation::-webkit-scrollbar {
   height: 0;
-}
-
-.navigation::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.navigation::-webkit-scrollbar-thumb {
-  background: transparent;
 }
 </style>

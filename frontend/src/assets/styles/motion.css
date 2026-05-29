@@ -1,0 +1,34 @@
+/**
+ * GSAP 动效辅助类 — 与 usePageMotion / PageShell 配合
+ */
+
+@media (prefers-reduced-motion: no-preference) {
+  .motion-reveal,
+  .route-page .card {
+    will-change: transform, opacity;
+  }
+
+  .empty-state-icon,
+  .no-data-icon {
+    display: inline-block;
+    animation: motion-empty-float 3s ease-in-out infinite;
+  }
+}
+
+@keyframes motion-empty-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .motion-reveal,
+  .route-page .card {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}

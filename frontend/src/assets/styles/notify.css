@@ -1,0 +1,31 @@
+/* 顶部居中通知 — Minimalist Monochrome */
+.el-notification.notify-top-center,
+.el-notification.notify-error,
+.el-notification.notify-warning,
+.el-notification.notify-info,
+.el-notification.notify-success {
+  left: 50% !important;
+  right: auto !important;
+  transform: translateX(-50%);
+  border-radius: 0;
+  box-shadow: none;
+  border: 2px solid var(--color-foreground);
+  background: var(--color-background);
+  backdrop-filter: none;
+  font-family: var(--font-body);
+}
+
+.el-notification.notify-success .el-notification__icon,
+.el-notification.notify-error .el-notification__icon,
+.el-notification.notify-warning .el-notification__icon {
+  /* 单色系统：无弹跳/抖动动画 */
+  animation: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .el-notification.notify-success .el-notification__icon,
+  .el-notification.notify-error .el-notification__icon,
+  .el-notification.notify-warning .el-notification__icon {
+    animation: none;
+  }
+}

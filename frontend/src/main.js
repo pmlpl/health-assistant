@@ -14,8 +14,15 @@ import { CanvasRenderer } from 'echarts/renderers'
 import { BarChart, LineChart, PieChart } from 'echarts/charts'
 import { GridComponent, TooltipComponent, LegendComponent, TitleComponent } from 'echarts/components'
 
+import './assets/styles/tokens.css'
 import './assets/styles/global.css'
-import './assets/styles/bilibili-theme.css'
+import './assets/styles/motion.css'
+import './assets/styles/glass.css'
+import './assets/styles/design-system.css'
+import './assets/styles/auth-form.css'
+import './assets/styles/notify.css'
+import './plugins/gsap.js'
+/* bilibili-theme 已由 tokens.css 替代，Phase 2 逐页迁移后删除 */
 
 use([
     CanvasRenderer,

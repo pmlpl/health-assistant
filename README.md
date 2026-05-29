@@ -45,6 +45,7 @@ npm run dev
 | [docs/QUICK_START.md](docs/QUICK_START.md) | 本地开发环境搭建与常见问题 |
 | [docs/PROJECT_STRUCTURE.md](docs/PROJECT_STRUCTURE.md) | 目录结构与模块说明 |
 | [docs/DEPLOY.md](docs/DEPLOY.md) | **唯一**生产部署参考（Nginx / Netlify / Railway） |
+| [docs/REDESIGN-PLAN.md](docs/REDESIGN-PLAN.md) | 网站外观改版计划 |
 | [backend/ENV_SETUP_GUIDE.md](backend/ENV_SETUP_GUIDE.md) | 后端环境变量与 AI 配置 |
 | [frontend/API_CONFIGURATION_GUIDE.md](frontend/API_CONFIGURATION_GUIDE.md) | 前端 API 与环境变量 |
 
