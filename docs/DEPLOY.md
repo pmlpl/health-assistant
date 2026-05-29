@@ -1,17 +1,17 @@
 # 部署指南
 
-本文档合并了原有多份部署说明，作为唯一生产部署参考。
+本文档为**唯一**生产部署参考。原 `DEPLOY_INSTRUCTIONS.md`、`DEPLOY_STEPS.md`（含根目录副本）已合并至此并删除。
 
 ## 环境要求
 
 - JDK 21+
 - MySQL 8.0+
-- Node.js 18+（仅构建前端时需要）
-- Maven 3.8+ 或项目自带 `mvnw`
+- Node.js 18+（构建前端）
+- Maven 3.8+ 或 `backend/mvnw`
 
-## 1. 配置环境变量
+## 1. 环境变量
 
-在服务器或 `backend/.env` 中设置：
+在服务器环境或 `backend/.env` 中配置：
 
 ```env
 DB_HOST=localhost
@@ -24,14 +24,17 @@ JWT_SECRET=至少32位随机字符串
 CORS_ALLOWED_ORIGINS=https://你的前端域名
 APP_SEED_TEST_USER=false
 
-# prod 建议留空，由用户在应用内「AI 设置」自备（BYOK）
+# 生产建议：云端 Key 由用户在应用内「AI 设置」自备（BYOK）
+DEEPSEEK_API_KEY=
 DOUBAO_API_KEY=
 DASHSCOPE_API_KEY=
 
-AI_SETTINGS_SECRET=至少32位随机字符串用于加密用户Key
+AI_SETTINGS_SECRET=至少32位随机字符串
 AI_DEPLOYMENT_MODE=prod
 APP_UPLOAD_DIR=/var/app/uploads
 ```
+
+完整说明见 [backend/ENV_SETUP_GUIDE.md](../backend/ENV_SETUP_GUIDE.md)。
 
 ## 2. 构建
 
@@ -40,7 +43,7 @@ APP_UPLOAD_DIR=/var/app/uploads
 cd backend
 .\mvnw.cmd clean package -DskipTests
 
-# 前端
+# 前端（构建前设置 VITE_API_BASE_URL）
 cd frontend
 npm ci
 npm run build
@@ -51,101 +54,106 @@ npm run build
 - 后端 JAR：`backend/target/HealthAssistant-0.0.1-SNAPSHOT.jar`
 - 前端静态文件：`frontend/dist/`
 
-## 3. 启动后端（生产 profile）
+## 3. 启动后端
 
 ```bash
 java -jar HealthAssistant-0.0.1-SNAPSHOT.jar --spring.profiles.active=prod
 ```
 
-Railway 部署时使用 [`backend/railway.json`](../backend/railway.json) 中的启动命令。
+Railway：使用 [`backend/railway.json`](../backend/railway.json) 中的启动命令。
+
+后台运行示例：
+
+```bash
+nohup java -jar HealthAssistant-0.0.1-SNAPSHOT.jar --spring.profiles.active=prod > app.log 2>&1 &
+```
 
 ## 4. 部署前端
 
-将 `frontend/dist/` 内容部署到 Nginx、Vercel 或 Netlify：
+### Netlify / Vercel
 
-- Nginx：配置静态目录与 `/api` 反向代理到后端
-- Vercel/Netlify：已包含 SPA 回退配置（`vercel.json` / `netlify.toml`）
+- 构建命令：`npm run build`
+- 发布目录：`frontend/dist`
+- 环境变量：`VITE_API_BASE_URL=https://你的API域名/api`
+- SPA 回退：仓库已含 [`netlify.toml`](../netlify.toml)（`/* → /index.html`）
 
-前端生产环境需在构建时设置：
+### Nginx 示例
 
-```env
-VITE_API_BASE_URL=https://你的API域名/api
+```nginx
+server {
+    listen 80;
+    server_name your-domain.com;
+
+    # 前端静态文件
+    location / {
+        root /usr/share/nginx/html;
+        index index.html;
+        try_files $uri $uri/ /index.html;
+    }
+
+    # API 反向代理
+    location /api {
+        proxy_pass http://127.0.0.1:8080;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+
+        # SSE（AI 流式）需禁用缓冲
+        proxy_buffering off;
+        proxy_cache off;
+        proxy_read_timeout 600s;
+    }
+}
 ```
 
-**注意**：`.env.production` 不应提交到 Git，请在 CI 或平台环境变量中配置。
+### 前后端分离（无 Nginx 代理）
 
-## 5. AI 与食谱配图
+前端 `.env.production` 指向完整后端地址（含 `/api`），浏览器直接跨域请求后端，需正确配置 `CORS_ALLOWED_ORIGINS`。
+
+## 5. AI 与媒体能力
 
 | 能力 | 说明 |
 |------|------|
-| 文本 AI | 开发：`dev` profile + 本机 LM Studio；生产：用户登录后在 Header → **AI 设置** 填写 DashScope Key 或 LM 穿透地址 |
-| 食谱配图 | Pexels 搜真实图 + 下载到 `uploads/recipes/`，需用户在 AI 设置中配置 **Pexels Key** |
-| 费用 | 生产环境服务端**不配置**云端 Key，由用户各自承担 |
+| 文本 AI | 生产：用户 **AI 设置** BYOK（DeepSeek / 通义 / LM Studio）；开发：`.env` 平台 Key + dev profile |
+| 拍照识食 | 豆包视觉 / LM Studio 视觉 / 通义，按用户设置与 `AI_IMAGE_RECOGNITION_ORDER` |
+| 食谱配图 | Pexels 搜图 + 豆包 Seedream 生图；同名食谱复用已存配图 |
+| 平台试用 | `AI_PLATFORM_TRIAL_*` 控制未自备 Key 用户的试用次数 |
 
-本地开发：启动 LM Studio（Qwen3.5:9b），Local Server 默认 `http://127.0.0.1:1234/v1`，`spring.profiles.active=dev`。
+本地开发：LM Studio 默认 `http://127.0.0.1:1234/v1`，`spring.profiles.active=dev`。
 
-## 6. 验证
+## 6. 验证清单
 
-- 访问前端首页，使用账号登录
-- 检查 `GET /api/status/api-availability` 返回 AI 配置状态
-- 查看后端日志确认 Flyway 迁移成功（prod profile）
-- 检查 Actuator：`GET /actuator/health`、`GET /actuator/metrics/hikaricp.connections`
+- [ ] 前端可访问，登录正常
+- [ ] `GET /api/status/api-availability` 返回 AI 状态
+- [ ] `GET /actuator/health` 正常（若已暴露）
+- [ ] Flyway 迁移成功（prod 空库自动建表）
+- [ ] AI 设置 → 连接测试 → AI 精灵对话有响应
+- [ ] 上传目录 `APP_UPLOAD_DIR` 可写（食谱配图）
 
 ## 7. 数据库运维
 
-### Flyway 迁移
+### Flyway
 
-生产环境（`prod` profile）启动时自动执行 `db/migration/V1`–`V5`：
+`prod` profile 启动时自动执行 `db/migration/` 脚本。全新库只需创建空库 `health_assistant`。
 
-- `V2`：完整建表（新库）
-- `V3`：性能索引 + 图片字段 LONGTEXT
-- `V4`：ElementCollection 唯一约束
-- `V5`：预留 `user_profile_id` 列（未来 FK 迁移）
-
-全新 MySQL 库只需创建空库 `health_assistant`，以 `prod` profile 启动即可自动建表。
-
-### 慢查询日志
-
-在 MySQL 配置（`my.cnf` 或云控制台）中启用：
-
-```ini
-slow_query_log=1
-slow_query_log_file=/var/log/mysql/slow.log
-long_query_time=1
-```
-
-开发环境可在 `application-dev.properties` 临时开启 `spring.jpa.show-sql=true` 对比 SQL 条数。
-
-### 定时备份
+### 备份（示例）
 
 ```powershell
-# 每日备份示例（Windows 任务计划程序）
-mysqldump -h localhost -u root -p health_assistant > "C:\backup\health_assistant_$(Get-Date -Format yyyyMMdd).sql"
+mysqldump -h localhost -u root -p health_assistant > "backup_$(Get-Date -Format yyyyMMdd).sql"
 ```
-
-建议保留 7–30 天备份；恢复前先在测试库验证。
-
-### 数据归档（可选）
-
-当 `diet_record` / `fitness_record` 超过 2 年且业务允许时，可归档至 `_archive` 表：
-
-```sql
-INSERT INTO diet_record_archive SELECT * FROM diet_record WHERE date < DATE_SUB(CURDATE(), INTERVAL 2 YEAR);
-DELETE FROM diet_record WHERE date < DATE_SUB(CURDATE(), INTERVAL 2 YEAR);
-```
-
-大量 DELETE 后可对表执行 `OPTIMIZE TABLE`（低峰期进行）。
 
 ## 8. 常见问题
 
 | 问题 | 处理 |
 |------|------|
-| 401 未登录 | 重新登录获取 JWT |
-| CORS 错误 | 检查 `CORS_ALLOWED_ORIGINS` |
-| Railway 启动失败 | 确认 JAR 名为 `HealthAssistant-0.0.1-SNAPSHOT.jar` |
-| prod 启动 schema 错误 | 确保使用 `prod` profile；Flyway V2+ 会在空库自动建表 |
+| 401 未登录 | 重新登录；检查 JWT 与 CORS |
+| CORS 错误 | `CORS_ALLOWED_ORIGINS` 包含前端域名 |
+| Railway 启动失败 | JAR 名 `HealthAssistant-0.0.1-SNAPSHOT.jar` |
+| AI 无响应 | 用户是否保存 AI 设置；生产是否 BYOK |
+| SSE 卡住 | Nginx 关闭 `proxy_buffering`；或本地 LM 走同步接口 |
 
 ## 相关文件
 
-- 根目录 [`DEPLOY_STEPS.md`](../DEPLOY_STEPS.md)（历史快速步骤，逐步迁移至本文档）
-- [`docs/DEPLOY_INSTRUCTIONS.md`](DEPLOY_INSTRUCTIONS.md)（详细手动部署）
+- [`netlify.toml`](../netlify.toml) — Netlify SPA 回退
+- [`backend/railway.json`](../backend/railway.json) — Railway 启动配置
+- [`frontend/API_CONFIGURATION_GUIDE.md`](../frontend/API_CONFIGURATION_GUIDE.md) — 前端 API 地址
