@@ -1,23 +1,29 @@
 <template>
   <div class="dashboard-layout">
-    <!-- 页面头部 -->
-    <div class="page-header">
-      <h1>👤 个人中心</h1>
-      <div class="stats-bar">
+    <PageHeader
+      title="个人中心"
+      section-label="我的档案"
+      :label-pulse="true"
+      icon="👤"
+    >
+      <template #stats>
         <span class="stat-item">欢迎，{{ userInfo.username }}！</span>
         <span v-if="profileData.healthGoal" class="stat-item">
           🎯 目标：{{ profileData.healthGoal }}
         </span>
         <span v-else class="stat-item">🌟 完善您的健康档案吧！</span>
-      </div>
-    </div>
+      </template>
+    </PageHeader>
 
     <!-- 主要内容区域 - 上下三行布局 -->
     <div class="three-row-layout">
       <!-- 第一行：用户基本信息 -->
       <div class="row first-row">
-        <div class="card profile-card">
-          <h2>🔐 用户基本信息</h2>
+        <div class="card profile-card bh-card">
+          <div class="card-header-section">
+            <SectionLabel label="账户信息" />
+            <h2>🔐 用户基本信息</h2>
+          </div>
           <div class="user-info-section">
             <div class="info-item">
               <label>👤 用户名:</label>
@@ -64,8 +70,11 @@
 
       <!-- 第二行：个人健康档案 -->
       <div class="row second-row">
-        <div class="card profile-form-card">
-          <h2>📋 个人健康档案</h2>
+        <div class="card profile-form-card bh-card">
+          <div class="card-header-section">
+            <SectionLabel label="健康档案" />
+            <h2>📋 个人健康档案</h2>
+          </div>
           
           <form @submit.prevent="saveProfile" class="profile-form">
             <!-- 基本身体信息 -->
@@ -172,7 +181,7 @@
 
             <!-- 提交按钮 -->
             <div class="form-actions">
-              <button type="submit" class="submit-btn" :disabled="loading">
+              <button type="submit" class="btn-brand submit-btn" :disabled="loading">
                 {{ loading ? '⏳ 保存中...' : '💾 保存档案' }}
               </button>
             </div>
@@ -294,6 +303,8 @@
 
 <script setup>
 import { ref, onMounted, computed } from 'vue';
+import PageHeader from '@/components/common/PageHeader.vue';
+import SectionLabel from '@/components/common/SectionLabel.vue';
 import { useRouter } from 'vue-router';
 import { healthApi } from '../api/healthApi';
 import { useUserStore } from '../stores/userStore';
@@ -673,49 +684,23 @@ const formatDate = (dateString) => {
   position: relative;
 }
 
-.dashboard-layout::before {
-  content: '';
-  position: fixed;
-  top: -50%;
-  left: -50%;
-  width: 200%;
-  height: 200%;
-  background: 
-    radial-gradient(ellipse at 30% 20%, rgba(0, 122, 255, 0.03) 0%, transparent 50%),
-    radial-gradient(ellipse at 70% 80%, rgba(88, 86, 214, 0.03) 0%, transparent 50%);
-  pointer-events: none;
-  z-index: 0;
-  animation: gradientShift 20s ease-in-out infinite;
-}
 
-@keyframes gradientShift {
-  0%, 100% { transform: translate(0, 0); }
-  50% { transform: translate(-5%, -5%); }
-}
+
 
 .page-header {
   text-align: center;
   padding: 48px 24px 36px;
   position: relative;
   z-index: 1;
-  background: linear-gradient(180deg, #fafafa 0%, #ffffff 100%);
+  background: var(--color-background);
 }
 
 .page-header h1 {
-  color: #1d1d1f;
   margin-bottom: 12px;
   font-weight: 700;
   letter-spacing: -0.5px;
   font-size: 36px;
   line-height: 1.1;
-  background: linear-gradient(135deg, #1d1d1f 0%, #424245 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
 }
 
 .stats-bar {
@@ -724,7 +709,7 @@ const formatDate = (dateString) => {
   gap: 10px;
   align-items: center;
   font-size: 15px;
-  color: #86868b;
+  color: var(--color-muted-foreground);
   flex-wrap: wrap;
   margin-top: 16px;
 }
@@ -736,17 +721,15 @@ const formatDate = (dateString) => {
   letter-spacing: -0.2px;
   padding: 8px 16px;
   background: rgba(255, 255, 255, 0.8);
-  border-radius: 980px;
+  border-radius: 0;
   border: 1px solid rgba(0, 0, 0, 0.04);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  transition: all 0.3s cubic-bezier(0.25, 0.1, 0.25, 1);
+  box-shadow: none;
+  -webkit-transition: all 0.3s cubic-bezier(0.25, 0.1, 0.25, 1);
 }
 
 .stat-item:hover {
   background: rgba(255, 255, 255, 0.95);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+  box-shadow: none;
   transform: translateY(-2px);
 }
 
@@ -776,13 +759,11 @@ const formatDate = (dateString) => {
 /* 原有卡片样式保持不变 */
 .card {
   background: #ffffff;
-  border-radius: 20px;
+  border-radius: 0;
   padding: 24px;
   margin-bottom: 0;
   border: none;
-  box-shadow: 
-    0 2px 8px rgba(0, 0, 0, 0.02),
-    0 8px 32px rgba(0, 0, 0, 0.04);
+  box-shadow: none;
   transition: all 0.5s cubic-bezier(0.25, 0.1, 0.25, 1);
   position: relative;
   overflow: hidden;
@@ -794,13 +775,11 @@ const formatDate = (dateString) => {
 
 .card:hover {
   transform: translateY(-6px) scale(1.01);
-  box-shadow: 
-    0 4px 16px rgba(0, 0, 0, 0.04),
-    0 24px 64px rgba(0, 0, 0, 0.08);
+  box-shadow: none;
 }
 
 .card h2 {
-  color: #1d1d1f;
+  color: var(--color-foreground);
   margin-bottom: 20px;
   padding-bottom: 0;
   border-bottom: none;
@@ -817,18 +796,18 @@ const formatDate = (dateString) => {
   display: inline-block;
   width: 4px;
   height: 24px;
-  background: linear-gradient(135deg, #007aff, #5856d6);
+  background: var(--color-foreground);
   border-radius: 2px;
 }
 
 .section-divider {
   height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(0, 0, 0, 0.08), transparent);
+  background: var(--color-border-light);
   margin: 24px 0;
 }
 
 .subsection-title {
-  color: #1d1d1f;
+  color: var(--color-foreground);
   font-size: 18px;
   margin-bottom: 16px;
   font-weight: 600;
@@ -839,7 +818,7 @@ const formatDate = (dateString) => {
 }
 
 .danger-title {
-  color: #ff3b30;
+  color: #000000;
 }
 
 .security-section-inline,
@@ -855,8 +834,8 @@ const formatDate = (dateString) => {
 
 .danger-section-inline {
   padding: 20px;
-  background: linear-gradient(135deg, rgba(255, 59, 48, 0.05) 0%, rgba(255, 59, 48, 0.02) 100%);
-  border-radius: 16px;
+  background: var(--color-muted);
+  border-radius: 0;
   border: 1px solid rgba(255, 59, 48, 0.15);
 }
 
@@ -870,8 +849,8 @@ const formatDate = (dateString) => {
   justify-content: space-between;
   align-items: center;
   padding: 20px 24px;
-  background: #f5f5f7;
-  border-radius: 16px;
+  background: var(--color-muted);
+  border-radius: 0;
   transition: all 0.4s cubic-bezier(0.25, 0.1, 0.25, 1);
   border: none;
   position: relative;
@@ -881,12 +860,12 @@ const formatDate = (dateString) => {
 .info-item:hover {
   background: #ebebf0;
   transform: translateY(-3px);
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.08);
+  box-shadow: none;
 }
 
 .info-item label {
   font-weight: 600;
-  color: #1d1d1f;
+  color: var(--color-foreground);
   font-size: 17px;
   letter-spacing: -0.3px;
 }
@@ -899,21 +878,21 @@ const formatDate = (dateString) => {
 
 .edit-btn {
   padding: 8px 16px;
-  background: #007aff;
+  background: var(--color-foreground);
   color: white;
   border: none;
-  border-radius: 980px;
+  border-radius: 0;
   cursor: pointer;
   font-size: 14px;
   font-weight: 500;
   transition: all 0.4s cubic-bezier(0.25, 0.1, 0.25, 1);
-  box-shadow: 0 4px 20px rgba(0, 122, 255, 0.3);
+  box-shadow: none;
 }
 
 .edit-btn:hover {
   background: #0077ed;
   transform: scale(1.02);
-  box-shadow: 0 8px 32px rgba(0, 122, 255, 0.4);
+  box-shadow: none;
 }
 
 .profile-form {
@@ -923,8 +902,8 @@ const formatDate = (dateString) => {
 .form-section {
   margin-bottom: 32px;
   padding: 24px;
-  background: #f5f5f7;
-  border-radius: 16px;
+  background: var(--color-muted);
+  border-radius: 0;
   transition: all 0.4s cubic-bezier(0.25, 0.1, 0.25, 1);
   border: none;
   position: relative;
@@ -934,7 +913,7 @@ const formatDate = (dateString) => {
 .form-section:hover {
   background: #ebebf0;
   transform: translateY(-2px);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.06);
+  box-shadow: none;
 }
 
 .form-section:last-child {
@@ -942,7 +921,7 @@ const formatDate = (dateString) => {
 }
 
 .section-title {
-  color: #1d1d1f;
+  color: var(--color-foreground);
   font-size: 21px;
   margin: 0 0 20px 0;
   padding-bottom: 12px;
@@ -968,7 +947,7 @@ const formatDate = (dateString) => {
   display: block;
   margin-bottom: 8px;
   font-weight: 500;
-  color: #1d1d1f;
+  color: var(--color-foreground);
   font-size: 15px;
   letter-spacing: -0.1px;
 }
@@ -977,19 +956,19 @@ const formatDate = (dateString) => {
   width: 100%;
   padding: 14px 16px;
   border: 1px solid rgba(0, 0, 0, 0.1);
-  border-radius: 12px;
+  border-radius: 0;
   font-size: 17px;
   transition: all 0.3s cubic-bezier(0.25, 0.1, 0.25, 1);
   box-sizing: border-box;
   background: #ffffff;
-  color: #1d1d1f;
+  color: var(--color-foreground);
   font-family: inherit;
 }
 
 .form-input:focus, .form-select:focus, .form-textarea:focus {
   outline: none;
-  border-color: #007aff;
-  box-shadow: 0 0 0 4px rgba(0, 122, 255, 0.1);
+  border-color: var(--color-foreground);
+  box-shadow: none;
 }
 
 .form-select {
@@ -1010,7 +989,7 @@ const formatDate = (dateString) => {
 
 .help-text {
   margin-top: 8px;
-  color: #86868b;
+  color: var(--color-muted-foreground);
   font-size: 13px;
   font-weight: 400;
 }
@@ -1026,15 +1005,15 @@ const formatDate = (dateString) => {
 .empty-state {
   text-align: center;
   padding: 60px 24px;
-  color: #86868b;
+  color: var(--color-muted-foreground);
   font-size: 17px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   min-height: 200px;
-  background: #f5f5f7;
-  border-radius: 16px;
+  background: var(--color-muted);
+  border-radius: 0;
 }
 
 .nutrition-goals {
@@ -1049,8 +1028,8 @@ const formatDate = (dateString) => {
   justify-content: space-between;
   align-items: center;
   padding: 16px 20px;
-  background: #f5f5f7;
-  border-radius: 16px;
+  background: var(--color-muted);
+  border-radius: 0;
   transition: all 0.4s cubic-bezier(0.25, 0.1, 0.25, 1);
   border: none;
   position: relative;
@@ -1060,27 +1039,27 @@ const formatDate = (dateString) => {
 .goal-item:hover {
   background: #ebebf0;
   transform: translateY(-3px);
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.08);
+  box-shadow: none;
 }
 
 .goal-label {
   font-weight: 500;
-  color: #1d1d1f;
+  color: var(--color-foreground);
   font-size: 15px;
 }
 
 .goal-value {
   font-weight: 600;
-  color: #007aff;
+  color: var(--color-foreground);
   font-size: 17px;
 }
 
 .security-btn {
   padding: 14px 28px;
-  background: linear-gradient(135deg, #007aff 0%, #5856d6 100%);
+  background: var(--color-foreground);
   color: white;
   border: none;
-  border-radius: 980px;
+  border-radius: 0;
   cursor: pointer;
   font-size: 17px;
   font-weight: 500;
@@ -1089,28 +1068,28 @@ const formatDate = (dateString) => {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  box-shadow: 0 4px 20px rgba(0, 122, 255, 0.25);
+  box-shadow: none;
   letter-spacing: -0.2px;
 }
 
 .security-btn:hover:not(:disabled) {
-  background: linear-gradient(135deg, #0066d6 0%, #4a48a8 100%);
+  background: var(--color-foreground);
   transform: scale(1.02);
-  box-shadow: 0 12px 40px rgba(0, 122, 255, 0.35);
+  box-shadow: none;
 }
 
 .security-btn.secondary {
-  background: #1d1d1f;
-  box-shadow: 0 4px 20px rgba(29, 29, 31, 0.3);
+  background: var(--color-foreground);
+  box-shadow: none;
 }
 
 .security-btn.secondary:hover:not(:disabled) {
   background: #424245;
-  box-shadow: 0 8px 32px rgba(29, 29, 31, 0.4);
+  box-shadow: none;
 }
 
 .warning-text {
-  color: #ff3b30;
+  color: #000000;
   font-weight: 500;
   margin-bottom: 12px;
   line-height: 1.6;
@@ -1120,7 +1099,7 @@ const formatDate = (dateString) => {
 .deletion-list {
   margin: 16px 0;
   padding-left: 24px;
-  color: #ff3b30;
+  color: #000000;
 }
 
 .deletion-list li {
@@ -1131,10 +1110,10 @@ const formatDate = (dateString) => {
 
 .danger-btn {
   padding: 14px 28px;
-  background: #ff3b30;
+  background: #000000;
   color: white;
   border: none;
-  border-radius: 980px;
+  border-radius: 0;
   cursor: pointer;
   font-size: 17px;
   font-weight: 500;
@@ -1143,13 +1122,13 @@ const formatDate = (dateString) => {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  box-shadow: 0 4px 20px rgba(255, 59, 48, 0.3);
+  box-shadow: none;
 }
 
 .danger-btn:hover:not(:disabled) {
   background: #ff2d23;
   transform: scale(1.02);
-  box-shadow: 0 8px 32px rgba(255, 59, 48, 0.4);
+  box-shadow: none;
 }
 
 .form-actions {
@@ -1161,10 +1140,10 @@ const formatDate = (dateString) => {
 
 .submit-btn {
   padding: 16px 48px;
-  background: linear-gradient(135deg, #007aff 0%, #5856d6 100%);
+  background: var(--gradient-brand);
   color: white;
   border: none;
-  border-radius: 980px;
+  border-radius: 0;
   font-size: 17px;
   font-weight: 600;
   cursor: pointer;
@@ -1174,14 +1153,14 @@ const formatDate = (dateString) => {
   justify-content: center;
   gap: 8px;
   margin: 0 auto;
-  box-shadow: 0 4px 20px rgba(0, 122, 255, 0.3);
+  box-shadow: none;
   letter-spacing: -0.2px;
 }
 
 .submit-btn:hover:not(:disabled) {
-  background: linear-gradient(135deg, #0066d6 0%, #4a48a8 100%);
+  background: var(--color-foreground);
   transform: scale(1.02);
-  box-shadow: 0 12px 40px rgba(0, 122, 255, 0.4);
+  box-shadow: none;
 }
 
 .submit-btn:disabled {
@@ -1201,20 +1180,16 @@ const formatDate = (dateString) => {
   justify-content: center;
   align-items: center;
   z-index: 1000;
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
 }
 
 .modal-content {
   background: #ffffff;
-  border-radius: 24px;
+  border-radius: 0;
   width: 90%;
   max-width: 520px;
   max-height: 90vh;
   overflow-y: auto;
-  box-shadow: 
-    0 24px 80px rgba(0, 0, 0, 0.2),
-    0 8px 32px rgba(0, 0, 0, 0.1);
+  box-shadow: none;
   animation: modalSlideIn 0.4s cubic-bezier(0.25, 0.1, 0.25, 1);
 }
 
@@ -1243,18 +1218,18 @@ const formatDate = (dateString) => {
 
 .modal-header h3 {
   margin: 0;
-  color: #1d1d1f;
+  color: var(--color-foreground);
   font-size: 21px;
   font-weight: 600;
   letter-spacing: -0.3px;
 }
 
 .close-btn {
-  background: #f5f5f7;
+  background: var(--color-muted);
   border: none;
   font-size: 20px;
   cursor: pointer;
-  color: #86868b;
+  color: var(--color-muted-foreground);
   padding: 0;
   width: 32px;
   height: 32px;
@@ -1267,7 +1242,7 @@ const formatDate = (dateString) => {
 
 .close-btn:hover {
   background: #e8e8ed;
-  color: #1d1d1f;
+  color: var(--color-foreground);
 }
 
 .modal-body {
@@ -1285,10 +1260,10 @@ const formatDate = (dateString) => {
 
 .cancel-btn {
   padding: 12px 24px;
-  background: #f5f5f7;
-  color: #1d1d1f;
+  background: var(--color-muted);
+  color: var(--color-foreground);
   border: none;
-  border-radius: 980px;
+  border-radius: 0;
   cursor: pointer;
   font-size: 17px;
   font-weight: 500;
@@ -1301,21 +1276,21 @@ const formatDate = (dateString) => {
 
 .confirm-btn {
   padding: 12px 24px;
-  background: linear-gradient(135deg, #007aff 0%, #5856d6 100%);
+  background: var(--color-foreground);
   color: white;
   border: none;
-  border-radius: 980px;
+  border-radius: 0;
   cursor: pointer;
   font-size: 17px;
   font-weight: 500;
   transition: all 0.4s cubic-bezier(0.25, 0.1, 0.25, 1);
-  box-shadow: 0 4px 20px rgba(0, 122, 255, 0.25);
+  box-shadow: none;
 }
 
 .confirm-btn:hover:not(:disabled) {
-  background: linear-gradient(135deg, #0066d6 0%, #4a48a8 100%);
+  background: var(--color-foreground);
   transform: scale(1.02);
-  box-shadow: 0 12px 40px rgba(0, 122, 255, 0.35);
+  box-shadow: none;
 }
 
 .confirm-btn:disabled {
@@ -1325,10 +1300,10 @@ const formatDate = (dateString) => {
 
 .danger-confirm-btn {
   padding: 12px 24px;
-  background: #ff3b30;
+  background: #000000;
   color: white;
   border: none;
-  border-radius: 980px;
+  border-radius: 0;
   cursor: pointer;
   font-size: 17px;
   font-weight: 500;
@@ -1405,7 +1380,7 @@ const formatDate = (dateString) => {
   .modal-content {
     width: 95%;
     margin: 20px;
-    border-radius: 20px;
+    border-radius: 0;
   }
   
   .modal-header {

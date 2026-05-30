@@ -441,7 +441,7 @@ public class DietController {
             totals.put("fiber", Math.round(totalFiber * 100.0) / 100.0);
 
             response.put("totalNutrition", totals);
-            response.put("mode", "豆包AI模式");
+            response.put("mode", "智能识别模式");
 
             return ResponseEntity.ok(response);
 
@@ -591,10 +591,16 @@ public class DietController {
                     fitnessRecord.setRepetitions(((Number) repsObj).intValue());
                 }
 
-                // 设置重量（新增）
+                // 设置重量
                 Object weightObj = record.get("weightKg");
                 if (weightObj != null) {
                     fitnessRecord.setWeightKg(((Number) weightObj).doubleValue());
+                }
+
+                // 设置距离（公里，跑步等）
+                Object distanceObj = record.get("distanceKm");
+                if (distanceObj != null) {
+                    fitnessRecord.setDistanceKm(((Number) distanceObj).doubleValue());
                 }
 
                 // 设置卡路里
@@ -641,6 +647,7 @@ public class DietController {
                 map.put("durationMinutes", record.getDurationMinutes());
                 map.put("repetitions", record.getRepetitions());
                 map.put("weightKg", record.getWeightKg());
+                map.put("distanceKm", record.getDistanceKm());
                 map.put("caloriesBurned", record.getCalories());
                 map.put("recordedAt", record.getRecordedAt() != null ? record.getRecordedAt().toString() : null);
                 return map;

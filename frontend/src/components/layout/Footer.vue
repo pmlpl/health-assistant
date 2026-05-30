@@ -1,16 +1,21 @@
-<!-- src/components/layout/Footer.vue -->
+<!-- src/components/layout/Footer.vue — Bauhaus 页脚 -->
 <template>
   <footer class="footer">
     <div class="footer-content">
       <div class="footer-section">
+        <div class="footer-logo bh-logo-shapes" aria-hidden="true">
+          <span class="bh-logo-shapes__circle" />
+          <span class="bh-logo-shapes__square" />
+          <span class="bh-logo-shapes__triangle" />
+        </div>
         <h4>AI健康助手</h4>
         <p class="footer-description">智能健康管理，让生活更美好</p>
       </div>
       <div class="footer-links">
         <a href="#" class="footer-link">隐私政策</a>
-        <span class="divider">|</span>
+        <span class="divider" aria-hidden="true">|</span>
         <a href="#" class="footer-link">使用条款</a>
-        <span class="divider">|</span>
+        <span class="divider" aria-hidden="true">|</span>
         <a href="#" class="footer-link">联系我们</a>
       </div>
       <div class="footer-copyright">
@@ -21,26 +26,25 @@
 </template>
 
 <style scoped>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
-
-* {
-  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Inter', 'Segoe UI', Roboto, sans-serif;
-}
-
 .footer {
-  background: #f5f5f7;
-  border-top: 1px solid rgba(0, 0, 0, 0.08);
-  padding: 32px 48px;
+  background: var(--color-muted);
+  border-top: var(--border-width) solid var(--color-border);
+  padding: var(--space-8) var(--space-12);
   width: 100%;
 }
 
 .footer-content {
-  max-width: 1400px;
+  max-width: var(--content-area-max-width);
   margin: 0 auto;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 24px;
+  gap: var(--space-6);
+}
+
+.footer-logo {
+  justify-content: center;
+  margin-bottom: var(--space-2);
 }
 
 .footer-section {
@@ -48,80 +52,57 @@
 }
 
 .footer-section h4 {
-  margin: 0 0 8px 0;
-  font-size: 17px;
-  font-weight: 600;
-  color: #1d1d1f;
-  letter-spacing: -0.3px;
+  margin: 0 0 var(--space-2) 0;
+  font-family: var(--font-display);
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-foreground);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
 .footer-description {
   margin: 0;
-  font-size: 14px;
-  color: #86868b;
-  letter-spacing: -0.1px;
+  font-size: var(--font-size-sm);
+  color: var(--color-muted-foreground);
 }
 
 .footer-links {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: var(--space-4);
   flex-wrap: wrap;
   justify-content: center;
 }
 
 .footer-link {
-  color: #424245;
+  color: var(--color-foreground);
   text-decoration: none;
-  font-size: 12px;
-  font-weight: 400;
-  transition: color 0.3s ease;
-  letter-spacing: -0.1px;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  transition: color var(--transition-fast);
 }
 
 .footer-link:hover {
-  color: #007aff;
+  color: var(--color-primary-red);
 }
 
 .divider {
-  color: #d1d1d6;
-  font-size: 12px;
-}
-
-.footer-copyright {
-  text-align: center;
+  color: var(--color-border-light);
+  font-size: var(--font-size-xs);
 }
 
 .footer-copyright p {
   margin: 0;
-  font-size: 12px;
-  color: #86868b;
-  letter-spacing: -0.1px;
+  font-size: var(--font-size-xs);
+  color: var(--color-muted-foreground);
 }
 
 @media (max-width: 768px) {
   .footer {
-    padding: 24px 20px;
-  }
-
-  .footer-content {
-    gap: 20px;
-  }
-
-  .footer-section h4 {
-    font-size: 15px;
-  }
-
-  .footer-description {
-    font-size: 13px;
-  }
-
-  .footer-links {
-    gap: 12px;
-  }
-
-  .footer-link {
-    font-size: 11px;
+    padding: var(--space-6) var(--space-5);
   }
 
   .divider {
@@ -130,7 +111,7 @@
 
   .footer-links {
     flex-direction: column;
-    gap: 8px;
+    gap: var(--space-2);
   }
 }
 </style>

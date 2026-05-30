@@ -1,0 +1,126 @@
+/**
+ * 玻璃态 → 单色线条卡片
+ * .glass 等价于 .mm-card：1px 黑边、无模糊、零圆角
+ */
+
+.glass,
+.mm-card {
+  background: var(--color-background);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border: 1px solid var(--color-border);
+  border-radius: 0;
+  box-shadow: none;
+  transition:
+    background var(--transition-fast),
+    color var(--transition-fast);
+}
+
+.glass--dark {
+  background: var(--color-inverted-bg);
+  border-color: var(--color-inverted-fg);
+  color: var(--color-inverted-fg);
+}
+
+.glass--hover {
+  transition:
+    background var(--transition-fast),
+    border-color var(--transition-fast);
+}
+
+.glass--hover:hover {
+  background: var(--color-muted);
+  color: var(--color-text);
+  border-color: var(--color-foreground);
+  box-shadow: none;
+  transform: none;
+}
+
+/* 页面标题：默认深色；色块顶栏/反色区继承浅色字 */
+.page-title-gradient,
+.page-header h1.page-title-gradient,
+.page-header__title {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.45em;
+  margin: 0 0 12px;
+  font-family: var(--font-display);
+  color: var(--color-text);
+  background: none !important;
+  -webkit-text-fill-color: unset !important;
+  background-clip: border-box !important;
+  -webkit-background-clip: border-box !important;
+  font-weight: var(--font-weight-bold);
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+}
+
+.page-shell-header .page-title-gradient,
+.page-shell-header .page-header__title,
+.page-shell-header .page-title-gradient__text,
+.inverted-section .page-title-gradient,
+.inverted-section .page-header__title {
+  color: #fff;
+  margin: 0;
+}
+
+.page-shell-header .page-title-gradient__icon,
+.page-shell-header .page-title-gradient > svg,
+.inverted-section .page-title-gradient__icon {
+  color: #fff !important;
+  -webkit-text-fill-color: #fff !important;
+}
+
+.page-title-gradient__icon,
+.page-title-gradient > .header-icon,
+.page-title-gradient > svg {
+  flex-shrink: 0;
+  width: 1.15em;
+  height: 1.15em;
+  color: var(--color-foreground) !important;
+  -webkit-text-fill-color: initial !important;
+  line-height: 1;
+}
+
+.page-title-gradient__text {
+  background: none;
+  -webkit-background-clip: unset;
+  background-clip: unset;
+  -webkit-text-fill-color: unset;
+  color: inherit;
+}
+
+/* 认证面板：去除光晕 */
+.auth-panel--focus-glow::before {
+  display: none;
+}
+
+/* 波纹按钮容器 */
+.ripple-btn {
+  position: relative;
+  overflow: hidden;
+}
+
+.ripple-btn .ripple-wave {
+  display: none;
+}
+
+/* 主内容区卡片统一为线条风格 */
+.dashboard-layout .card,
+.diary-layout .card,
+.fitness-layout .card,
+.health-report-layout .card,
+.recipes-layout .card,
+.profile-layout .dashboard-layout .card,
+.content-grid .card,
+.calendar-page-layout .calendar-card,
+.calendar-page-layout .unified-calendar,
+.recipes-layout .recipe-card {
+  background: var(--color-background);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border: 1px solid var(--color-border);
+  border-radius: 0;
+  box-shadow: none;
+}

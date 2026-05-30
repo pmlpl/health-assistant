@@ -1,12 +1,13 @@
 <template>
   <div 
+    ref="spiritMotionRoot"
     class="ai-spirit-container"
     :class="{ 'is-dragging': isDragging, 'show-menu': showMenu }"
     :style="{ left: position.x + 'px', top: position.y + 'px' }"
     @mousedown="handleMouseDown"
     @click="handleClick"
   >
-    <div class="spirit-body" :class="{ 'is-dragging': isDragging }">
+    <div ref="spiritBodyRef" class="spirit-body" :class="{ 'is-dragging': isDragging }">
       <div class="spirit-head">
         <!-- 护士帽 -->
         <div class="nurse-hat">
@@ -133,7 +134,7 @@
             <div class="action-buttons">
               <button type="button" @click="backToMenu" class="btn-back">返回</button>
               <button type="submit" :disabled="!isQuestionnaireComplete" class="btn-submit">
-                {{ isSubmitting ? '分析中...' : '提交分析' }}
+                {{ isSubmitting ? '智能分析中...' : '提交分析' }}
               </button>
             </div>
           </form>
@@ -225,6 +226,12 @@ import { ref, reactive, onMounted, onUnmounted, nextTick, watchEffect, computed 
 import { useAIConsult } from '../composables/useAIConsult';
 import { submitQuestionnaireToAI } from '../api/questionnaireApi';
 import { useUserStore } from '../stores/userStore';
+import { useGsapContext } from '../composables/useGsapContext';
+import { motionDuration } from '../utils/motion';
+
+const spiritBodyRef = ref(null);
+const spiritMotionRoot = ref(null);
+const { createContext, gsap } = useGsapContext(spiritMotionRoot);
 
 // 精灵位置
 const position = reactive({ x: window.innerWidth - 150, y: window.innerHeight - 150 });
@@ -453,6 +460,28 @@ const visibleChatMessages = computed(() =>
 
 // 组件挂载时加载聊天记录
 onMounted(() => {
+    createContext(() => {
+      if (spiritBodyRef.value) {
+        gsap.to(spiritBodyRef.value, {
+          y: -6,
+          duration: motionDuration(2.2),
+          ease: 'sine.inOut',
+          yoyo: true,
+          repeat: -1,
+        });
+      }
+      if (spiritBodyRef.value?.querySelector('.spirit-glow')) {
+        gsap.to(spiritBodyRef.value.querySelector('.spirit-glow'), {
+          scale: 1.12,
+          opacity: 0.85,
+          duration: motionDuration(2.8),
+          ease: 'sine.inOut',
+          yoyo: true,
+          repeat: -1,
+        });
+      }
+    });
+
     // 等待用户数据加载完成
     setTimeout(() => {
         if (userStore.userData && userStore.userData.userId) {
@@ -1139,7 +1168,7 @@ onUnmounted(() => {
 .spirit-head {
   width: 60px;
   height: 60px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: var(--color-foreground);
   border-radius: 50%;
   position: relative;
   box-shadow: 
@@ -1161,7 +1190,7 @@ onUnmounted(() => {
   width: 40px;
   height: 20px;
   background: white;
-  border-radius: 8px 8px 0 0;
+  border-radius: 0 8px 0 0;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   z-index: 3;
 }
@@ -1223,7 +1252,7 @@ onUnmounted(() => {
 }
 
 .orbit-item:hover {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: var(--color-foreground);
   box-shadow: 
     0 12px 40px rgba(102, 126, 234, 0.4),
     0 4px 12px rgba(102, 126, 234, 0.2);
@@ -1245,7 +1274,7 @@ onUnmounted(() => {
 .orbit-label {
   font-size: 11px;
   font-weight: 600;
-  color: #333;
+  color: var(--color-foreground);
   white-space: nowrap;
   transition: color 0.3s ease;
 }
@@ -1253,7 +1282,7 @@ onUnmounted(() => {
 /* 功能菜单样式 */
 .feature-menu-container {
   padding: 20px;
-  background: #f8f9fa;
+  background: var(--color-muted);
 }
 
 .feature-menu-grid {
@@ -1284,8 +1313,8 @@ onUnmounted(() => {
 .feature-menu-item:hover {
   transform: scale(1.08);  /* 圆形放大效果 */
   box-shadow: 0 8px 24px rgba(102, 126, 234, 0.2);
-  border-color: #667eea;
-  background: linear-gradient(135deg, rgba(102, 126, 234, 0.05) 0%, rgba(118, 75, 162, 0.05) 100%);
+  border-color: #000000;
+  background: var(--color-muted);
 }
 
 .feature-icon {
@@ -1301,7 +1330,7 @@ onUnmounted(() => {
 .feature-label {
   font-size: 14px;
   font-weight: 600;
-  color: #1d1d1f;
+  color: var(--color-foreground);
   margin-bottom: 4px;
   text-align: center;
   line-height: 1.2;
@@ -1309,7 +1338,7 @@ onUnmounted(() => {
 
 .feature-desc {
   font-size: 11px;  /* 调小描述文字 */
-  color: #86868b;
+  color: var(--color-muted-foreground);
   text-align: center;
   line-height: 1.3;
   max-width: 120px;  /* 限制宽度 */
@@ -1336,11 +1365,11 @@ onUnmounted(() => {
 .duration-header h3 {
   margin: 0;
   font-size: 20px;
-  color: #1d1d1f;
+  color: var(--color-foreground);
 }
 
 .duration-desc {
-  color: #86868b;
+  color: var(--color-muted-foreground);
   margin-bottom: 30px;
 }
 
@@ -1352,7 +1381,7 @@ onUnmounted(() => {
   width: 100%;
   height: 8px;
   border-radius: 4px;
-  background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+  background: var(--color-foreground);
   outline: none;
   -webkit-appearance: none;
 }
@@ -1377,18 +1406,18 @@ onUnmounted(() => {
   justify-content: space-between;
   margin-top: 12px;
   font-size: 14px;
-  color: #86868b;
+  color: var(--color-muted-foreground);
 }
 
 .slider-labels .current-duration {
   font-weight: 600;
-  color: #667eea;
+  color: #000000;
   font-size: 16px;
 }
 
 .suggestion-text {
   font-size: 14px;
-  color: #667eea;
+  color: #000000;
   margin-top: 12px;
 }
 
@@ -1411,12 +1440,12 @@ onUnmounted(() => {
 .questionnaire-header h3 {
   margin: 0;
   font-size: 20px;
-  color: #1d1d1f;
+  color: var(--color-foreground);
 }
 
 .questionnaire-desc {
   text-align: center;
-  color: #86868b;
+  color: var(--color-muted-foreground);
   margin-bottom: 24px;
 }
 
@@ -1428,14 +1457,14 @@ onUnmounted(() => {
 .question-item {
   margin-bottom: 24px;
   padding: 16px;
-  background: #f8f9fa;
-  border-radius: 12px;
+  background: var(--color-muted);
+  border-radius: 0;
 }
 
 .question-text {
   font-size: 15px;
   font-weight: 600;
-  color: #1d1d1f;
+  color: var(--color-foreground);
   margin-bottom: 12px;
 }
 
@@ -1451,7 +1480,7 @@ onUnmounted(() => {
   gap: 12px;
   cursor: pointer;
   padding: 8px 12px;
-  border-radius: 8px;
+  border-radius: 0;
   transition: background 0.2s;
 }
 
@@ -1467,7 +1496,7 @@ onUnmounted(() => {
 
 .option-text {
   font-size: 14px;
-  color: #333;
+  color: var(--color-foreground);
 }
 
 /* 倒计时样式 */
@@ -1494,14 +1523,14 @@ onUnmounted(() => {
 .countdown-timer {
   font-size: 56px;
   font-weight: 700;
-  color: #667eea;
+  color: #000000;
   font-family: 'Courier New', monospace;
   margin-bottom: 20px;
 }
 
 .countdown-tip {
   font-size: 18px;
-  color: #86868b;
+  color: var(--color-muted-foreground);
   animation: fadeInOut 3s ease-in-out infinite;
 }
 
@@ -1515,7 +1544,7 @@ onUnmounted(() => {
   color: white;
   border: none;
   padding: 14px 32px;
-  border-radius: 24px;
+  border-radius: 0;
   font-size: 16px;
   font-weight: 600;
   cursor: pointer;
@@ -1546,13 +1575,13 @@ onUnmounted(() => {
 .result-header h3 {
   margin: 0;
   font-size: 22px;
-  color: #1d1d1f;
+  color: var(--color-foreground);
 }
 
 .result-content {
-  background: #f8f9fa;
+  background: var(--color-muted);
   padding: 24px;
-  border-radius: 12px;
+  border-radius: 0;
   margin-bottom: 24px;
 }
 
@@ -1561,13 +1590,13 @@ onUnmounted(() => {
 }
 
 .analysis-section h4 {
-  color: #667eea;
+  color: #000000;
   margin-bottom: 12px;
   font-size: 16px;
 }
 
 .analysis-section p {
-  color: #333;
+  color: var(--color-foreground);
   line-height: 1.6;
 }
 
@@ -1577,7 +1606,7 @@ onUnmounted(() => {
 }
 
 .analysis-section li {
-  color: #333;
+  color: var(--color-foreground);
   line-height: 1.8;
   margin-bottom: 6px;
 }
@@ -1595,7 +1624,7 @@ onUnmounted(() => {
 .btn-start,
 .btn-submit {
   padding: 12px 28px;
-  border-radius: 20px;
+  border-radius: 0;
   font-size: 15px;
   font-weight: 600;
   cursor: pointer;
@@ -1604,8 +1633,8 @@ onUnmounted(() => {
 }
 
 .btn-back {
-  background: #f5f5f7;
-  color: #1d1d1f;
+  background: var(--color-muted);
+  color: var(--color-foreground);
 }
 
 .btn-back:hover {
@@ -1615,7 +1644,7 @@ onUnmounted(() => {
 
 .btn-start,
 .btn-submit {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: var(--color-foreground);
   color: white;
 }
 
@@ -1633,7 +1662,7 @@ onUnmounted(() => {
 .spirit-tail {
   width: 40px;
   height: 35px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: var(--color-foreground);
   border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
   position: relative;
   margin-top: -5px;
@@ -1663,7 +1692,7 @@ onUnmounted(() => {
 .spirit-head {
   width: 60px;
   height: 60px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: var(--color-foreground);
   border-radius: 50%;
   position: relative;
   box-shadow: 
@@ -1698,7 +1727,7 @@ onUnmounted(() => {
   position: absolute;
   width: 4px;
   height: 4px;
-  background: #333;
+  background: var(--color-foreground);
   border-radius: 50%;
   top: 2px;
   left: 2px;
@@ -1727,7 +1756,7 @@ onUnmounted(() => {
   width: 60px;
   height: 60px;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(255, 255, 255, 0.3) 0%, transparent 70%);
+  background: transparent;
   animation: glow 2s ease-in-out infinite;
   z-index: 3;
 }
@@ -1749,7 +1778,7 @@ onUnmounted(() => {
   background: rgba(0, 0, 0, 0.8);
   color: white;
   padding: 4px 12px;
-  border-radius: 12px;
+  border-radius: 0;
   font-size: 12px;
   white-space: nowrap;
   opacity: 0;
@@ -1769,7 +1798,6 @@ onUnmounted(() => {
   width: 100%;
   height: 100%;
   background: rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(5px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1790,33 +1818,23 @@ onUnmounted(() => {
   width: 95%;
   max-width: 600px;
   height: 700px;
-  background: white;
-  border-radius: 16px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  background: var(--color-card);
+  border-radius: 0;
+  border: var(--border-width-thick) solid var(--color-border);
+  box-shadow: var(--shadow-xl);
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  animation: slideUp 0.3s ease;
-}
-
-@keyframes slideUp {
-  from {
-    transform: translateY(50px);
-    opacity: 0;
-  }
-  to {
-    transform: translateY(0);
-    opacity: 1;
-  }
 }
 
 .chat-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 20px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
+  padding: var(--space-5);
+  background: var(--color-primary-blue);
+  color: #fff;
+  border-bottom: var(--border-width) solid var(--color-border);
 }
 
 .chat-header-left {
@@ -1857,7 +1875,7 @@ onUnmounted(() => {
 .chat-body {
   flex: 1;
   overflow-y: auto;
-  background: #f8f9fa;
+  background: var(--color-muted);
 }
 
 .messages-container {
@@ -1897,7 +1915,7 @@ onUnmounted(() => {
 .message-bubble {
   background: white;
   padding: 16px 20px;
-  border-radius: 16px;
+  border-radius: 0;
   border-bottom-left-radius: 4px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   line-height: 1.8;
@@ -1920,7 +1938,7 @@ onUnmounted(() => {
 
 .message-bubble h1 { 
   font-size: 1.6em;
-  border-bottom: 2px solid #667eea;
+  border-bottom: 2px solid #000000;
   padding-bottom: 8px;
   margin-top: 24px;
 }
@@ -1933,7 +1951,7 @@ onUnmounted(() => {
 
 .message-bubble h3 { 
   font-size: 1.25em;
-  color: #667eea;
+  color: #000000;
 }
 
 .message-bubble h4 { font-size: 1.1em; }
@@ -1971,8 +1989,8 @@ onUnmounted(() => {
 .message-bubble blockquote {
   margin: 16px 0;
   padding: 14px 18px;
-  border-left: 4px solid #667eea;
-  background: linear-gradient(90deg, rgba(102, 126, 234, 0.05) 0%, transparent 100%);
+  border-left: 4px solid #000000;
+  background: var(--color-muted);
   border-radius: 6px;
   color: #444;
   font-size: 14px;
@@ -1982,7 +2000,7 @@ onUnmounted(() => {
   margin: 16px 0;
   padding: 16px;
   background: #f6f8fa;
-  border-radius: 8px;
+  border-radius: 0;
   overflow-x: auto;
   font-family: 'Consolas', 'Monaco', monospace;
   font-size: 13px;
@@ -2017,7 +2035,7 @@ onUnmounted(() => {
 }
 
 .message-bubble thead {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: var(--color-foreground);
   color: white;
 }
 
@@ -2061,11 +2079,11 @@ onUnmounted(() => {
 }
 
 .message-bubble .table-card {
-  background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
-  border-radius: 12px;
+  background: var(--color-foreground);
+  border-radius: 0;
   padding: 16px 20px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-  border-left: 4px solid #667eea;
+  border-left: 4px solid #000000;
   transition: all 0.3s ease;
 }
 
@@ -2088,7 +2106,7 @@ onUnmounted(() => {
 
 .message-bubble .table-card-label {
   font-weight: 700;
-  color: #667eea;
+  color: #000000;
   min-width: 80px;
   font-size: 14px;
   flex-shrink: 0;
@@ -2116,11 +2134,11 @@ onUnmounted(() => {
 }
 
 .message-bubble .multi-column-group {
-  background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
-  border-radius: 16px;
+  background: var(--color-foreground);
+  border-radius: 0;
   padding: 20px;
   box-shadow: 0 3px 12px rgba(0, 0, 0, 0.08);
-  border-left: 5px solid #667eea;
+  border-left: 5px solid #000000;
   transition: all 0.3s ease;
 }
 
@@ -2132,7 +2150,7 @@ onUnmounted(() => {
 .message-bubble .multi-column-title {
   font-size: 18px;
   font-weight: 700;
-  color: #667eea;
+  color: #000000;
   margin-bottom: 16px;
   padding-bottom: 12px;
   border-bottom: 2px solid #e1e4e8;
@@ -2143,7 +2161,7 @@ onUnmounted(() => {
   margin-bottom: 16px;
   padding: 12px;
   background: rgba(255, 255, 255, 0.6);
-  border-radius: 8px;
+  border-radius: 0;
   transition: background 0.2s ease;
 }
 
@@ -2158,7 +2176,7 @@ onUnmounted(() => {
 .message-bubble .multi-column-label {
   display: block;
   font-weight: 700;
-  color: #667eea;
+  color: #000000;
   font-size: 14px;
   margin-bottom: 8px;
   text-transform: uppercase;
@@ -2175,7 +2193,7 @@ onUnmounted(() => {
 .message-bubble hr {
   border: none;
   height: 2px;
-  background: linear-gradient(90deg, #667eea 0%, rgba(102, 126, 234, 0) 100%);
+  background: var(--color-border-light);
   margin: 24px 0;
 }
 
@@ -2189,7 +2207,7 @@ onUnmounted(() => {
 }
 
 .message-item.user .message-bubble {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: var(--color-foreground);
   color: white;
   border-bottom-left-radius: 16px;
   border-bottom-right-radius: 4px;
@@ -2211,7 +2229,7 @@ onUnmounted(() => {
 .loading-dot {
   width: 8px;
   height: 8px;
-  background: #667eea;
+  background: #000000;
   border-radius: 50%;
   animation: bounce 1.4s infinite ease-in-out both;
 }
@@ -2245,14 +2263,14 @@ onUnmounted(() => {
   flex: 1;
   padding: 12px 16px;
   border: 2px solid #e0e0e0;
-  border-radius: 24px;
+  border-radius: 0;
   font-size: 14px;
   outline: none;
   transition: border-color 0.3s ease;
 }
 
 .chat-input:focus {
-  border-color: #667eea;
+  border-color: #000000;
 }
 
 .chat-input:disabled {
@@ -2261,11 +2279,11 @@ onUnmounted(() => {
 }
 
 .send-btn {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: var(--color-foreground);
   color: white;
   border: none;
   padding: 12px 24px;
-  border-radius: 24px;
+  border-radius: 0;
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;

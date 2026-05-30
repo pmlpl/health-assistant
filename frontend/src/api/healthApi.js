@@ -77,6 +77,11 @@ api.interceptors.response.use(
             error.message = error.response.data.error;
         }
         if (error.response?.status === 401) {
+            const token = getAuthToken();
+            // 演示模式 token 无效，勿清空登录态并强制跳回登录页
+            if (token?.startsWith('demo-')) {
+                return Promise.reject(error);
+            }
             setAuthToken(null);
             localStorage.removeItem('isLoggedIn');
             localStorage.removeItem('userProfile');

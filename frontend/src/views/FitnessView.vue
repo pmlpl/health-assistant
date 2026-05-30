@@ -1,7 +1,11 @@
 <template>
   <div class="fitness-layout">
-    <div class="page-header">
-      <h1>
+    <PageHeader
+      title="健身记录"
+      section-label="健身训练"
+      :label-pulse="true"
+    >
+      <template #icon>
         <svg class="header-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
           <path d="M6.5 6.5L17.5 17.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
           <path d="M21 21L15 15" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
@@ -10,18 +14,20 @@
           <path d="M3 9V15C3 15.5304 3.21071 16.0391 3.58579 16.4142C3.96086 16.7893 4.46957 17 5 17H9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
           <path d="M15 9H19C19.5304 9 20.0391 9.21071 20.4142 9.58579C20.7893 9.96086 21 10.4696 21 11V15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
-        健身记录
-      </h1>
-      <div class="stats-bar">
+      </template>
+      <template #stats>
         <span class="stat-item">🏋️ 今日训练：{{ fitnessEntries.length }} 项</span>
         <span class="stat-item">🔥 总消耗：{{ totalCaloriesBurned }}kcal</span>
-      </div>
-    </div>
+      </template>
+    </PageHeader>
   
     <div class="main-container">
       <div class="left-panel">
-        <div class="card record-card">
-          <h2>➕ 添加健身项目</h2>
+        <div class="card record-card bh-card">
+          <div class="card-header-section">
+            <SectionLabel label="新建训练" />
+            <h2>➕ 添加健身项目</h2>
+          </div>
           
           <div class="fitness-selection">
             <label>类型</label>
@@ -51,18 +57,23 @@
               </div>
               <div class="metric-type-selector">
                 <label>记录类型</label>
-                <select v-model="newFitnessEntry.metricType" class="metric-select">
-                  <option value="duration">⏱️ 时长</option>
-                  <option value="reps">🔢 次数</option>
-                  <option value="weight">🏋️ 重量</option>
-                  <option value="duration_reps">⏱️+🔢 时长 + 次数</option>
-                  <option value="weight_reps">🏋️+🔢 重量 + 次数</option>
-                </select>
+                <div class="metric-type-checkboxes">
+                  <button
+                    v-for="metric in metricOptions"
+                    :key="metric.value"
+                    type="button"
+                    class="metric-type-btn"
+                    :class="{ active: newFitnessEntry.metricTypes.includes(metric.value) }"
+                    @click="toggleMetricType(metric.value)"
+                  >
+                    {{ metric.icon }} {{ metric.label }}
+                  </button>
+                </div>
               </div>
             </div>
                       
             <div class="input-row metrics-inputs">
-              <div v-if="['duration', 'duration_reps'].includes(newFitnessEntry.metricType)" class="metric-input">
+              <div v-if="newFitnessEntry.metricTypes.includes('duration')" class="metric-input">
                 <label>时长 (分钟)</label>
                 <input
                   v-model="newFitnessEntry.duration"
@@ -74,7 +85,7 @@
                 />
               </div>
                         
-              <div v-if="['reps', 'duration_reps', 'weight_reps'].includes(newFitnessEntry.metricType)" class="metric-input">
+              <div v-if="newFitnessEntry.metricTypes.includes('reps')" class="metric-input">
                 <label>次数 (个)</label>
                 <input
                   v-model="newFitnessEntry.repetitions"
@@ -86,7 +97,7 @@
                 />
               </div>
                         
-              <div v-if="['weight', 'weight_reps'].includes(newFitnessEntry.metricType)" class="metric-input">
+              <div v-if="newFitnessEntry.metricTypes.includes('weight')" class="metric-input">
                 <label>重量 (kg)</label>
                 <input
                   v-model="newFitnessEntry.weight"
@@ -95,6 +106,18 @@
                   class="metric-number"
                   min="0.5"
                   step="0.5"
+                />
+              </div>
+
+              <div v-if="newFitnessEntry.metricTypes.includes('distance')" class="metric-input">
+                <label>距离 (km)</label>
+                <input
+                  v-model="newFitnessEntry.distanceKm"
+                  type="number"
+                  placeholder="5"
+                  class="metric-number"
+                  min="0.1"
+                  step="0.1"
                 />
               </div>
                         
@@ -115,6 +138,7 @@
                   <span v-if="item.duration" class="fitness-metric">⏱️ {{ item.duration }}分钟</span>
                   <span v-if="item.repetitions" class="fitness-metric">🔢 {{ item.repetitions }}个</span>
                   <span v-if="item.weight" class="fitness-metric">🏋️ {{ item.weight }}kg</span>
+                  <span v-if="item.distanceKm" class="fitness-metric">📏 {{ item.distanceKm }}km</span>
                 </div>
                 <button @click="removeFitnessItem(index)" class="remove-btn">×</button>
               </div>
@@ -122,9 +146,9 @@
           </div>
 
           <div class="action-buttons">
-            <button 
-              class="btn save-btn" 
-              @click="saveFitnessRecord" 
+            <button
+              class="btn-brand"
+              @click="saveFitnessRecord"
               :disabled="saving || fitnessItems.length === 0"
             >
               💾 保存记录
@@ -134,14 +158,18 @@
       </div>
 
       <div class="right-panel">
-        <div class="card history-card">
+        <div class="card history-card bh-card">
           <div class="history-header">
-            <h2>📋 今日健身记录</h2>
+            <div class="card-header-section">
+              <SectionLabel label="今日记录" />
+              <h2>📋 今日健身记录</h2>
+            </div>
             <div class="summary-stats">
               <span class="summary-item">🔥 总消耗：{{ totalCaloriesBurned }}kcal</span>
               <span class="summary-item">⏱️ 总时长：{{ totalDuration }}分钟</span>
               <span v-if="totalRepetitions > 0" class="summary-item">🔢 总次数：{{ totalRepetitions }}个</span>
               <span v-if="totalWeight > 0" class="summary-item">🏋️ 总重量：{{ totalWeight }}kg</span>
+              <span v-if="totalDistance > 0" class="summary-item">📏 总距离：{{ totalDistance }}km</span>
             </div>
           </div>
 
@@ -216,6 +244,7 @@
                   <span v-if="entry.durationMinutes" class="detail-item">⏱️ 时长：{{ entry.durationMinutes }}分钟</span>
                   <span v-if="entry.repetitions" class="detail-item">🔢 次数：{{ entry.repetitions }}个</span>
                   <span v-if="entry.weightKg" class="detail-item">🏋️ 重量：{{ entry.weightKg }}kg</span>
+                  <span v-if="entry.distanceKm" class="detail-item">📏 距离：{{ entry.distanceKm }}km</span>
                   <span class="detail-item">📊 强度：{{ getIntensityLevel(entry.intensityLevel) }}</span>
                 </div>
               </div>
@@ -255,6 +284,12 @@
               <div class="metric">总重量</div>
               <div class="small-unit">kg</div>
             </div>
+            <div class="summary-box distance" v-if="totalDistance > 0">
+              <div class="summary-icon">📏</div>
+              <div class="big-number">{{ totalDistance }}</div>
+              <div class="metric">总距离</div>
+              <div class="small-unit">km</div>
+            </div>
             <div class="summary-box count">
               <div class="summary-icon">🏋️</div>
               <div class="big-number">{{ fitnessEntries.length }}</div>
@@ -269,7 +304,7 @@
               class="btn-ai-analyze"
               :disabled="analyzing"
             >
-              {{ analyzing ? '🔄 分析中...' : '🤖 AI 智能分析收获' }}
+              {{ analyzing ? '智能分析中...' : '🤖 AI 智能分析收获' }}
             </button>
             
             <div v-if="aiAnalysis" class="analysis-result">
@@ -280,11 +315,21 @@
         </div>
       </div>
     </div>
+
+    <PageCta
+      title="训练与饮食相辅相成"
+      description="完成健身记录后，可在饮食日记中记录今日餐食，全面追踪健康数据。"
+      to="/diary"
+      button-text="前往饮食日记"
+    />
   </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue';
+import PageHeader from '@/components/common/PageHeader.vue';
+import PageCta from '@/components/common/PageCta.vue';
+import SectionLabel from '@/components/common/SectionLabel.vue';
 import { useUserStore } from '../stores/userStore';
 import { healthApi } from '../api/healthApi';
 import { useAiPageJobsStore } from '../stores/aiPageJobsStore';
@@ -306,6 +351,48 @@ const fitnessOptions = [
   { value: 'balance', label: '平衡训练', icon: '🤸' }
 ];
 
+// 记录类型选项（可多选，不含组合项）
+const metricOptions = [
+  { value: 'duration', label: '时长', icon: '⏱️' },
+  { value: 'reps', label: '次数', icon: '🔢' },
+  { value: 'weight', label: '重量', icon: '🏋️' },
+  { value: 'distance', label: '距离', icon: '📏' },
+];
+
+// 切换记录类型多选
+const toggleMetricType = (value) => {
+  const types = newFitnessEntry.value.metricTypes;
+  const index = types.indexOf(value);
+  if (index >= 0) {
+    // 至少保留一种记录类型
+    if (types.length <= 1) {
+      ElNotification({
+        title: '⚠️ 提示',
+        message: '请至少选择一种记录类型',
+        type: 'warning',
+        duration: 2000,
+        offset: 80
+      });
+      return;
+    }
+    types.splice(index, 1);
+  } else {
+    types.push(value);
+  }
+};
+
+// 将旧版单选/组合记录类型迁移为数组
+const normalizeMetricTypes = (entry) => {
+  if (Array.isArray(entry.metricTypes) && entry.metricTypes.length > 0) {
+    return entry.metricTypes;
+  }
+  const legacy = entry.metricType;
+  if (!legacy) return ['duration'];
+  if (legacy === 'duration_reps') return ['duration', 'reps'];
+  if (legacy === 'weight_reps') return ['weight', 'reps'];
+  return [legacy];
+};
+
 // 获取本地日期字符串
 const getLocalDateString = () => {
   const now = new Date();
@@ -323,10 +410,11 @@ const fitnessEntries = ref([]);
 const newFitnessEntry = ref({
   type: 'cardio',
   name: '',
-  metricType: 'duration', // duration, reps, weight, duration_reps, weight_reps
+  metricTypes: ['duration'], // 可多选：duration / reps / weight / distance
   duration: 30,
   repetitions: 10,
-  weight: 20
+  weight: 20,
+  distanceKm: 5
 });
 // 已添加的健身项目
 const fitnessItems = ref([]);
@@ -357,10 +445,16 @@ const restoreFitnessDraft = () => {
   const draft = loadPageDraft(FITNESS_DRAFT_KEY);
   if (!draft) return;
   if (Array.isArray(draft.fitnessItems) && draft.fitnessItems.length > 0) {
-    fitnessItems.value = draft.fitnessItems;
+    fitnessItems.value = draft.fitnessItems.map((item) => ({
+      ...item,
+      metricTypes: normalizeMetricTypes(item),
+    }));
   }
   if (draft.newFitnessEntry) {
-    newFitnessEntry.value = { ...newFitnessEntry.value, ...draft.newFitnessEntry };
+    const merged = { ...newFitnessEntry.value, ...draft.newFitnessEntry };
+    merged.metricTypes = normalizeMetricTypes(merged);
+    delete merged.metricType;
+    newFitnessEntry.value = merged;
   }
   if (draft.aiAnalysis) {
     aiAnalysis.value = draft.aiAnalysis;
@@ -403,6 +497,14 @@ const totalWeight = computed(() => {
   }, 0);
 });
 
+// 计算总距离（保留一位小数）
+const totalDistance = computed(() => {
+  const sum = fitnessEntries.value.reduce((total, item) => {
+    return total + (item.distanceKm || 0);
+  }, 0);
+  return Math.round(sum * 10) / 10;
+});
+
 // 计算单个项目的热量消耗
 const calculateCalories = (item) => {
   // 简化的热量计算公式，根据项目类型和时长/次数估算
@@ -426,9 +528,11 @@ const calculateCalories = (item) => {
       multiplier = 1;
   }
   
-  // 如果有时长，按时长计算；如果只有次数/重量，按次数估算
+  // 优先按时长；有距离时按公里估算（约 60 kcal/km）
   if (item.duration) {
     return Math.round(item.duration * baseMetabolicRate * multiplier);
+  } else if (item.distanceKm) {
+    return Math.round(item.distanceKm * 60 * multiplier);
   } else if (item.repetitions) {
     // 假设每次动作约 3 秒，转换为分钟计算
     const estimatedMinutes = item.repetitions * 3 / 60;
@@ -455,10 +559,21 @@ const addCustomFitnessItem = () => {
     return;
   }
   
-  const metricType = newFitnessEntry.value.metricType;
+  const metricTypes = newFitnessEntry.value.metricTypes;
+
+  if (metricTypes.length === 0) {
+    ElNotification({
+      title: '⚠️ 提示',
+      message: '请至少选择一种记录类型',
+      type: 'warning',
+      duration: 2000,
+      offset: 80
+    });
+    return;
+  }
   
-  // 根据类型验证输入
-  if (metricType === 'duration' && (!newFitnessEntry.value.duration || newFitnessEntry.value.duration <= 0)) {
+  // 根据所选类型逐项校验
+  if (metricTypes.includes('duration') && (!newFitnessEntry.value.duration || newFitnessEntry.value.duration <= 0)) {
     ElNotification({
       title: '⚠️ 提示',
       message: '请输入有效的时长',
@@ -468,7 +583,7 @@ const addCustomFitnessItem = () => {
     });
     return;
   }
-  if (metricType === 'reps' && (!newFitnessEntry.value.repetitions || newFitnessEntry.value.repetitions <= 0)) {
+  if (metricTypes.includes('reps') && (!newFitnessEntry.value.repetitions || newFitnessEntry.value.repetitions <= 0)) {
     ElNotification({
       title: '⚠️ 提示',
       message: '请输入有效的次数',
@@ -478,7 +593,7 @@ const addCustomFitnessItem = () => {
     });
     return;
   }
-  if (metricType === 'weight' && (!newFitnessEntry.value.weight || newFitnessEntry.value.weight <= 0)) {
+  if (metricTypes.includes('weight') && (!newFitnessEntry.value.weight || newFitnessEntry.value.weight <= 0)) {
     ElNotification({
       title: '⚠️ 提示',
       message: '请输入有效的重量',
@@ -488,22 +603,10 @@ const addCustomFitnessItem = () => {
     });
     return;
   }
-  if (metricType === 'duration_reps' && ((!newFitnessEntry.value.duration || newFitnessEntry.value.duration <= 0) || 
-      (!newFitnessEntry.value.repetitions || newFitnessEntry.value.repetitions <= 0))) {
+  if (metricTypes.includes('distance') && (!newFitnessEntry.value.distanceKm || newFitnessEntry.value.distanceKm <= 0)) {
     ElNotification({
       title: '⚠️ 提示',
-      message: '请输入有效的时长和次数',
-      type: 'warning',
-      duration: 2000,
-      offset: 80
-    });
-    return;
-  }
-  if (metricType === 'weight_reps' && ((!newFitnessEntry.value.weight || newFitnessEntry.value.weight <= 0) || 
-      (!newFitnessEntry.value.repetitions || newFitnessEntry.value.repetitions <= 0))) {
-    ElNotification({
-      title: '⚠️ 提示',
-      message: '请输入有效的重量和次数',
+      message: '请输入有效的距离',
       type: 'warning',
       duration: 2000,
       offset: 80
@@ -516,10 +619,11 @@ const addCustomFitnessItem = () => {
     id: Date.now(),
     type: newFitnessEntry.value.type,
     name: newFitnessEntry.value.name,
-    metricType: metricType,
-    duration: metricType.includes('duration') ? parseInt(newFitnessEntry.value.duration) : null,
-    repetitions: metricType.includes('reps') ? parseInt(newFitnessEntry.value.repetitions) : null,
-    weight: metricType.includes('weight') ? parseFloat(newFitnessEntry.value.weight) : null
+    metricTypes: [...metricTypes],
+    duration: metricTypes.includes('duration') ? parseInt(newFitnessEntry.value.duration) : null,
+    repetitions: metricTypes.includes('reps') ? parseInt(newFitnessEntry.value.repetitions) : null,
+    weight: metricTypes.includes('weight') ? parseFloat(newFitnessEntry.value.weight) : null,
+    distanceKm: metricTypes.includes('distance') ? parseFloat(newFitnessEntry.value.distanceKm) : null
   };
   
   fitnessItems.value.push(newItem);
@@ -529,6 +633,7 @@ const addCustomFitnessItem = () => {
   newFitnessEntry.value.duration = 30;
   newFitnessEntry.value.repetitions = 10;
   newFitnessEntry.value.weight = 20;
+  newFitnessEntry.value.distanceKm = 5;
 };
 
 // 移除健身项目
@@ -569,6 +674,7 @@ const analyzeFitnessItems = async () => {
       totalDuration: totalDuration.value,
       totalRepetitions: totalRepetitions.value,
       totalWeight: totalWeight.value,
+      totalDistance: totalDistance.value,
       workoutCount: fitnessEntries.value.length,
       workouts: fitnessEntries.value.map(item => ({
         name: item.workoutName || item.name,
@@ -576,6 +682,7 @@ const analyzeFitnessItems = async () => {
         duration: item.durationMinutes || item.duration,
         repetitions: item.repetitions,
         weight: item.weightKg || item.weight,
+        distance: item.distanceKm || item.distance,
         calories: item.caloriesBurned || item.calories
       })),
       analysisType: 'fitness_workout'
@@ -633,6 +740,7 @@ const saveFitnessRecord = async () => {
       durationMinutes: item.duration,
       repetitions: item.repetitions,
       weightKg: item.weight,
+      distanceKm: item.distanceKm,
       calories: Math.round(calculateCalories(item))
     }));
 
@@ -926,23 +1034,7 @@ onMounted(() => {
 }
 
 .fitness-layout::before {
-  content: '';
-  position: fixed;
-  top: -50%;
-  left: -50%;
-  width: 200%;
-  height: 200%;
-  background: 
-    radial-gradient(ellipse at 30% 20%, rgba(0, 122, 255, 0.03) 0%, transparent 50%),
-    radial-gradient(ellipse at 70% 80%, rgba(88, 86, 214, 0.03) 0%, transparent 50%);
-  pointer-events: none;
-  z-index: 0;
-  animation: gradientShift 20s ease-in-out infinite;
-}
-
-@keyframes gradientShift {
-  0%, 100% { transform: translate(0, 0); }
-  50% { transform: translate(-5%, -5%); }
+  display: none;
 }
 
 .page-header {
@@ -950,29 +1042,20 @@ onMounted(() => {
   padding: 48px 24px 36px;
   position: relative;
   z-index: 1;
-  background: linear-gradient(180deg, #fafafa 0%, #ffffff 100%);
+  background: var(--color-background);
 }
 
 .page-header h1 {
-  color: #1d1d1f;
   margin-bottom: 12px;
   font-weight: 700;
   font-size: 36px;
   line-height: 1.1;
-  background: linear-gradient(135deg, #1d1d1f 0%, #424245 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
 }
 
 .header-icon {
-  width: 40px;
-  height: 40px;
-  color: #007aff;
+  width: 1.15em;
+  height: 1.15em;
+  color: var(--color-primary);
   flex-shrink: 0;
 }
 
@@ -982,7 +1065,7 @@ onMounted(() => {
   gap: 16px;
   align-items: center;
   font-size: 14px;
-  color: #86868b;
+  color: var(--color-muted-foreground);
   flex-wrap: wrap;
 }
 
@@ -991,8 +1074,8 @@ onMounted(() => {
   align-items: center;
   gap: 6px;
   padding: 8px 16px;
-  background: #f5f5f7;
-  border-radius: 980px;
+  background: var(--color-muted);
+  border-radius: 0;
   font-weight: 500;
 }
 
@@ -1014,10 +1097,8 @@ onMounted(() => {
 
 .card {
   background: #ffffff;
-  border-radius: 20px;
-  box-shadow: 
-    0 2px 8px rgba(0, 0, 0, 0.02),
-    0 8px 32px rgba(0, 0, 0, 0.04);
+  border-radius: 0;
+  box-shadow: none;
   padding: 24px;
   margin-bottom: 0;
   border: none;
@@ -1031,13 +1112,11 @@ onMounted(() => {
 
 .card:hover {
   transform: translateY(-3px);
-  box-shadow: 
-    0 4px 16px rgba(0, 0, 0, 0.04),
-    0 24px 64px rgba(0, 0, 0, 0.08);
+  box-shadow: none;
 }
 
 .card h2 {
-  color: #1d1d1f;
+  color: var(--color-foreground);
   margin-bottom: 20px;
   padding-bottom: 12px;
   border-bottom: 1px solid rgba(0, 0, 0, 0.06);
@@ -1054,7 +1133,7 @@ onMounted(() => {
   display: block;
   margin-bottom: 12px;
   font-weight: 500;
-  color: #1d1d1f;
+  color: var(--color-foreground);
   font-size: 15px;
 }
 
@@ -1068,22 +1147,22 @@ onMounted(() => {
   padding: 12px 24px;
   border: 1px solid rgba(0, 0, 0, 0.1);
   background: #ffffff;
-  border-radius: 12px;
+  border-radius: 0;
   cursor: pointer;
   transition: all 0.3s cubic-bezier(0.25, 0.1, 0.25, 1);
   font-size: 15px;
   font-weight: 500;
-  color: #1d1d1f;
+  color: var(--color-foreground);
 }
 
 .fitness-btn:hover {
-  border-color: #007aff;
+  border-color: var(--color-foreground);
   background: rgba(0, 122, 255, 0.05);
 }
 
 .fitness-btn.active {
-  border-color: #007aff;
-  background: #007aff;
+  border-color: var(--color-foreground);
+  background: var(--color-foreground);
   color: white;
 }
 
@@ -1114,19 +1193,19 @@ onMounted(() => {
   width: 100%;
   padding: 14px 16px;
   border: 1px solid rgba(0, 0, 0, 0.1);
-  border-radius: 12px;
+  border-radius: 0;
   font-size: 17px;
   transition: all 0.3s cubic-bezier(0.25, 0.1, 0.25, 1);
-  background: #f5f5f7;
-  color: #1d1d1f;
+  background: var(--color-muted);
+  color: var(--color-foreground);
   font-family: inherit;
 }
 
 .fitness-input:focus {
   outline: none;
-  border-color: #007aff;
+  border-color: var(--color-foreground);
   background: #ffffff;
-  box-shadow: 0 0 0 4px rgba(0, 122, 255, 0.1);
+  box-shadow: none;
 }
 
 .metric-type-selector {
@@ -1134,24 +1213,33 @@ onMounted(() => {
   min-width: 150px;
 }
 
-.metric-select {
-  width: 100%;
-  padding: 14px 16px;
-  border: 1px solid rgba(0, 0, 0, 0.1);
-  border-radius: 12px;
-  font-size: 17px;
-  transition: all 0.3s cubic-bezier(0.25, 0.1, 0.25, 1);
-  background: #f5f5f7;
-  color: #1d1d1f;
-  font-family: inherit;
-  cursor: pointer;
+.metric-type-checkboxes {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
-.metric-select:focus {
-  outline: none;
-  border-color: #007aff;
+.metric-type-btn {
+  padding: 10px 16px;
+  border: 1px solid rgba(0, 0, 0, 0.1);
   background: #ffffff;
-  box-shadow: 0 0 0 4px rgba(0, 122, 255, 0.1);
+  border-radius: 0;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.25, 0.1, 0.25, 1);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-foreground);
+}
+
+.metric-type-btn:hover {
+  border-color: var(--color-foreground);
+  background: rgba(0, 122, 255, 0.05);
+}
+
+.metric-type-btn.active {
+  border-color: var(--color-foreground);
+  background: var(--color-foreground);
+  color: white;
 }
 
 .metrics-inputs {
@@ -1167,7 +1255,7 @@ onMounted(() => {
   display: block;
   margin-bottom: 8px;
   font-weight: 500;
-  color: #1d1d1f;
+  color: var(--color-foreground);
   font-size: 15px;
 }
 
@@ -1175,28 +1263,28 @@ onMounted(() => {
   width: 100%;
   padding: 14px 16px;
   border: 1px solid rgba(0, 0, 0, 0.1);
-  border-radius: 12px;
+  border-radius: 0;
   font-size: 17px;
   transition: all 0.3s cubic-bezier(0.25, 0.1, 0.25, 1);
-  background: #f5f5f7;
-  color: #1d1d1f;
+  background: var(--color-muted);
+  color: var(--color-foreground);
   font-family: inherit;
 }
 
 .metric-number:focus {
   outline: none;
-  border-color: #007aff;
+  border-color: var(--color-foreground);
   background: #ffffff;
-  box-shadow: 0 0 0 4px rgba(0, 122, 255, 0.1);
+  box-shadow: none;
 }
 
 .add-fitness-btn {
   width: 48px;
   height: 48px;
-  background: #007aff;
+  background: var(--color-foreground);
   color: white;
   border: none;
-  border-radius: 12px;
+  border-radius: 0;
   font-size: 24px;
   cursor: pointer;
   transition: all 0.3s cubic-bezier(0.25, 0.1, 0.25, 1);
@@ -1212,7 +1300,7 @@ onMounted(() => {
 
 .added-fitnesses h3 {
   margin-bottom: 16px;
-  color: #1d1d1f;
+  color: var(--color-foreground);
   font-size: 17px;
   font-weight: 600;
 }
@@ -1228,12 +1316,12 @@ onMounted(() => {
   display: inline-flex;
   align-items: center;
   gap: 12px;
-  background: #f5f5f7;
+  background: var(--color-muted);
   border: none;
-  border-radius: 980px;
+  border-radius: 0;
   padding: 10px 16px;
   font-size: 15px;
-  color: #1d1d1f;
+  color: var(--color-foreground);
 }
 
 .fitness-name {
@@ -1248,7 +1336,7 @@ onMounted(() => {
 }
 
 .fitness-metric {
-  color: #86868b;
+  color: var(--color-muted-foreground);
   font-size: 13px;
   background: rgba(0, 0, 0, 0.05);
   padding: 4px 8px;
@@ -1257,14 +1345,14 @@ onMounted(() => {
 }
 
 .fitness-duration {
-  color: #86868b;
+  color: var(--color-muted-foreground);
   font-size: 13px;
 }
 
 .remove-btn {
   width: 22px;
   height: 22px;
-  background: #ff3b30;
+  background: #000000;
   color: white;
   border: none;
   border-radius: 50%;
@@ -1291,7 +1379,7 @@ onMounted(() => {
 .btn {
   padding: 14px 28px;
   border: none;
-  border-radius: 980px;
+  border-radius: 0;
   font-size: 17px;
   font-weight: 500;
   cursor: pointer;
@@ -1302,7 +1390,7 @@ onMounted(() => {
 }
 
 .save-btn {
-  background: #34c759;
+  background: #000000;
   color: white;
 }
 
@@ -1379,10 +1467,10 @@ onMounted(() => {
 
 .summary-item {
   font-size: 13px;
-  color: #86868b;
-  background: #f5f5f7;
+  color: var(--color-muted-foreground);
+  background: var(--color-muted);
   padding: 8px 16px;
-  border-radius: 980px;
+  border-radius: 0;
   font-weight: 500;
 }
 
@@ -1392,7 +1480,7 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   padding: 60px 24px;
-  color: #86868b;
+  color: var(--color-muted-foreground);
   min-height: 300px;
 }
 
@@ -1400,7 +1488,7 @@ onMounted(() => {
   width: 40px;
   height: 40px;
   border: 3px solid rgba(0, 0, 0, 0.05);
-  border-top: 3px solid #007aff;
+  border-top: 3px solid var(--color-foreground);
   border-radius: 50%;
   animation: spin 1s linear infinite;
   margin-bottom: 16px;
@@ -1414,7 +1502,7 @@ onMounted(() => {
 .empty-state {
   text-align: center;
   padding: 60px 24px;
-  color: #86868b;
+  color: var(--color-muted-foreground);
 }
 
 .empty-icon {
@@ -1429,14 +1517,14 @@ onMounted(() => {
 }
 
 .empty-state h3 {
-  color: #1d1d1f;
+  color: var(--color-foreground);
   margin-bottom: 8px;
   font-size: 21px;
   font-weight: 600;
 }
 
 .empty-state .tip {
-  color: #007aff;
+  color: var(--color-foreground);
   font-weight: 500;
   font-size: 15px;
 }
@@ -1446,8 +1534,8 @@ onMounted(() => {
   align-items: center;
   gap: 16px;
   padding: 16px;
-  background: #f5f5f7;
-  border-radius: 16px;
+  background: var(--color-muted);
+  border-radius: 0;
   margin-bottom: 20px;
   flex-wrap: wrap;
   flex-shrink: 0;
@@ -1460,28 +1548,28 @@ onMounted(() => {
   cursor: pointer;
   font-size: 15px;
   font-weight: 500;
-  color: #1d1d1f;
+  color: var(--color-foreground);
 }
 
 .record-checkbox {
   width: 20px;
   height: 20px;
   cursor: pointer;
-  accent-color: #007aff;
+  accent-color: var(--color-foreground);
 }
 
 .selected-count {
-  color: #007aff;
+  color: var(--color-foreground);
   font-size: 14px;
   font-weight: 500;
 }
 
 .btn-batch-delete {
-  background: #ff3b30;
+  background: #000000;
   color: white;
   border: none;
   padding: 10px 20px;
-  border-radius: 980px;
+  border-radius: 0;
   cursor: pointer;
   font-size: 14px;
   font-weight: 500;
@@ -1530,10 +1618,10 @@ onMounted(() => {
 .record-item {
   padding: 20px;
   border: none;
-  border-radius: 16px;
+  border-radius: 0;
   margin-bottom: 12px;
   transition: all 0.3s cubic-bezier(0.25, 0.1, 0.25, 1);
-  background: #f5f5f7;
+  background: var(--color-muted);
 }
 
 .record-item:hover {
@@ -1559,33 +1647,33 @@ onMounted(() => {
 
 .fitness-badge {
   padding: 6px 14px;
-  border-radius: 980px;
+  border-radius: 0;
   font-size: 13px;
   font-weight: 500;
 }
 
 .fitness-badge.cardio {
   background: rgba(255, 149, 0, 0.12);
-  color: #ff9500;
+  color: #525252;
 }
 
 .fitness-badge.strength {
   background: rgba(0, 122, 255, 0.12);
-  color: #007aff;
+  color: var(--color-foreground);
 }
 
 .fitness-badge.flexibility {
   background: rgba(175, 82, 222, 0.12);
-  color: #af52de;
+  color: #525252;
 }
 
 .fitness-badge.balance {
   background: rgba(52, 199, 89, 0.12);
-  color: #34c759;
+  color: #000000;
 }
 
 .time-stamp {
-  color: #86868b;
+  color: var(--color-muted-foreground);
   font-size: 13px;
 }
 
@@ -1598,7 +1686,7 @@ onMounted(() => {
 .calories-badge {
   font-size: 17px;
   font-weight: 600;
-  color: #ff9500;
+  color: #525252;
 }
 
 .calories-badge .unit {
@@ -1614,12 +1702,12 @@ onMounted(() => {
   padding: 6px 12px;
   opacity: 0.5;
   transition: all 0.2s ease;
-  color: #86868b;
+  color: var(--color-muted-foreground);
 }
 
 .delete-btn:hover {
   opacity: 1;
-  color: #ff3b30;
+  color: #000000;
 }
 
 .record-body {
@@ -1628,7 +1716,7 @@ onMounted(() => {
 
 .fitness-desc {
   font-weight: 500;
-  color: #1d1d1f;
+  color: var(--color-foreground);
   margin-bottom: 8px;
   font-size: 15px;
 }
@@ -1641,7 +1729,7 @@ onMounted(() => {
 
 .detail-item {
   font-size: 14px;
-  color: #86868b;
+  color: var(--color-muted-foreground);
 }
 
 .summary-section {
@@ -1663,7 +1751,7 @@ onMounted(() => {
 }
 
 .summary-section h3 {
-  color: #1d1d1f;
+  color: var(--color-foreground);
   margin-bottom: 20px;
   font-size: 19px;
   font-weight: 600;
@@ -1685,28 +1773,32 @@ onMounted(() => {
 .summary-box {
   text-align: center;
   padding: 24px;
-  border-radius: 20px;
-  background: #f5f5f7;
+  border-radius: 0;
+  background: var(--color-muted);
 }
 
 .summary-box.calories {
-  background: linear-gradient(135deg, rgba(255, 149, 0, 0.08) 0%, rgba(255, 149, 0, 0.02) 100%);
+  background: var(--color-muted);
 }
 
 .summary-box.duration {
-  background: linear-gradient(135deg, rgba(0, 122, 255, 0.08) 0%, rgba(0, 122, 255, 0.02) 100%);
+  background: var(--color-muted);
 }
 
 .summary-box.reps {
-  background: linear-gradient(135deg, rgba(175, 82, 222, 0.08) 0%, rgba(175, 82, 222, 0.02) 100%);
+  background: var(--color-muted);
 }
 
 .summary-box.weight {
-  background: linear-gradient(135deg, rgba(255, 149, 0, 0.08) 0%, rgba(255, 149, 0, 0.02) 100%);
+  background: var(--color-muted);
+}
+
+.summary-box.distance {
+  background: var(--color-muted);
 }
 
 .summary-box.count {
-  background: linear-gradient(135deg, rgba(52, 199, 89, 0.08) 0%, rgba(52, 199, 89, 0.02) 100%);
+  background: var(--color-muted);
 }
 
 .summary-icon {
@@ -1718,20 +1810,20 @@ onMounted(() => {
 .big-number {
   font-size: 36px;
   font-weight: 700;
-  color: #1d1d1f;
+  color: var(--color-foreground);
   letter-spacing: -1px;
 }
 
 .metric {
   font-size: 15px;
-  color: #1d1d1f;
+  color: var(--color-foreground);
   margin: 4px 0;
   font-weight: 500;
 }
 
 .small-unit {
   font-size: 13px;
-  color: #86868b;
+  color: var(--color-muted-foreground);
 }
 
 .ai-analysis-section {
@@ -1741,10 +1833,10 @@ onMounted(() => {
 .btn-ai-analyze {
   width: 100%;
   padding: 16px;
-  background: linear-gradient(135deg, #007aff 0%, #5856d6 100%);
+  background: var(--color-foreground);
   color: white;
   border: none;
-  border-radius: 16px;
+  border-radius: 0;
   font-size: 17px;
   font-weight: 500;
   cursor: pointer;
@@ -1753,7 +1845,7 @@ onMounted(() => {
 
 .btn-ai-analyze:hover:not(:disabled) {
   transform: scale(1.01);
-  box-shadow: 0 8px 24px rgba(0, 122, 255, 0.3);
+  box-shadow: none;
 }
 
 .btn-ai-analyze:disabled {
@@ -1764,13 +1856,13 @@ onMounted(() => {
 .analysis-result {
   margin-top: 20px;
   padding: 24px;
-  background: #f5f5f7;
-  border-radius: 16px;
-  border-left: 4px solid #007aff;
+  background: var(--color-muted);
+  border-radius: 0;
+  border-left: 4px solid var(--color-foreground);
 }
 
 .analysis-result h4 {
-  color: #1d1d1f;
+  color: var(--color-foreground);
   margin-bottom: 12px;
   font-size: 17px;
   font-weight: 600;
@@ -1778,7 +1870,7 @@ onMounted(() => {
 
 .analysis-content {
   line-height: 1.7;
-  color: #1d1d1f;
+  color: var(--color-foreground);
   font-size: 15px;
 }
 
@@ -1802,7 +1894,7 @@ onMounted(() => {
   
   .card {
     padding: 24px;
-    border-radius: 20px;
+    border-radius: 0;
   }
   
   .card h2 {

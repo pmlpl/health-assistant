@@ -1,0 +1,289 @@
+/* 登录/注册表单 — Minimalist Monochrome 线条风格 */
+
+.auth-card {
+  background: var(--color-background);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border-radius: 0;
+  padding: var(--space-8);
+  border: 2px solid var(--color-border);
+  box-shadow: none;
+}
+
+.auth-card__head {
+  text-align: center;
+  margin-bottom: var(--space-6);
+}
+
+.auth-card__logo {
+  width: 56px;
+  height: 56px;
+  margin: 0 auto var(--space-4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.75rem;
+  background: var(--color-muted);
+  border: 1px solid var(--color-border);
+  border-radius: 0;
+  animation: none;
+}
+
+.auth-card__title {
+  font-family: var(--font-display);
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text);
+  margin: 0 0 var(--space-2);
+  letter-spacing: -0.02em;
+}
+
+.auth-card__subtitle {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.auth-card__form {
+  margin-bottom: var(--space-4);
+}
+
+.auth-card__options {
+  text-align: right;
+  margin-bottom: var(--space-4);
+}
+
+.auth-card__footer {
+  text-align: center;
+  padding-top: var(--space-5);
+  border-top: 1px solid var(--color-border-light);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.auth-card__footer p {
+  margin: 0 0 var(--space-2);
+}
+
+.auth-card__link {
+  color: var(--color-foreground);
+  font-weight: var(--font-weight-semibold);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.auth-card__link:hover {
+  color: var(--color-muted-foreground);
+}
+
+.auth-card__benefits {
+  margin-top: var(--space-5);
+  padding: var(--space-4);
+  background: var(--color-muted);
+  border-radius: 0;
+  border: 1px solid var(--color-border-light);
+}
+
+.auth-card__benefits h4 {
+  margin: 0 0 var(--space-3);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--color-text);
+  text-align: center;
+}
+
+.auth-card__benefits ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-2);
+}
+
+.auth-card__benefits li {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+.auth-card .el-input__wrapper {
+  border-radius: 0;
+  box-shadow: 0 0 0 1px var(--color-border);
+  transition: box-shadow var(--transition-fast);
+}
+
+.auth-card .el-input__wrapper.is-focus {
+  box-shadow: 0 0 0 2px var(--color-foreground);
+  transform: none;
+}
+
+.auth-card .el-input__inner::placeholder {
+  transition: opacity var(--transition-fast);
+}
+
+.auth-card .el-input__wrapper.is-focus .el-input__inner::placeholder {
+  opacity: 0.45;
+  transform: none;
+}
+
+.auth-card .el-input__password {
+  color: var(--color-text-secondary);
+}
+
+.auth-card .el-input .el-input__suffix {
+  color: var(--color-text-muted);
+}
+
+.auth-card .el-button--primary {
+  border: 2px solid var(--color-foreground);
+  border-radius: 0;
+  font-family: var(--font-mono);
+  font-weight: var(--font-weight-medium);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  height: 44px;
+  background: var(--color-foreground);
+  color: var(--color-background);
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.auth-card .el-button--primary:hover {
+  background: var(--color-background);
+  color: var(--color-foreground);
+}
+
+/* 社交登录占位 */
+.auth-social {
+  margin-top: var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.auth-social__divider {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.auth-social__divider::before,
+.auth-social__divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--color-border-light);
+}
+
+.auth-social__btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  height: 42px;
+  border-radius: 0;
+  border: 1px solid var(--color-border-light);
+  background: var(--color-bg-elevated);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  cursor: not-allowed;
+  opacity: 0.75;
+}
+
+/* 注册步骤指示 */
+.auth-steps {
+  display: flex;
+  justify-content: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-5);
+}
+
+.auth-steps__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 0;
+  background: var(--color-border-light);
+  transition: background var(--transition-fast), width var(--transition-fast);
+}
+
+.auth-steps__dot--active {
+  width: 24px;
+  border-radius: 0;
+  background: var(--color-foreground);
+}
+
+/* 密码强度条 */
+.password-strength {
+  margin-top: var(--space-2);
+  height: 4px;
+  border-radius: 0;
+  background: var(--color-muted);
+  overflow: hidden;
+}
+
+.password-strength__fill {
+  height: 100%;
+  width: 0;
+  border-radius: 0;
+  transition: width var(--transition-fast), background var(--transition-fast);
+}
+
+.password-strength__fill--weak {
+  background: var(--color-muted-foreground);
+}
+
+.password-strength__fill--medium {
+  background: var(--color-foreground);
+  opacity: 0.5;
+}
+
+.password-strength__fill--strong {
+  background: var(--color-foreground);
+}
+
+/* 注册成功 */
+.register-success {
+  text-align: center;
+  padding: var(--space-6) 0;
+}
+
+.register-success__icon {
+  font-size: 3rem;
+  display: block;
+  margin-bottom: var(--space-4);
+}
+
+/* 认证右侧面板：纯白底，无渐变动画 */
+.auth-panel {
+  position: relative;
+  background: var(--color-background);
+  animation: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .auth-card__logo {
+    animation: none;
+  }
+
+  .auth-panel {
+    animation: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .auth-card {
+    padding: var(--space-6);
+  }
+
+  .auth-card__benefits ul {
+    grid-template-columns: 1fr;
+  }
+}

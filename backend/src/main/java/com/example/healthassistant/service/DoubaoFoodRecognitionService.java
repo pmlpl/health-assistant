@@ -56,7 +56,7 @@ public class DoubaoFoodRecognitionService {
     private void initializeDoubaoService(String userId) {
         String effectiveApiKey = getApiKey(userId);
         if (effectiveApiKey == null || effectiveApiKey.isEmpty()) {
-            throw new RuntimeException("未配置豆包 API 密钥，请在「AI 设置」中填写");
+            throw new RuntimeException("未配置 AI API 密钥，请在「AI 设置」中填写");
         }
 
         arkService = ArkService.builder()

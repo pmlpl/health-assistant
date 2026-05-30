@@ -1,1018 +1,1275 @@
 <template>
+
   <div class="calendar-page-layout">
-    <div class="page-header">
-      <h1>
+
+    <!-- 主标题合并到 section-label，避免与卡片内标题重复 -->
+
+    <PageHeader title="饮食与健身概览" section-label="健康日历" :label-pulse="true">
+
+      <template #icon>
+
         <svg class="header-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+
           <rect x="3" y="4" width="18" height="18" rx="2" ry="2" stroke="currentColor" stroke-width="2"/>
+
           <line x1="16" y1="2" x2="16" y2="6" stroke="currentColor" stroke-width="2"/>
+
           <line x1="8" y1="2" x2="8" y2="6" stroke="currentColor" stroke-width="2"/>
+
           <line x1="3" y1="10" x2="21" y2="10" stroke="currentColor" stroke-width="2"/>
+
         </svg>
-        健康日历
-      </h1>
-      <div class="stats-bar">
-        <span class="stat-item">查看每日饮食和健身记录</span>
-      </div>
-    </div>
+
+      </template>
+
+      <template #stats>
+
+        <span class="stat-item">点击日期查看饮食和健身详细统计</span>
+
+      </template>
+
+    </PageHeader>
+
+
+
+    <!-- 主内容：左日历 + 右详情，大屏并排、小屏堆叠 -->
 
     <div class="calendar-main-content">
-      <!-- 合并的单一日历 -->
-      <div class="unified-calendar-container">
-        <div class="calendar-card unified-calendar">
-          <div class="calendar-header">
-            <h3>📅 健康日历</h3>
-            <p class="calendar-subtitle">点击日期查看饮食和健身详细统计</p>
+
+      <div class="calendar-split-layout">
+
+        <!-- 左侧：月历 -->
+
+        <section class="calendar-panel calendar-panel--calendar" aria-label="月历">
+
+          <div class="calendar-card bh-card">
+
+            <p class="calendar-hint">选择日期以在右侧查看当日热量与营养数据</p>
+
+            <ProfessionalCalendar
+
+              :user-id="userStore.userData.userId"
+
+              type="combined"
+
+              @date-selected="navigateToDailyDetail"
+
+            />
+
           </div>
-          <ProfessionalCalendar 
-            :user-id="userStore.userData.userId"
-            type="combined"
-            @date-selected="navigateToDailyDetail"
-          />
-        </div>
+
+        </section>
+
+
+
+        <!-- 右侧：选中日期的统计卡片（仅热量收支 + 营养构成） -->
+
+        <section class="calendar-panel calendar-panel--detail" aria-label="日期详情">
+
+          <div v-if="selectedDateData" class="daily-detail-section">
+
+            <div class="detail-header">
+
+              <h2>{{ formatDate(selectedDateData.date) }} 详细记录</h2>
+
+            </div>
+
+
+
+            <div class="charts-section">
+
+              <!-- 热量收支对比 -->
+
+              <div class="stat-card calories-comparison">
+
+                <h3>热量收支对比</h3>
+
+                <div class="progress-container">
+
+                  <div class="progress-bar-wrapper">
+
+                    <div class="progress-label">摄入热量</div>
+
+                    <div class="progress-bar intake-bar">
+
+                      <div class="progress-fill" :style="{ width: getIntakeProgress() + '%' }"></div>
+
+                    </div>
+
+                    <div class="progress-value">{{ Math.round(selectedDateData.dietTotals.calories) }} kcal</div>
+
+                  </div>
+
+                  <div class="progress-bar-wrapper">
+
+                    <div class="progress-label">消耗热量</div>
+
+                    <div class="progress-bar burn-bar">
+
+                      <div class="progress-fill" :style="{ width: getBurnProgress() + '%' }"></div>
+
+                    </div>
+
+                    <div class="progress-value">{{ Math.round(selectedDateData.fitnessTotals.caloriesBurned) }} kcal</div>
+
+                  </div>
+
+                </div>
+
+                <div class="net-balance" :class="getBalanceClass()">
+
+                  <span>净热量：</span>
+
+                  <strong>{{ getNetCalories() }} kcal</strong>
+
+                  <span class="balance-icon">{{ getBalanceIcon() }}</span>
+
+                </div>
+
+              </div>
+
+
+
+              <!-- 营养构成 -->
+
+              <div class="stat-card nutrition-chart">
+
+                <h3>营养构成</h3>
+
+                <div class="chart-container">
+
+                  <div
+                    class="donut-chart"
+                    :class="{ 'donut-chart--empty': isDonutEmpty() }"
+                    :style="getDonutChartStyle()"
+                  >
+
+                    <div class="chart-center">
+
+                      <div class="total-calories">{{ Math.round(selectedDateData.dietTotals.calories) }}</div>
+
+                      <div class="calories-label">总热量</div>
+
+                      <div v-if="isDonutEmpty()" class="donut-empty-hint">暂无宏量数据</div>
+
+                    </div>
+
+                  </div>
+
+                  <div class="chart-legend">
+
+                    <div class="legend-item protein">
+
+                      <span class="legend-color"></span>
+
+                      <span class="legend-label">蛋白质</span>
+
+                      <span class="legend-value">{{ Math.round(selectedDateData.dietTotals.protein * 10) / 10 }}g</span>
+
+                    </div>
+
+                    <div class="legend-item carbs">
+
+                      <span class="legend-color"></span>
+
+                      <span class="legend-label">碳水</span>
+
+                      <span class="legend-value">{{ Math.round(selectedDateData.dietTotals.carbs * 10) / 10 }}g</span>
+
+                    </div>
+
+                    <div class="legend-item fat">
+
+                      <span class="legend-color"></span>
+
+                      <span class="legend-label">脂肪</span>
+
+                      <span class="legend-value">{{ Math.round(selectedDateData.dietTotals.fat * 10) / 10 }}g</span>
+
+                    </div>
+
+                  </div>
+
+                </div>
+
+              </div>
+
+            </div>
+
+          </div>
+
+
+
+          <!-- 数据加载前的占位 -->
+
+          <div v-else class="detail-placeholder bh-card">
+
+            <p>请在左侧日历中选择日期</p>
+
+          </div>
+
+        </section>
+
       </div>
 
-      <!-- 选择日期时的显示 -->
-      <div v-if="selectedDateData" class="daily-detail-section">
-        <div class="detail-header">
-          <h2>{{ formatDate(selectedDateData.date) }} 的详细记录</h2>
-        </div>
-        
-        <!-- 统计图表区域 -->
-        <div class="charts-section">
-          <!-- 热量对比进度条 -->
-          <div class="stat-card calories-comparison">
-            <h3>📊 热量收支对比</h3>
-            <div class="progress-container">
-              <div class="progress-bar-wrapper">
-                <div class="progress-label">摄入热量</div>
-                <div class="progress-bar intake-bar">
-                  <div class="progress-fill" :style="{ width: getIntakeProgress() + '%' }"></div>
-                </div>
-                <div class="progress-value">{{ Math.round(selectedDateData.dietTotals.calories) }} kcal</div>
-              </div>
-              <div class="progress-bar-wrapper">
-                <div class="progress-label">消耗热量</div>
-                <div class="progress-bar burn-bar">
-                  <div class="progress-fill" :style="{ width: getBurnProgress() + '%' }"></div>
-                </div>
-                <div class="progress-value">{{ Math.round(selectedDateData.fitnessTotals.caloriesBurned) }} kcal</div>
-              </div>
-            </div>
-            <div class="net-balance" :class="getBalanceClass()">
-              <span>净热量：</span>
-              <strong>{{ getNetCalories() }} kcal</strong>
-              <span class="balance-icon">{{ getBalanceIcon() }}</span>
-            </div>
-          </div>
-          
-          <!-- 营养构成环形图 -->
-          <div class="stat-card nutrition-chart">
-            <h3>🥗 营养摄入构成</h3>
-            <div class="chart-container">
-              <div class="donut-chart" :style="getDonutChartStyle()">
-                <div class="chart-center">
-                  <div class="total-calories">{{ Math.round(selectedDateData.dietTotals.calories) }}</div>
-                  <div class="calories-label">总热量</div>
-                </div>
-              </div>
-              <div class="chart-legend">
-                <div class="legend-item protein">
-                  <span class="legend-color"></span>
-                  <span class="legend-label">蛋白质</span>
-                  <span class="legend-value">{{ Math.round(selectedDateData.dietTotals.protein * 10) / 10 }}g</span>
-                </div>
-                <div class="legend-item carbs">
-                  <span class="legend-color"></span>
-                  <span class="legend-label">碳水化合物</span>
-                  <span class="legend-value">{{ Math.round(selectedDateData.dietTotals.carbs * 10) / 10 }}g</span>
-                </div>
-                <div class="legend-item fat">
-                  <span class="legend-color"></span>
-                  <span class="legend-label">脂肪</span>
-                  <span class="legend-value">{{ Math.round(selectedDateData.dietTotals.fat * 10) / 10 }}g</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-        
-        <div class="detail-content">
-          <!-- 饮食记录 -->
-          <div class="detail-card diet-section">
-            <div class="card-header">
-              <h3>🍽️ 饮食记录</h3>
-              <div class="header-stats">
-                <span class="stat-badge">🔥 {{ Math.round(selectedDateData.dietTotals.calories) }} kcal</span>
-              </div>
-            </div>
-            <div class="records-list-wrapper">
-              <template v-if="selectedDateData.dietRecords.length > 0">
-                <div v-for="(record, index) in selectedDateData.dietRecords" :key="index" class="record-item">
-                  <div class="record-header-row">
-                    <div class="record-meta">
-                      <span class="meal-tag" :class="getMealTypeClass(record.mealType)">
-                        {{ getMealTypeName(record.mealType) }}
-                      </span>
-                      <span class="record-time">{{ formatTime(record.recordedAt) }}</span>
-                    </div>
-                    <div class="record-calories">{{ Math.round(record.calories) }} kcal</div>
-                  </div>
-                  <p class="food-desc">{{ record.foodDescription }}</p>
-                  <div class="nutrition-tags">
-                    <span class="tag tag-protein">🥩 {{ Math.round(record.protein * 10) / 10 }}g 蛋白质</span>
-                    <span class="tag tag-carbs">🍞 {{ Math.round(record.carbs * 10) / 10 }}g 碳水</span>
-                    <span class="tag tag-fat">🧈 {{ Math.round(record.fat * 10) / 10 }}g 脂肪</span>
-                  </div>
-                </div>
-              </template>
-              <div v-else class="empty-tip">🍽️ 这一天没有饮食记录</div>
-            </div>
-          </div>
-          
-          <!-- 健身记录 -->
-          <div class="detail-card fitness-section">
-            <div class="card-header">
-              <h3>💪 健身记录</h3>
-              <div class="header-stats">
-                <span class="stat-badge stat-success">🔥 {{ Math.round(selectedDateData.fitnessTotals.caloriesBurned) }} kcal 消耗</span>
-              </div>
-            </div>
-            <div class="records-list-wrapper">
-              <template v-if="selectedDateData.fitnessRecords.length > 0">
-                <div v-for="(record, index) in selectedDateData.fitnessRecords" :key="index" class="record-item">
-                  <div class="record-header-row">
-                    <div class="record-meta">
-                      <span class="fitness-badge">{{ record.workoutName }}</span>
-                      <span class="record-time">{{ formatTime(record.recordedAt) }}</span>
-                    </div>
-                    <div class="record-calories burn">{{ Math.round(record.caloriesBurned) }} kcal</div>
-                  </div>
-                  <div class="fitness-details">
-                    <span v-if="record.durationMinutes" class="detail-tag tag-duration">⏱️ {{ record.durationMinutes }}分钟</span>
-                    <span v-if="record.repetitions" class="detail-tag tag-reps">🔢 {{ record.repetitions }}个</span>
-                    <span v-if="record.weightKg" class="detail-tag tag-weight">🏋️ {{ record.weightKg }}kg</span>
-                  </div>
-                </div>
-              </template>
-              <div v-else class="empty-tip">💪 这一天没有健身记录</div>
-            </div>
-          </div>
-        </div>
-      </div>
     </div>
+
   </div>
+
 </template>
 
+
+
 <script setup>
+
 import { ref, onMounted } from 'vue';
-import { useRouter } from 'vue-router';
+
+import PageHeader from '@/components/common/PageHeader.vue';
+
 import ProfessionalCalendar from '../components/ProfessionalCalendar.vue';
+
 import { useUserStore } from '../stores/userStore';
+
 import { healthApi } from '../api/healthApi';
 
-const router = useRouter();
+
+
 const userStore = useUserStore();
-const currentDate = new Date();
-const currentYear = ref(currentDate.getFullYear());
-const currentMonth = ref(currentDate.getMonth() + 1);
+
 const selectedDateData = ref(null);
 
-// 格式化日期
+
+
+// 格式化日期为「M月D日」
+
 const formatDate = (dateString) => {
+
   const date = new Date(dateString);
+
   return `${date.getMonth() + 1}月${date.getDate()}日`;
+
 };
 
-// 格式化时间
-const formatTime = (dateTime) => {
-  if (!dateTime) return '';
-  const date = new Date(dateTime);
-  return `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
-};
 
-// 获取餐次类型名称
-const getMealTypeName = (mealType) => {
-  const mealTypes = {
-    'BREAKFAST': '早餐',
-    'LUNCH': '午餐',
-    'DINNER': '晚餐',
-    'SNACK': '加餐'
-  };
-  return mealTypes[mealType] || mealType;
-};
 
-// 获取餐次类型样式
-const getMealTypeClass = (mealType) => {
-  const classes = {
-    'BREAKFAST': 'breakfast',
-    'LUNCH': 'lunch',
-    'DINNER': 'dinner',
-    'SNACK': 'snack'
-  };
-  return classes[mealType] || '';
-};
+// 摄入热量进度（相对推荐值 2500 kcal）
 
-// 计算进度百分比
 const getIntakeProgress = () => {
-  const maxCalories = 2500; // 每日推荐摄入
+
+  const maxCalories = 2500;
+
   return Math.min((selectedDateData.value.dietTotals.calories / maxCalories) * 100, 100);
+
 };
+
+
+
+// 消耗热量进度（相对推荐值 800 kcal）
 
 const getBurnProgress = () => {
-  const maxBurn = 800; // 每日推荐消耗
+
+  const maxBurn = 800;
+
   return Math.min((selectedDateData.value.fitnessTotals.caloriesBurned / maxBurn) * 100, 100);
+
 };
 
-// 计算净热量
+
+
+// 净热量 = 摄入 - 消耗
+
 const getNetCalories = () => {
+
   const intake = selectedDateData.value.dietTotals.calories;
+
   const burn = selectedDateData.value.fitnessTotals.caloriesBurned;
+
   return Math.round(intake - burn);
+
 };
 
-// 获取热量平衡样式类
+
+
+// 根据净热量返回平衡状态样式类
+
 const getBalanceClass = () => {
+
   const net = getNetCalories();
+
   if (net > 500) return 'surplus';
+
   if (net < -300) return 'deficit';
+
   return 'balanced';
+
 };
 
-// 获取热量平衡图标
+
+
+// 平衡状态对应 emoji
+
 const getBalanceIcon = () => {
+
   const net = getNetCalories();
+
   if (net > 500) return '📈';
+
   if (net < -300) return '📉';
+
   return '⚖️';
+
 };
 
-// 获取环形图样式
+
+
+// 宏量营养素按热量换算后的总和（蛋白/碳水 4 kcal/g，脂肪 9 kcal/g）
+
+const getMacroCalorieTotal = (totals) =>
+
+  totals.protein * 4 + totals.carbs * 4 + totals.fat * 9;
+
+
+
+// 无宏量数据时仅显示灰色空轨
+
+const isDonutEmpty = () => {
+
+  if (!selectedDateData.value) return true;
+
+  return getMacroCalorieTotal(selectedDateData.value.dietTotals) === 0;
+
+};
+
+
+
+// 环形图：按蛋白/碳水/脂肪热量占比绘制 Bauhaus 三色 conic-gradient
+
 const getDonutChartStyle = () => {
+
   const totals = selectedDateData.value.dietTotals;
-  const total = totals.protein * 4 + totals.carbs * 4 + totals.fat * 9;
-  
-  if (total === 0) return {};
-  
-  const proteinPct = (totals.protein * 4 / total) * 100;
-  const carbsPct = (totals.carbs * 4 / total) * 100;
-  const fatPct = (totals.fat * 9 / total) * 100;
-  
+
+  const totalKcal = getMacroCalorieTotal(totals);
+
+
+
+  if (totalKcal === 0) {
+
+    return { background: 'var(--color-muted)' };
+
+  }
+
+
+
+  const proteinKcal = totals.protein * 4;
+
+  const carbsKcal = totals.carbs * 4;
+
+  const proteinEnd = (proteinKcal / totalKcal) * 100;
+
+  const carbsEnd = proteinEnd + (carbsKcal / totalKcal) * 100;
+
+
+
   return {
+
     background: `conic-gradient(
-      #4CAF50 0% ${proteinPct}%,
-      #FF9800 ${proteinPct}% ${proteinPct + carbsPct}%,
-      #F44336 ${proteinPct + carbsPct}% 100%
-    )`
+
+      var(--color-protein) 0% ${proteinEnd}%,
+
+      var(--color-carbs) ${proteinEnd}% ${carbsEnd}%,
+
+      var(--color-fat) ${carbsEnd}% 100%
+
+    )`,
+
   };
+
 };
 
-// 加载指定日期的详细数据
-const loadDailyDetail = async (date) => {
+
+
+// 加载指定日期的汇总数据（饮食 + 健身）
+
+const loadDailyDetail = async (date, scrollOnMobile = true) => {
+
   try {
+
     const userId = userStore.userData.userId;
+
     const [dietRecords, fitnessRecords] = await Promise.all([
+
       healthApi.getDailyDiet(userId, date),
+
       healthApi.getDailyFitnessRecords(userId, date),
+
     ]);
-    
+
+
+
     const dietTotals = { calories: 0, protein: 0, carbs: 0, fat: 0 };
+
     const fitnessTotals = { caloriesBurned: 0 };
-    
+
+
+
     dietRecords.forEach(record => {
+
       if (record.calories) dietTotals.calories += record.calories;
+
       if (record.protein) dietTotals.protein += record.protein;
+
       if (record.carbs) dietTotals.carbs += record.carbs;
+
       if (record.fat) dietTotals.fat += record.fat;
+
     });
-    
+
+
+
     fitnessRecords.forEach(record => {
+
       if (record.caloriesBurned) fitnessTotals.caloriesBurned += record.caloriesBurned;
+
     });
-    
+
+
+
     selectedDateData.value = {
+
       date,
+
       dietRecords,
+
       fitnessRecords,
+
       dietTotals,
+
       fitnessTotals
+
     };
-    
-    setTimeout(() => {
-      const detailSection = document.querySelector('.daily-detail-section');
-      if (detailSection) {
-        detailSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }
-    }, 100);
+
+
+
+    // 小屏堆叠布局时，选中日期后滚动到详情区
+
+    if (scrollOnMobile && window.matchMedia('(max-width: 992px)').matches) {
+
+      setTimeout(() => {
+
+        const detailSection = document.querySelector('.calendar-panel--detail');
+
+        if (detailSection) {
+
+          detailSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+        }
+
+      }, 100);
+
+    }
+
   } catch (error) {
+
     console.error('加载数据失败:', error);
+
     selectedDateData.value = {
+
       date,
+
       dietRecords: [],
+
       fitnessRecords: [],
+
       dietTotals: { calories: 0, protein: 0, carbs: 0, fat: 0 },
+
       fitnessTotals: { caloriesBurned: 0 }
+
     };
+
   }
+
 };
 
-// 导航到详细统计页面（从日历组件调用）
+
+
+// 日历组件选中日期回调
+
 const navigateToDailyDetail = (date) => {
+
   loadDailyDetail(date);
+
 };
 
-// 初始化时加载当天数据
+
+
+// 页面初始化：默认展示当天数据，不触发滚动
+
 const initializeTodayData = () => {
+
   const today = new Date();
-  const year = today.getFullYear();
-  const month = today.getMonth() + 1;
-  const day = today.getDate();
-  const todayStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-  
-  // 直接设置日期，但不滚动（因为页面刚加载）
-  loadDailyDetailWithoutScroll(todayStr);
+
+  const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+
+  loadDailyDetail(todayStr, false);
+
 };
 
-// 加载详细数据（不滚动，用于初始化）
-const loadDailyDetailWithoutScroll = async (date) => {
-  try {
-    const userId = userStore.userData.userId;
-    const [dietRecords, fitnessRecords] = await Promise.all([
-      healthApi.getDailyDiet(userId, date),
-      healthApi.getDailyFitnessRecords(userId, date),
-    ]);
-    
-    const dietTotals = { calories: 0, protein: 0, carbs: 0, fat: 0 };
-    const fitnessTotals = { caloriesBurned: 0 };
-    
-    dietRecords.forEach(record => {
-      if (record.calories) dietTotals.calories += record.calories;
-      if (record.protein) dietTotals.protein += record.protein;
-      if (record.carbs) dietTotals.carbs += record.carbs;
-      if (record.fat) dietTotals.fat += record.fat;
-    });
-    
-    fitnessRecords.forEach(record => {
-      if (record.caloriesBurned) fitnessTotals.caloriesBurned += record.caloriesBurned;
-    });
-    
-    selectedDateData.value = {
-      date,
-      dietRecords,
-      fitnessRecords,
-      dietTotals,
-      fitnessTotals
-    };
-  } catch (error) {
-    console.error('加载数据失败:', error);
-    selectedDateData.value = {
-      date,
-      dietRecords: [],
-      fitnessRecords: [],
-      dietTotals: { calories: 0, protein: 0, carbs: 0, fat: 0 },
-      fitnessTotals: { caloriesBurned: 0 }
-    };
-  }
-};
+
 
 onMounted(() => {
-  // 页面加载时自动显示当天的详细记录
+
   initializeTodayData();
+
 });
+
 </script>
 
+
+
 <style scoped>
+
+/* 页面容器：全宽，减少两侧留白 */
+
 .calendar-page-layout {
-  max-width: 1400px;
-  margin: 0 auto;
+
+  width: 100%;
+
+  max-width: none;
+
+  margin: 0;
+
   padding: 0;
-  background: #ffffff;
+
+  background: var(--color-background);
+
   min-height: 100vh;
+
 }
 
-.page-header {
-  text-align: center;
-  padding: 48px 24px 36px;
-  background: linear-gradient(180deg, #fafafa 0%, #ffffff 100%);
-}
 
-.page-header h1 {
-  color: #1d1d1f;
-  margin-bottom: 12px;
-  font-weight: 700;
-  font-size: 36px;
-  line-height: 1.1;
-  background: linear-gradient(135deg, #1d1d1f 0%, #424245 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
 
 .header-icon {
-  width: 40px;
-  height: 40px;
-  color: #007aff;
+
+  width: 1.15em;
+
+  height: 1.15em;
+
+  color: var(--color-primary);
+
   flex-shrink: 0;
+
 }
 
-.stats-bar {
-  display: flex;
-  justify-content: center;
-  gap: 16px;
-  align-items: center;
-  font-size: 14px;
-  color: #86868b;
-  flex-wrap: wrap;
-}
+
 
 .stat-item {
+
   display: flex;
+
   align-items: center;
-  gap: 6px;
-  padding: 8px 16px;
-  background: #f5f5f7;
-  border-radius: 980px;
+
+  gap: var(--space-2);
+
+  padding: var(--space-2) var(--space-4);
+
+  background: var(--color-muted);
+
+  border-radius: 0;
+
   font-weight: 500;
+
 }
+
+
+
+/* 顶栏与主内容区间距 */
 
 .calendar-main-content {
-  padding: 0 48px 48px;
+
+  padding: var(--space-8) var(--space-6) var(--space-12);
+
+  width: 100%;
+
   max-width: 1600px;
+
   margin: 0 auto;
-  width: 100%;
+
 }
 
-/* 统一日历容器 */
-.unified-calendar-container {
-  margin-bottom: 48px;
-  width: 100%;
+
+
+/* 左右分栏：日历 | 详情 */
+
+.calendar-split-layout {
+
+  display: grid;
+
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
+
+  gap: var(--space-8);
+
+  align-items: start;
+
 }
 
-.unified-calendar {
-  background: #ffffff;
-  border-radius: 24px;
-  padding: 32px;
-  box-shadow: 
-    0 2px 8px rgba(0, 0, 0, 0.02),
-    0 8px 32px rgba(0, 0, 0, 0.04);
-  border: none;
-  width: 100%;
+
+
+.calendar-panel {
+
+  min-width: 0;
+
 }
 
-.calendar-header {
-  text-align: center;
-  margin-bottom: 32px;
-  max-width: 100%;
+
+
+/* 左侧日历卡片 */
+
+.calendar-card {
+
+  background: var(--color-card);
+
+  border-radius: 0;
+
+  padding: var(--space-6);
+
+  box-shadow: var(--shadow-xl);
+
+  border: var(--border-width-thick) solid var(--color-border);
+
+  color: var(--color-foreground);
+
 }
 
-.calendar-header h3 {
-  font-size: 24px;
-  font-weight: 700;
-  color: #1d1d1f;
-  margin: 0 0 8px 0;
-  letter-spacing: -0.5px;
+
+
+.calendar-hint {
+
+  margin: 0 0 var(--space-4);
+
+  font-size: 0.9375rem;
+
+  color: var(--color-muted-foreground);
+
+  letter-spacing: -0.01em;
+
 }
 
-.calendar-subtitle {
-  font-size: 15px;
-  color: #86868b;
-  margin: 0;
-  letter-spacing: -0.2px;
-}
 
-/* 详细统计区域样式 */
+
+/* 右侧详情区 */
+
 .daily-detail-section {
-  margin-top: 32px;
-  background: white;
-  border-radius: 24px;
-  padding: 40px;
-  box-shadow: 
-    0 2px 8px rgba(0, 0, 0, 0.02),
-    0 8px 32px rgba(0, 0, 0, 0.04);
+
+  background: var(--color-card);
+
+  border-radius: 0;
+
+  padding: var(--space-6);
+
+  border: var(--border-width-thick) solid var(--color-border);
+
+  box-shadow: var(--shadow-md);
+
   animation: slideUp 0.4s ease-out;
+
 }
+
+
 
 @keyframes slideUp {
+
   from {
+
     opacity: 0;
-    transform: translateY(20px);
+
+    transform: translateY(var(--space-4));
+
   }
+
   to {
+
     opacity: 1;
+
     transform: translateY(0);
+
   }
+
 }
+
+
 
 .detail-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 32px;
-  padding-bottom: 20px;
-  border-bottom: 2px solid #f5f5f7;
+
+  margin-bottom: var(--space-6);
+
+  padding-bottom: var(--space-4);
+
+  border-bottom: var(--border-width) solid var(--color-border);
+
 }
+
+
 
 .detail-header h2 {
-  font-size: 28px;
+
+  font-size: 1.375rem;
+
   font-weight: 700;
-  color: #1d1d1f;
+
+  color: var(--color-foreground);
+
   margin: 0;
+
+  text-transform: uppercase;
+
+  letter-spacing: 0.02em;
+
 }
 
-/* 统计图表区域 */
+
+
+/* 两块统计卡片上下排列 */
+
 .charts-section {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 24px;
-  margin-bottom: 32px;
+
+  display: flex;
+
+  flex-direction: column;
+
+  gap: var(--space-6);
+
 }
+
+
 
 .stat-card {
-  background: linear-gradient(135deg, #fafafa 0%, #ffffff 100%);
-  border-radius: 20px;
-  padding: 28px;
-  border: 1px solid #eee;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
+
+  background: var(--color-card);
+
+  border-radius: 0;
+
+  padding: var(--space-6);
+
+  border: var(--border-width-thick) solid var(--color-border);
+
+  box-shadow: var(--shadow-md);
+
+  color: var(--color-foreground);
+
 }
+
+
 
 .stat-card h3 {
-  font-size: 20px;
-  font-weight: 700;
-  color: #1d1d1f;
-  margin: 0 0 24px 0;
+
+  font-size: 1rem;
+
+  font-weight: var(--font-weight-black);
+
+  color: var(--color-foreground);
+
+  margin: 0 0 var(--space-5) 0;
+
+  text-transform: uppercase;
+
+  letter-spacing: 0.04em;
+
 }
 
-/* 热量对比进度条 */
+
+
 .progress-container {
+
   display: flex;
+
   flex-direction: column;
-  gap: 20px;
+
+  gap: var(--space-5);
+
 }
+
+
 
 .progress-bar-wrapper {
+
   display: flex;
+
   flex-direction: column;
-  gap: 8px;
+
+  gap: var(--space-2);
+
 }
+
+
 
 .progress-label {
-  font-size: 14px;
+
+  font-size: 0.875rem;
+
   font-weight: 600;
-  color: #666;
+
+  color: var(--color-muted-foreground);
+
 }
+
+
 
 .progress-bar {
-  height: 24px;
-  background: #e8e8ed;
-  border-radius: 12px;
+
+  height: 1.5rem;
+
+  background: var(--color-muted);
+
+  border-radius: 0;
+
   overflow: hidden;
-  position: relative;
+
+  border: var(--border-width) solid var(--color-border);
+
 }
+
+
 
 .progress-fill {
+
   height: 100%;
-  border-radius: 12px;
+
+  border-radius: 0;
+
   transition: width 0.8s cubic-bezier(0.25, 0.1, 0.25, 1);
-  position: relative;
-  overflow: hidden;
+
 }
+
+
 
 .intake-bar .progress-fill {
-  background: linear-gradient(90deg, #ff6b6b 0%, #ee5a52 100%);
+
+  background: var(--color-primary-red);
+
 }
+
+
 
 .burn-bar .progress-fill {
-  background: linear-gradient(90deg, #4CAF50 0%, #45a049 100%);
+
+  background: var(--color-primary-blue);
+
 }
+
+
 
 .progress-value {
-  font-size: 16px;
+
+  font-size: 1rem;
+
   font-weight: 700;
-  color: #1d1d1f;
+
+  color: var(--color-foreground);
+
 }
+
+
 
 .net-balance {
-  margin-top: 24px;
-  padding: 16px;
-  background: #f8f9fa;
-  border-radius: 12px;
+
+  margin-top: var(--space-5);
+
+  padding: var(--space-4);
+
+  background: var(--color-muted);
+
+  border-radius: 0;
+
   display: flex;
+
   align-items: center;
-  gap: 12px;
-  font-size: 16px;
+
+  gap: var(--space-3);
+
+  font-size: 1rem;
+
+  border: var(--border-width) solid var(--color-border);
+
 }
+
+
 
 .net-balance strong {
-  font-size: 20px;
+
+  font-size: 1.25rem;
+
   font-weight: 700;
+
 }
+
+
 
 .net-balance.surplus {
-  background: linear-gradient(135deg, #fff3cd 0%, #ffe69c 100%);
-  color: #856404;
+
+  background: var(--color-primary-yellow);
+
+  color: var(--color-foreground);
+
 }
+
+
 
 .net-balance.deficit {
-  background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
-  color: #155724;
+
+  background: var(--color-primary-blue);
+
+  color: #fff;
+
 }
+
+
 
 .net-balance.balanced {
-  background: linear-gradient(135deg, #d1ecf1 0%, #bee5eb 100%);
-  color: #0c5460;
+
+  background: var(--color-muted);
+
+  color: var(--color-foreground);
+
 }
+
+
 
 .balance-icon {
-  font-size: 24px;
+
+  font-size: 1.5rem;
+
   margin-left: auto;
+
 }
 
-/* 营养环形图 */
+
+
 .chart-container {
+
   display: flex;
+
   align-items: center;
-  gap: 32px;
+
+  gap: var(--space-6);
+
 }
+
+
 
 .donut-chart {
-  width: 180px;
-  height: 180px;
+
+  width: 140px;
+
+  height: 140px;
+
   border-radius: 50%;
+
   position: relative;
+
   flex-shrink: 0;
-  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.1);
+
+  border: var(--border-width) solid var(--color-border);
+
 }
+
+
 
 .chart-center {
+
   position: absolute;
+
   top: 50%;
+
   left: 50%;
+
   transform: translate(-50%, -50%);
-  width: 120px;
-  height: 120px;
-  background: white;
+
+  width: 96px;
+
+  height: 96px;
+
+  background: var(--color-card);
+
   border-radius: 50%;
+
   display: flex;
+
   flex-direction: column;
+
   align-items: center;
+
   justify-content: center;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+
+  border: var(--border-width) solid var(--color-border);
+
 }
+
+
 
 .total-calories {
-  font-size: 28px;
+
+  font-size: 1.5rem;
+
   font-weight: 700;
-  color: #1d1d1f;
+
+  color: var(--color-foreground);
+
   line-height: 1;
+
 }
+
+
 
 .calories-label {
-  font-size: 13px;
-  color: #86868b;
-  margin-top: 4px;
+
+  font-size: 0.8125rem;
+
+  color: var(--color-muted-foreground);
+
+  margin-top: var(--space-1);
+
 }
+
+
 
 .chart-legend {
+
   flex: 1;
+
   display: flex;
+
   flex-direction: column;
-  gap: 16px;
+
+  gap: var(--space-4);
+
+  min-width: 0;
+
 }
+
+
 
 .legend-item {
+
   display: flex;
+
   align-items: center;
-  gap: 12px;
+
+  gap: var(--space-3);
+
 }
+
+
 
 .legend-color {
-  width: 20px;
-  height: 20px;
-  border-radius: 6px;
+
+  width: 1.25rem;
+
+  height: 1.25rem;
+
+  border-radius: 0;
+
   flex-shrink: 0;
+
+  border: var(--border-width) solid var(--color-border);
+
 }
+
+
 
 .legend-item.protein .legend-color {
-  background: #4CAF50;
+
+  background: var(--color-protein);
+
 }
+
+
 
 .legend-item.carbs .legend-color {
-  background: #FF9800;
+
+  background: var(--color-carbs);
+
 }
+
+
 
 .legend-item.fat .legend-color {
-  background: #F44336;
+
+  background: var(--color-fat);
+
 }
+
+
+
+.donut-chart--empty {
+
+  background: var(--color-muted);
+
+}
+
+
+
+.donut-empty-hint {
+
+  margin-top: var(--space-1);
+
+  font-size: 0.6875rem;
+
+  color: var(--color-muted-foreground);
+
+  text-align: center;
+
+  line-height: 1.2;
+
+}
+
+
 
 .legend-label {
-  font-size: 14px;
-  color: #666;
+
+  font-size: 0.875rem;
+
+  color: var(--color-muted-foreground);
+
   flex: 1;
+
 }
+
+
 
 .legend-value {
-  font-size: 15px;
+
+  font-size: 0.9375rem;
+
   font-weight: 700;
-  color: #1d1d1f;
-  min-width: 80px;
+
+  color: var(--color-foreground);
+
+  min-width: 4rem;
+
   text-align: right;
+
 }
 
-.detail-content {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 24px;
-}
 
-.detail-card {
-  background: #fafafa;
-  border-radius: 20px;
-  padding: 28px;
-  border: 1px solid #eee;
-}
 
-.card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
-}
+/* 未选日期占位 */
 
-.card-header h3 {
-  font-size: 22px;
-  font-weight: 700;
-  color: #1d1d1f;
-  margin: 0;
-}
+.detail-placeholder {
 
-.header-stats {
-  display: flex;
-  gap: 12px;
-  align-items: center;
-}
+  padding: var(--space-12) var(--space-6);
 
-.stat-badge {
-  padding: 8px 16px;
-  background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%);
-  color: #ef6c00;
-  border-radius: 20px;
-  font-size: 14px;
-  font-weight: 700;
-}
-
-.stat-badge.stat-success {
-  background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
-  color: #2e7d32;
-}
-
-.records-list {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.records-list-wrapper {
-  max-height: 400px;
-  overflow-y: auto;
-  padding-right: 8px;
-}
-
-.records-list-wrapper::-webkit-scrollbar {
-  width: 6px;
-}
-
-.records-list-wrapper::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.records-list-wrapper::-webkit-scrollbar-thumb {
-  background: rgba(0, 0, 0, 0.15);
-  border-radius: 3px;
-}
-
-.records-list-wrapper::-webkit-scrollbar-thumb:hover {
-  background: rgba(0, 0, 0, 0.25);
-}
-
-.record-item {
-  background: white;
-  border-radius: 16px;
-  padding: 20px;
-  border: 1px solid #e5e5e5;
-  transition: all 0.3s cubic-bezier(0.25, 0.1, 0.25, 1);
-  margin-bottom: 16px;
-}
-
-.record-item:last-child {
-  margin-bottom: 0;
-}
-
-.record-item:hover {
-  border-color: #007aff;
-  box-shadow: 0 6px 20px rgba(0, 122, 255, 0.15);
-  transform: translateY(-2px);
-}
-
-.record-header-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 12px;
-}
-
-.record-meta {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-.meal-tag {
-  padding: 6px 16px;
-  border-radius: 20px;
-  font-size: 13px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.meal-tag.breakfast { background: #fff3cd; color: #856404; }
-.meal-tag.lunch { background: #d1ecf1; color: #0c5460; }
-.meal-tag.dinner { background: #f8d7da; color: #721c24; }
-.meal-tag.snack { background: #d4edda; color: #155724; }
-
-.fitness-badge {
-  padding: 6px 14px;
-  border-radius: 20px;
-  font-size: 14px;
-  font-weight: 600;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-}
-
-.record-time {
-  color: #86868b;
-  font-size: 13px;
-  font-weight: 500;
-}
-
-.record-calories {
-  font-size: 16px;
-  font-weight: 700;
-  color: #ff6b6b;
-  background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%);
-  padding: 6px 14px;
-  border-radius: 12px;
-}
-
-.record-calories.burn {
-  color: #4CAF50;
-  background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
-}
-
-.food-desc {
-  margin: 0 0 16px 0;
-  color: #333;
-  line-height: 1.6;
-  font-size: 15px;
-  padding-left: 12px;
-  border-left: 3px solid #007aff;
-}
-
-.fitness-details {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-  margin-top: 12px;
-  padding-top: 12px;
-  border-top: 1px dashed #e5e5e5;
-}
-
-.detail-tag {
-  padding: 6px 12px;
-  background: #f5f5f7;
-  border-radius: 10px;
-  font-size: 13px;
-  color: #1d1d1f;
-  font-weight: 600;
-}
-
-.detail-tag.tag-duration {
-  background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
-  color: #1976d2;
-}
-
-.detail-tag.tag-reps {
-  background: linear-gradient(135deg, #f3e5f5 0%, #e1bee7 100%);
-  color: #7b1fa2;
-}
-
-.detail-tag.tag-weight {
-  background: linear-gradient(135deg, #ffebee 0%, #ffcdd2 100%);
-  color: #c62828;
-}
-
-.calories-info {
-  font-size: 14px;
-  color: #ff3b30;
-  font-weight: 600;
-}
-
-.nutrition-tags {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-.tag {
-  padding: 6px 12px;
-  border-radius: 10px;
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.tag.tag-protein {
-  background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
-  color: #2e7d32;
-}
-
-.tag.tag-carbs {
-  background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%);
-  color: #ef6c00;
-}
-
-.tag.tag-fat {
-  background: linear-gradient(135deg, #fce4ec 0%, #f8bbd9 100%);
-  color: #c2185b;
-}
-
-.empty-tip {
   text-align: center;
-  padding: 40px;
-  color: #86868b;
-  font-size: 15px;
-  background: #fafafa;
-  border-radius: 12px;
+
+  color: var(--color-muted-foreground);
+
+  border: var(--border-width-thick) solid var(--color-border);
+
+  background: var(--color-card);
+
 }
 
-@media (max-width: 768px) {
-  .daily-detail-section {
-    padding: 24px;
-  }
-  
-  .detail-header h2 {
-    font-size: 22px;
-  }
-  
-  .charts-section {
-    grid-template-columns: 1fr;
-  }
-  
-  .detail-content {
-    grid-template-columns: 1fr;
-  }
-  
-  .chart-container {
-    flex-direction: column;
-  }
-  
-  .donut-chart {
-    width: 150px;
-    height: 150px;
-  }
-  
-  .chart-center {
-    width: 100px;
-    height: 100px;
-  }
-  
-  .total-calories {
-    font-size: 24px;
-  }
-  
-  .record-meta {
-    flex-direction: column;
-    align-items: flex-start;
-  }
+
+
+.detail-placeholder p {
+
+  margin: 0;
+
+  font-size: 1rem;
+
 }
 
-@media (max-width: 768px) {
+
+
+/* 小屏：日历在上、详情在下 */
+
+@media (max-width: 992px) {
+
   .calendar-main-content {
-    padding: 0 16px 32px;
+
+    padding: var(--space-6) var(--space-4) var(--space-10);
+
   }
-  
-  .unified-calendar {
-    padding: 20px;
+
+
+
+  .calendar-split-layout {
+
+    grid-template-columns: 1fr;
+
+    gap: var(--space-6);
+
   }
-  
-  .calendar-header h3 {
-    font-size: 20px;
+
+
+
+  .calendar-card,
+
+  .daily-detail-section {
+
+    padding: var(--space-5);
+
   }
-  
-  .calendar-subtitle {
-    font-size: 14px;
+
+
+
+  .chart-container {
+
+    flex-direction: column;
+
+    align-items: stretch;
+
   }
+
+
+
+  .donut-chart {
+
+    margin: 0 auto;
+
+  }
+
 }
+
+
+
+@media (max-width: 480px) {
+
+  .detail-header h2 {
+
+    font-size: 1.125rem;
+
+  }
+
+
+
+  .donut-chart {
+
+    width: 120px;
+
+    height: 120px;
+
+  }
+
+
+
+  .chart-center {
+
+    width: 80px;
+
+    height: 80px;
+
+  }
+
+
+
+  .total-calories {
+
+    font-size: 1.25rem;
+
+  }
+
+}
+
 </style>
+
+

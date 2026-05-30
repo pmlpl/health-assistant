@@ -1,0 +1,986 @@
+/**
+
+ * Bauhaus 设计系统
+
+ * 几何、色块、硬阴影、机械动效
+
+ */
+
+
+
+/* —— 几何标记（圆/方/三角轮换）—— */
+
+.section-label {
+
+  display: inline-flex;
+
+  align-items: center;
+
+  gap: var(--space-3);
+
+  padding: var(--space-2) var(--space-4);
+
+  border: var(--border-width) solid var(--color-border);
+
+  background: var(--color-card);
+
+  margin-bottom: var(--space-4);
+
+  box-shadow: var(--shadow-sm);
+
+}
+
+
+
+.section-label__dot {
+
+  width: 10px;
+
+  height: 10px;
+
+  flex-shrink: 0;
+
+  background: var(--color-primary-red);
+
+  border: 2px solid var(--color-border);
+
+}
+
+
+
+.section-label__dot--square {
+
+  border-radius: 0;
+
+  background: var(--color-primary-blue);
+
+}
+
+
+
+.section-label__dot--triangle {
+
+  width: 0;
+
+  height: 0;
+
+  border: none;
+
+  background: transparent;
+
+  border-left: 6px solid transparent;
+
+  border-right: 6px solid transparent;
+
+  border-bottom: 10px solid var(--color-primary-yellow);
+
+}
+
+
+
+.section-label--pulse .section-label__dot {
+
+  animation: none;
+
+}
+
+
+
+.section-label__text {
+
+  font-family: var(--font-body);
+
+  font-size: var(--font-size-xs);
+
+  font-weight: var(--font-weight-bold);
+
+  letter-spacing: 0.15em;
+
+  text-transform: uppercase;
+
+  color: var(--color-foreground);
+
+}
+
+
+
+/* —— 按钮 —— */
+
+.btn-primary,
+
+.btn-brand {
+
+  display: inline-flex;
+
+  align-items: center;
+
+  justify-content: center;
+
+  gap: var(--space-2);
+
+  min-height: 48px;
+
+  padding: 0 var(--space-6);
+
+  border: var(--border-width) solid var(--color-border);
+
+  border-radius: 0;
+
+  background: var(--color-primary-red);
+
+  color: #fff;
+
+  font-family: var(--font-body);
+
+  font-weight: var(--font-weight-bold);
+
+  font-size: var(--font-size-sm);
+
+  letter-spacing: 0.1em;
+
+  text-transform: uppercase;
+
+  text-decoration: none;
+
+  cursor: pointer;
+
+  box-shadow: var(--shadow-md);
+
+  transition:
+
+    transform var(--transition-fast),
+
+    box-shadow var(--transition-fast),
+
+    opacity var(--transition-fast);
+
+}
+
+
+
+.btn-primary:hover,
+
+.btn-brand:hover {
+
+  opacity: 0.92;
+
+  transform: translateY(-2px);
+
+}
+
+
+
+.btn-primary:active,
+
+.btn-brand:active {
+
+  transform: translate(2px, 2px);
+
+  box-shadow: none;
+
+}
+
+
+
+/* 禁用态：降低不透明度并禁止点击，确保与可用态明显区分 */
+
+.btn-primary:disabled,
+
+.btn-brand:disabled {
+
+  opacity: 0.45;
+
+  cursor: not-allowed;
+
+  pointer-events: none;
+
+  transform: none;
+
+  box-shadow: var(--shadow-sm);
+
+  background: var(--color-muted);
+
+  color: var(--color-muted-foreground);
+
+  border-color: var(--color-border-light);
+
+}
+
+
+
+.btn-brand--blue {
+
+  background: var(--color-primary-blue);
+
+  color: #fff;
+
+}
+
+
+
+.btn-brand--yellow {
+
+  background: var(--color-primary-yellow);
+
+  color: var(--color-foreground);
+
+}
+
+
+
+.btn-outline {
+
+  display: inline-flex;
+
+  align-items: center;
+
+  justify-content: center;
+
+  min-height: 48px;
+
+  padding: 0 var(--space-6);
+
+  border: var(--border-width) solid var(--color-border);
+
+  background: #fff;
+
+  color: var(--color-foreground);
+
+  font-weight: var(--font-weight-bold);
+
+  font-size: var(--font-size-sm);
+
+  letter-spacing: 0.1em;
+
+  text-transform: uppercase;
+
+  box-shadow: var(--shadow-md);
+
+  cursor: pointer;
+
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+
+}
+
+
+
+.btn-outline:hover {
+
+  transform: translateY(-2px);
+
+}
+
+
+
+.btn-outline:active {
+
+  transform: translate(2px, 2px);
+
+  box-shadow: none;
+
+}
+
+
+
+.btn-brand--ghost {
+
+  background: #fff;
+
+  color: var(--color-foreground);
+
+  border: var(--border-width) solid var(--color-border);
+
+}
+
+
+
+.btn-ghost {
+
+  border: none;
+
+  background: transparent;
+
+  color: var(--color-foreground);
+
+  font-weight: var(--font-weight-bold);
+
+  text-transform: uppercase;
+
+  letter-spacing: 0.08em;
+
+  cursor: pointer;
+
+}
+
+
+
+.btn-ghost:hover {
+
+  background: var(--color-muted);
+
+}
+
+
+
+/* —— Bauhaus 卡片 —— */
+
+.bh-card,
+
+.mm-card,
+
+.ds-card {
+
+  position: relative;
+
+  border: var(--border-width-thick) solid var(--color-border);
+
+  border-radius: 0;
+
+  background: var(--color-card);
+
+  box-shadow: var(--shadow-xl);
+
+  transition: transform var(--transition-fast);
+
+}
+
+
+
+.bh-card:hover,
+
+.mm-card:hover,
+
+.ds-card:hover {
+
+  transform: translateY(-4px);
+
+}
+
+
+
+/* 卡片角标几何装饰 */
+
+.bh-card::after,
+
+.ds-card::after {
+
+  content: '';
+
+  position: absolute;
+
+  top: var(--space-3);
+
+  right: var(--space-3);
+
+  width: 12px;
+
+  height: 12px;
+
+  border: 2px solid var(--color-border);
+
+  border-radius: 50%;
+
+  background: var(--color-primary-red);
+
+  pointer-events: none;
+
+}
+
+
+
+.bh-card--blue::after {
+
+  border-radius: 0;
+
+  background: var(--color-primary-blue);
+
+}
+
+
+
+.bh-card--yellow::after {
+
+  width: 0;
+
+  height: 0;
+
+  border: none;
+
+  background: transparent;
+
+  border-left: 7px solid transparent;
+
+  border-right: 7px solid transparent;
+
+  border-bottom: 12px solid var(--color-primary-yellow);
+
+}
+
+
+
+/* 色块分区 */
+
+.bauhaus-block {
+
+  border: var(--border-width-thick) solid var(--color-border);
+
+  box-shadow: var(--shadow-xl);
+
+}
+
+
+
+.bauhaus-block--red {
+  background: var(--color-primary-red);
+}
+
+.bauhaus-block--blue {
+  background: var(--color-primary-blue);
+}
+
+
+
+.bauhaus-block--yellow {
+
+  background: var(--color-primary-yellow);
+
+  color: var(--color-foreground);
+
+}
+
+
+
+.bauhaus-block--white {
+
+  background: #fff;
+
+  color: var(--color-foreground);
+
+}
+
+
+
+/* 直接铺在色块上的标题 — 白字 */
+.bh-heading-on-color,
+.bauhaus-block--blue > .card-header-section h2,
+.bauhaus-block--red > h2,
+.bauhaus-block--red > .bh-heading-on-color {
+  color: #fff;
+  text-shadow: 1px 1px 0 rgba(0, 0, 0, 0.2);
+}
+
+.bauhaus-block--yellow > .card-header-section h2,
+.bauhaus-block--yellow > h2 {
+  color: var(--color-foreground);
+}
+
+/* 色块内白底嵌套区：深色字（不继承色块上的白字） */
+.bh-surface,
+.bh-strip,
+.bauhaus-block :is(
+  .water-log-panel,
+  .tip-item,
+  .stat-card,
+  .section-label,
+  .suggestion-result,
+  .water-progress,
+  .nutrition-progress-item
+) {
+  color: var(--color-foreground);
+}
+
+.bh-strip .wheel-subtitle-title,
+.bh-strip .wheel-subtitle,
+.bh-strip h2,
+.bh-strip p {
+  color: var(--color-foreground);
+}
+
+.bh-strip .wheel-subtitle {
+  color: var(--color-muted-foreground);
+  opacity: 1;
+}
+
+.bh-strip {
+  background: #fff;
+  border: var(--border-width) solid var(--color-border);
+  box-shadow: var(--shadow-sm);
+  padding: var(--space-3) var(--space-4);
+  margin-bottom: var(--space-4);
+}
+
+.bauhaus-block :is(.water-log-panel, .tip-item, .stat-card, .suggestion-result, .water-progress, .bh-strip)
+  :where(p, li, span, h3, h4, label, dt, dd, strong) {
+  color: inherit;
+}
+
+
+
+.bauhaus-block .tip-item .tip-content,
+
+.bauhaus-block .stat-card .stat-label {
+
+  color: var(--color-muted-foreground);
+
+}
+
+
+
+/* —— 反色区块 —— */
+
+.inverted-section {
+
+  background: var(--color-foreground);
+
+  color: var(--color-inverted-fg);
+
+  border-bottom: var(--border-width-thick) solid var(--color-border);
+
+}
+
+
+
+.inverted-section::before {
+
+  content: '';
+
+  position: absolute;
+
+  inset: 0;
+
+  pointer-events: none;
+
+  opacity: 0.08;
+
+  background-image: radial-gradient(#fff 2px, transparent 2px);
+
+  background-size: 20px 20px;
+
+}
+
+
+
+.inverted-section > * {
+
+  position: relative;
+
+  z-index: 1;
+
+}
+
+
+
+.rule-thick {
+
+  display: block;
+
+  width: 100%;
+
+  height: 4px;
+
+  border: none;
+
+  margin: 0;
+
+  background: var(--color-border);
+
+}
+
+
+
+/* —— 页面壳层：蓝底顶栏，上中下垂直排列 —— */
+
+.page-shell-header {
+
+  display: flex;
+
+  flex-direction: column;
+
+  align-items: flex-start;
+
+  gap: var(--space-4);
+
+  padding: var(--space-10) var(--space-6) var(--space-8);
+
+  border-bottom: var(--border-width-thick) solid var(--color-border);
+
+  background-color: var(--color-primary-blue);
+
+  /*  subtle 点阵网格，增强 Bauhaus 顶栏层次 */
+
+  background-image: radial-gradient(circle, rgba(255, 255, 255, 0.14) 1px, transparent 1px);
+
+  background-size: 18px 18px;
+
+  color: #fff;
+
+  position: relative;
+
+  /* 顶栏与下方主内容区统一留白（全站 PageHeader 生效） */
+  margin-bottom: var(--space-10);
+
+}
+
+
+
+/* 上：小节标签区 */
+
+.page-shell-header__label {
+
+  flex-shrink: 0;
+
+}
+
+
+
+.page-shell-header .section-label {
+
+  background: #fff;
+
+  color: var(--color-foreground);
+
+  margin-bottom: 0;
+
+}
+
+
+
+/* 中：标题行（图标 + H1 横向排列，整体作为第二行） */
+
+.page-shell-header__title-row {
+
+  width: 100%;
+
+}
+
+
+
+.page-shell-header .page-title-gradient,
+
+.page-shell-header .page-header__title {
+
+  display: inline-flex;
+
+  align-items: center;
+
+  gap: 0.45em;
+
+  margin: 0;
+
+  font-family: var(--font-display);
+
+  font-weight: var(--font-weight-black);
+
+  font-size: clamp(var(--font-size-4xl), 8vw, var(--font-size-6xl));
+
+  letter-spacing: -0.04em;
+
+  line-height: 0.95;
+
+  text-transform: uppercase;
+
+  color: #fff;
+
+}
+
+
+
+/* 下：统计/说明条 */
+
+.page-shell-header__stats,
+
+.page-shell-header .stats-bar {
+
+  display: flex;
+
+  flex-wrap: wrap;
+
+  align-items: center;
+
+  justify-content: flex-start;
+
+  gap: var(--space-3);
+
+  width: 100%;
+
+  margin-top: 0;
+
+}
+
+
+
+.stats-bar {
+
+  display: flex;
+
+  flex-wrap: wrap;
+
+  gap: var(--space-3);
+
+  margin-top: var(--space-5);
+
+}
+
+
+
+.stat-item {
+
+  display: inline-flex;
+
+  align-items: center;
+
+  padding: var(--space-2) var(--space-4);
+
+  font-size: var(--font-size-sm);
+
+  font-weight: var(--font-weight-bold);
+
+  text-transform: uppercase;
+
+  letter-spacing: 0.06em;
+
+  color: var(--color-foreground);
+
+  background: #fff;
+
+  border: var(--border-width) solid var(--color-border);
+
+  box-shadow: var(--shadow-sm);
+
+}
+
+
+
+.page-shell-header .stat-item {
+
+  color: var(--color-foreground);
+
+  background: #fff;
+
+}
+
+
+
+/* 顶栏移动端：保持同序，略缩小字号与间距 */
+
+@media (max-width: 768px) {
+
+  .page-shell-header {
+
+    padding: var(--space-6) var(--space-4) var(--space-5);
+
+    gap: var(--space-3);
+
+    background-size: 14px 14px;
+
+    margin-bottom: var(--space-8);
+
+  }
+
+
+
+  .page-shell-header .page-title-gradient,
+
+  .page-shell-header .page-header__title {
+
+    font-size: clamp(var(--font-size-2xl), 7vw, var(--font-size-4xl));
+
+  }
+
+
+
+  .page-shell-header .stat-item {
+
+    font-size: var(--font-size-xs);
+
+    padding: var(--space-2) var(--space-3);
+
+  }
+
+}
+
+
+
+.card-header-section {
+
+  margin-bottom: var(--space-5);
+
+}
+
+
+
+.card-header-section h2 {
+
+  margin: 0;
+
+  font-family: var(--font-display);
+
+  font-size: var(--font-size-2xl);
+
+  font-weight: var(--font-weight-black);
+
+  text-transform: uppercase;
+
+  letter-spacing: -0.02em;
+
+}
+
+
+
+.page-cta {
+
+  padding: var(--space-16) var(--space-6);
+
+  text-align: center;
+
+  background: var(--color-primary-yellow);
+
+  border-top: var(--border-width-thick) solid var(--color-border);
+
+}
+
+
+
+.page-cta h2 {
+
+  font-family: var(--font-display);
+
+  font-weight: var(--font-weight-black);
+
+  text-transform: uppercase;
+
+  font-size: var(--font-size-4xl);
+
+}
+
+
+
+/* —— 品牌几何 Logo —— */
+
+.bh-logo-shapes {
+
+  display: flex;
+
+  align-items: center;
+
+  gap: 4px;
+
+}
+
+
+
+.bh-logo-shapes__circle {
+
+  width: 14px;
+
+  height: 14px;
+
+  border-radius: 50%;
+
+  background: var(--color-primary-red);
+
+  border: 2px solid var(--color-border);
+
+}
+
+
+
+.bh-logo-shapes__square {
+
+  width: 14px;
+
+  height: 14px;
+
+  background: var(--color-primary-blue);
+
+  border: 2px solid var(--color-border);
+
+}
+
+
+
+.bh-logo-shapes__triangle {
+
+  width: 0;
+
+  height: 0;
+
+  border-left: 8px solid transparent;
+
+  border-right: 8px solid transparent;
+
+  border-bottom: 14px solid var(--color-primary-yellow);
+
+}
+
+
+
+.headline-display__accent .page-title-gradient__text {
+
+  background: none;
+
+  -webkit-text-fill-color: unset;
+
+  color: inherit;
+
+}
+
+
+
+.headline-display__underline {
+
+  display: none;
+
+}
+
+
+
+@media (prefers-reduced-motion: reduce) {
+
+  .bh-card:hover,
+
+  .ds-card:hover,
+
+  .btn-brand:hover {
+
+    transform: none;
+
+  }
+
+}
+
+/* ===== 高对比度：浅底深字 / 深底浅字 ===== */
+.surface-light {
+  background: #fff;
+  color: var(--color-foreground);
+}
+
+.surface-dark {
+  background: var(--color-foreground);
+  color: #fff;
+}
+
+.surface-dark :where(h1, h2, h3, h4, p, span, label, li, strong) {
+  color: inherit;
+}
+
+.surface-light :where(h1, h2, h3, h4, p, span, label, li, strong) {
+  color: inherit;
+}
+
+/* 各页统计卡默认白底，避免黑底黑字 */
+.calendar-page-layout .stat-card,
+.charts-section .stat-card,
+.diary-layout .stat-card,
+.fitness-layout .stat-card {
+  background: #fff;
+  color: var(--color-foreground);
+  border: var(--border-width-thick) solid var(--color-border);
+}
+
+.calendar-page-layout .stat-card :where(h2, h3, h4, p, span, strong),
+.charts-section .stat-card :where(h2, h3, h4, p, span, strong) {
+  color: var(--color-foreground);
+}
+
+

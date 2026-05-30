@@ -62,3 +62,6 @@ coverage/
 # Package manager (保留 package-lock.json 以确保依赖可复现)
 yarn.lock
 pnpm-lock.yaml
+# Plan / redesign drafts (local only, do not commit)
+docs/*PLAN*.md
+docs/*-PLAN.md
